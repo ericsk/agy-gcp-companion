@@ -447,4 +447,44 @@ export class CompanionService {
       spendConfigured: overview.spend.configured,
     };
   }
+
+  async enableServiceApi(
+    projectId        ,
+    serviceName        
+  )                                     {
+    const validProj = validateProjectId(projectId);
+    const cleanSvc = serviceName.trim().toLowerCase();
+    if (
+      cleanSvc !== "cloudbilling.googleapis.com" &&
+      cleanSvc !== "billingbudgets.googleapis.com" &&
+      cleanSvc !== "bigquery.googleapis.com"
+    ) {
+      throw new Error(`Service "${cleanSvc}" is not in the Companion enablement allowlist.`);
+    }
+    const prefs = this.store.loadPreferences();
+    if (prefs.demoMode) {
+      return this.getOverview({ forceRefresh: false });
+    }
+
+    await this.gcloud.enableProjectService(validProj, cleanSvc, prefs.gcloudPathOverride);
+
+    // Ensure the newly API-enabled project is used as the quota project if no override was set
+    const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
+    if (!prefs.quotaProjectOverride && auth.activeProject !== validProj) {
+      this.store.updatePreferences((curr) => ({
+        ...curr,
+        quotaProjectOverride: validProj,
+      }));
+    }
+    if (auth.activeAccount) {
+      this.store.clearSnapshot(auth.activeAccount);
+    }
+
+    // Brief propagation pause on real network calls so GCP Service Usage takes effect before re-querying
+    if (this.fetchFn === globalThis.fetch) {
+      await new Promise((r) => setTimeout(r, 2_500));
+    }
+
+    return this.getOverview({ forceRefresh: true });
+  }
 }

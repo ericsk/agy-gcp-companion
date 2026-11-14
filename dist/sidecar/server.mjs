@@ -410,6 +410,16 @@ export function createSidecarHttpServer(options                       = {})     
         return;
       }
 
+      if (method === "POST" && pathname.endsWith("/api/enable-service")) {
+        const body = await readJsonBody(req);
+        const overview = await service.enableServiceApi(
+          String(body.projectId ?? ""),
+          String(body.serviceName ?? "")
+        );
+        sendJson(res, 200, { overview });
+        return;
+      }
+
       if (pathname.includes("/api/")) {
         sendJson(res, 404, { error: "API route not found." });
         return;

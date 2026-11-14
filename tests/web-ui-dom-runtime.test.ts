@@ -187,6 +187,7 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       fetch: globalThis.fetch,
     };
 
+    let simulateBillingApiDisabled = false;
     Object.assign(globalThis, {
       Node: MockNode,
       HTMLAnchorElement: MockAnchorElement,
@@ -217,8 +218,26 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
             { status: 200 }
           );
         }
+        if (url.includes("/api/enable-service")) {
+          simulateBillingApiDisabled = false;
+          const overview = await service.getOverview();
+          return new Response(JSON.stringify({ overview }), { status: 200 });
+        }
         if (url.includes("/api/overview")) {
           const overview = await service.getOverview();
+          if (simulateBillingApiDisabled) {
+            return new Response(
+              JSON.stringify({
+                ...overview,
+                billingAccounts: [],
+                summary: { ...overview.summary, totalBillingAccounts: 0, openBillingAccounts: 0 },
+                warnings: [
+                  "Cloud Billing Accounts list warning: HTTP 403: Cloud Billing API has not been used in project acme-ai-assistant-prod before or it is disabled.",
+                ],
+              }),
+              { status: 200 }
+            );
+          }
           return new Response(JSON.stringify(overview), { status: 200 });
         }
         return new Response("{}", { status: 200 });
@@ -263,6 +282,26 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       assert.ok(appRoot.allText.includes("Acme Cloud Production Billing"));
       assert.ok(appRoot.allText.includes("Monthly Prod Spend Alert"));
       assert.ok(appRoot.allText.includes("BigQuery Billing Export Connection"));
+
+      // 4. Simulate Cloud Billing API disabled -> verify "Enable Cloud Billing API" setup card & 1-click enablement
+      simulateBillingApiDisabled = true;
+      const refreshBtn = appRoot.findButtonsByText("Refresh")[0];
+      assert.ok(refreshBtn);
+      refreshBtn.click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("Enable Cloud Billing API"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("ACTION NEEDED"));
+      assert.ok(appRoot.allText.includes("Enable Cloud Billing API"));
+      assert.ok(!appRoot.allText.includes("No Cloud Billing accounts visible"));
+
+      const enableBtn = appRoot.findButtonsByText("Enable Cloud Billing API on")[0];
+      assert.ok(enableBtn, "Expected 1-click Enable Cloud Billing API button");
+      enableBtn.click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("Acme Cloud Production Billing"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("Acme Cloud Production Billing"));
     } finally {
       Object.assign(globalThis, prevGlobals);
       rmSync(tmpDir, { recursive: true, force: true });

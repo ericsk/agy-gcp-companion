@@ -18,6 +18,11 @@ export type ExecFileFn = (
 
 export type FetchLike = typeof globalThis.fetch;
 
+const ALLOWED_ENABLEABLE_SERVICES = new Set([
+  "cloudbilling.googleapis.com",
+  "billingbudgets.googleapis.com",
+  "bigquery.googleapis.com",
+]);
 const IS_WINDOWS = process.platform === "win32";
 const TOKEN_TTL_MS = 45 * 60 * 1000; // Refresh cached access token every 45m
 const AUTH_STATUS_TTL_MS = 30 * 1000; // Avoid re-spawning gcloud CLI on rapid consecutive UI/MCP reads
@@ -299,6 +304,56 @@ export class GcloudClient {
     }
   }
 
+  /**
+   * Reads gcloud's first-party OAuth credentials (`32555940559...`) directly from `~/.config/gcloud/credentials.db`
+   * using Node's built-in `node:sqlite` module when available (< 1ms, zero subprocesses, and no user quota project required for Cloud Billing API).
+   */
+  private async readSqliteCredentialJson(
+    targetAccount?: string | null
+  ): Promise<{ accounts: string[]; credentialJson: string | null }> {
+    const dbPath = join(this.gcloudConfigDir, "credentials.db");
+    if (!existsSync(dbPath)) {
+      return { accounts: [], credentialJson: null };
+    }
+    try {
+      const sqliteMod = (await import("node:sqlite")) as {
+        DatabaseSync: new (
+          path: string,
+          options?: { readOnly?: boolean }
+        ) => {
+          prepare: (sql: string) => { all: () => Array<Record<string, unknown>> };
+          close: () => void;
+        };
+      };
+      const db = new sqliteMod.DatabaseSync(dbPath, { readOnly: true });
+      try {
+        const rows = db.prepare("SELECT account_id, value FROM credentials").all();
+        const accounts: string[] = [];
+        let matchedValue: string | null = null;
+        let firstValue: string | null = null;
+        for (const row of rows) {
+          const acct = typeof row.account_id === "string" ? row.account_id.trim() : "";
+          const val = typeof row.value === "string" ? row.value : null;
+          if (acct && acct.includes("@")) {
+            accounts.push(acct);
+            if (!firstValue && val) firstValue = val;
+            if (targetAccount && acct.toLowerCase() === targetAccount.toLowerCase() && val) {
+              matchedValue = val;
+            }
+          }
+        }
+        return {
+          accounts: accounts.sort(),
+          credentialJson: matchedValue ?? firstValue,
+        };
+      } finally {
+        db.close();
+      }
+    } catch {
+      return { accounts: [], credentialJson: null };
+    }
+  }
+
   private readLocalConfigValues(): { account: string | null; project: string | null } {
     try {
       const activeConfigPath = join(this.gcloudConfigDir, "active_config");
@@ -357,15 +412,19 @@ export class GcloudClient {
 
     const localCfg = this.readLocalConfigValues();
 
-    // Ultra-fast zero-subprocess path: read ~/.config/gcloud/legacy_credentials + active config (< 1ms)
-    const legacyAccounts = this.readLegacyCredentialsAccounts();
-    if (legacyAccounts.length > 0) {
+    // Ultra-fast zero-subprocess path: read ~/.config/gcloud/legacy_credentials or credentials.db + active config (< 1ms)
+    let fastAccounts = this.readLegacyCredentialsAccounts();
+    if (fastAccounts.length === 0) {
+      const sqliteData = await this.readSqliteCredentialJson(localCfg.account);
+      fastAccounts = sqliteData.accounts;
+    }
+    if (fastAccounts.length > 0) {
       const preferred =
-        localCfg.account && legacyAccounts.includes(localCfg.account)
+        localCfg.account && fastAccounts.includes(localCfg.account)
           ? localCfg.account
-          : legacyAccounts[0];
+          : fastAccounts[0];
       const syncBin = this.resolveGcloudBinarySync(overridePath);
-      const accounts: GcloudAccount[] = legacyAccounts.map((acct) => ({
+      const accounts: GcloudAccount[] = fastAccounts.map((acct) => ({
         account: acct,
         maskedAccount: maskEmail(acct) ?? acct,
         active: acct === preferred,
@@ -525,12 +584,13 @@ export class GcloudClient {
       return this.cachedToken.accessToken;
     }
 
-    // Fast path: exchange refresh_token from ~/.config/gcloud/legacy_credentials/<account>/adc.json directly (~80ms)
     const targetAccount = accountHint || this.readLocalConfigValues().account;
-    const legacyAdc = this.getLegacyAdcFilePath(targetAccount);
-    if (legacyAdc) {
+
+    // 1. Best fast path: exchange first-party gcloud OAuth credential from credentials.db (~80ms, no quota project needed for Cloud Billing)
+    const sqliteCred = await this.readSqliteCredentialJson(targetAccount);
+    if (sqliteCred.credentialJson) {
       try {
-        const token = await this.exchangeAdcRefreshToken(legacyAdc);
+        const token = await this.exchangeOAuthCredentialJson(sqliteCred.credentialJson);
         this.cachedToken = {
           accountKey: cacheKey,
           accessToken: token,
@@ -538,10 +598,11 @@ export class GcloudClient {
         };
         return token;
       } catch {
-        // Fall through to gcloud CLI / ADC if legacy credential refresh fails
+        // Fall through to gcloud CLI / ADC if SQLite credential refresh fails
       }
     }
 
+    // 2. CLI path: `gcloud auth print-access-token` (also returns first-party gcloud OAuth token)
     const binary = await this.resolveGcloudBinary(overridePath);
     if (binary) {
       try {
@@ -561,10 +622,27 @@ export class GcloudClient {
           return token;
         }
       } catch {
-        // Fall through to ADC token exchange if available
+        // Fall through to legacy_credentials / ADC token exchange
       }
     }
 
+    // 3. Legacy ADC per-account file (`~/.config/gcloud/legacy_credentials/<account>/adc.json`)
+    const legacyAdc = this.getLegacyAdcFilePath(targetAccount);
+    if (legacyAdc) {
+      try {
+        const token = await this.exchangeAdcRefreshToken(legacyAdc);
+        this.cachedToken = {
+          accountKey: cacheKey,
+          accessToken: token,
+          expiresAt: Date.now() + TOKEN_TTL_MS,
+        };
+        return token;
+      } catch {
+        // Fall through to default ADC file
+      }
+    }
+
+    // 4. Default ADC file (`~/.config/gcloud/application_default_credentials.json`)
     const adcPath = this.getAdcFilePath();
     if (adcPath) {
       const token = await this.exchangeAdcRefreshToken(adcPath);
@@ -582,20 +660,19 @@ export class GcloudClient {
   }
 
   private async exchangeAdcRefreshToken(adcPath: string): Promise<string> {
-    const raw = JSON.parse(readFileSync(adcPath, "utf-8")) as {
+    return this.exchangeOAuthCredentialJson(readFileSync(adcPath, "utf-8"));
+  }
+
+  private async exchangeOAuthCredentialJson(rawJson: string): Promise<string> {
+    const raw = JSON.parse(rawJson) as {
       type?: string;
       client_id?: string;
       client_secret?: string;
       refresh_token?: string;
     };
-    if (
-      raw.type !== "authorized_user" ||
-      !raw.client_id ||
-      !raw.client_secret ||
-      !raw.refresh_token
-    ) {
+    if (!raw.client_id || !raw.client_secret || !raw.refresh_token) {
       throw new Error(
-        "Unsupported ADC credential type. Run `gcloud auth login` or `gcloud auth application-default login`."
+        "Unsupported OAuth credential format. Run `gcloud auth login` or `gcloud auth application-default login`."
       );
     }
 
@@ -678,5 +755,76 @@ export class GcloudClient {
     }
     await this.execFn(binary, ["config", "set", "account", validAccount, "--quiet"], 6_000);
     this.invalidateTokenCache();
+  }
+
+  async enableProjectService(
+    projectId: string,
+    serviceName: string,
+    overridePath?: string | null
+  ): Promise<void> {
+    const validId = validateProjectId(projectId);
+    const cleanService = serviceName.trim().toLowerCase();
+    if (!ALLOWED_ENABLEABLE_SERVICES.has(cleanService)) {
+      throw new Error(`Service "${cleanService}" is not in the Companion enablement allowlist.`);
+    }
+
+    // Prefer `gcloud services enable` when gcloud CLI is installed (works even on brand-new projects)
+    const binary = await this.resolveGcloudBinary(overridePath);
+    if (binary) {
+      await this.execFn(
+        binary,
+        ["services", "enable", cleanService, `--project=${validId}`, "--quiet"],
+        35_000
+      );
+      return;
+    }
+
+    // Fallback: Service Usage REST API (`serviceusage.googleapis.com`)
+    const auth = await this.getAuthStatus(overridePath);
+    const token = await this.getAccessToken(overridePath, auth.activeAccount);
+    const enableUrl = `https://serviceusage.googleapis.com/v1/projects/${encodeURIComponent(
+      validId
+    )}/services/${encodeURIComponent(cleanService)}:enable`;
+
+    const res = await this.fetchFn(enableUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "x-goog-user-project": validId,
+      },
+      body: "{}",
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errBody = (await res.json()) as { error?: { message?: string } };
+        if (errBody?.error?.message) detail = `${detail}: ${errBody.error.message}`;
+      } catch {
+        // Ignore non-JSON error
+      }
+      throw new Error(`Failed to enable ${cleanService}: ${sanitizeErrorMessage(detail)}`);
+    }
+
+    const op = (await res.json().catch(() => ({}))) as { name?: string; done?: boolean };
+    if (op.name && !op.done && op.name !== "operations/noop.DONE_OPERATION") {
+      const pollUrl = `https://serviceusage.googleapis.com/v1/${op.name.replace(/^\/+/, "")}`;
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 1_200));
+        const pollRes = await this.fetchFn(pollUrl, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "x-goog-user-project": validId,
+          },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!pollRes.ok) break;
+        const pollData = (await pollRes.json().catch(() => ({}))) as { done?: boolean };
+        if (pollData.done) break;
+      }
+    }
   }
 }

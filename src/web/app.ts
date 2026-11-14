@@ -7,6 +7,7 @@ import type {
 import {
   configureExportTableApi,
   discoverExportTablesApi,
+  enableGcpServiceApi,
   fetchOverview,
   switchActiveAccount,
   switchActiveProject,
@@ -42,6 +43,8 @@ interface UiState {
   discoveredTables: DiscoveredBillingTable[] | null;
   manualBillingAccountId: string;
   manualTableId: string;
+  enableTargetProject: string;
+  enablingApi: boolean;
 }
 
 const state: UiState = {
@@ -60,6 +63,8 @@ const state: UiState = {
   discoveredTables: null,
   manualBillingAccountId: "*",
   manualTableId: "",
+  enableTargetProject: "",
+  enablingApi: false,
 };
 
 function showToast(message: string, kind: "info" | "success" | "error" = "info"): void {
@@ -87,6 +92,12 @@ async function loadData(forceRefresh = false): Promise<void> {
     if (!state.discoverHostProject && data.auth.activeProject) {
       state.discoverHostProject = data.auth.activeProject;
     }
+    if (!state.enableTargetProject) {
+      const validActive = data.projects.some((p) => p.projectId === data.auth.activeProject)
+        ? data.auth.activeProject
+        : null;
+      state.enableTargetProject = validActive || data.projects[0]?.projectId || "";
+    }
     if (
       state.manualBillingAccountId === "*" &&
       data.billingAccounts.length === 1
@@ -104,6 +115,154 @@ async function loadData(forceRefresh = false): Promise<void> {
     state.refreshing = false;
     renderApp();
   }
+}
+
+function isCloudBillingApiDisabled(overview: CompanionOverviewResponse): boolean {
+  return (
+    overview.billingAccounts.length === 0 &&
+    overview.warnings.some((w) =>
+      /cloudbilling\.googleapis\.com|Cloud Billing API has not been used|requires a quota project/i.test(
+        w
+      )
+    )
+  );
+}
+
+function getNonBillingApiWarnings(overview: CompanionOverviewResponse): string[] {
+  if (!isCloudBillingApiDisabled(overview)) {
+    return overview.warnings;
+  }
+  return overview.warnings.filter(
+    (w) =>
+      !/cloudbilling\.googleapis\.com|Cloud Billing API has not been used|requires a quota project/i.test(
+        w
+      )
+  );
+}
+
+function renderBillingApiSetupPrompt(overview: CompanionOverviewResponse): HTMLElement | null {
+  if (!isCloudBillingApiDisabled(overview)) {
+    return null;
+  }
+
+  const activeValid = overview.projects.some((p) => p.projectId === overview.auth.activeProject)
+    ? overview.auth.activeProject
+    : null;
+  const selectedProj =
+    state.enableTargetProject ||
+    overview.preferences.quotaProjectOverride ||
+    activeValid ||
+    overview.projects[0]?.projectId ||
+    "";
+
+  const consoleUrl = selectedProj
+    ? `https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com?project=${encodeURIComponent(
+        selectedProj
+      )}`
+    : "https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com";
+
+  return h(
+    "section",
+    { className: "card api-setup-card" },
+    h(
+      "div",
+      { className: "api-setup-header" },
+      h("span", { className: "badge badge-warn" }, "ACTION NEEDED"),
+      h("h3", { className: "section-title" }, "Enable Cloud Billing API")
+    ),
+    h(
+      "p",
+      { className: "card-desc" },
+      "To display your Cloud Billing Accounts and project billing status, Google Cloud requires the free Cloud Billing API (cloudbilling.googleapis.com) to be enabled on a quota project."
+    ),
+    overview.projects.length > 0
+      ? h(
+          "label",
+          { className: "field-label api-setup-field" },
+          "Quota Project to Enable API On",
+          h(
+            "select",
+            {
+              className: "compact-select full-width",
+              disabled: state.enablingApi,
+              onChange: (ev) => {
+                state.enableTargetProject = (ev.target as HTMLSelectElement).value;
+                renderApp();
+              },
+            },
+            ...overview.projects.map((p) =>
+              h(
+                "option",
+                {
+                  value: p.projectId,
+                  selected: p.projectId === selectedProj,
+                },
+                `${p.name} (${p.projectId})`
+              )
+            )
+          )
+        )
+      : null,
+    h(
+      "div",
+      { className: "action-row" },
+      selectedProj
+        ? h(
+            "button",
+            {
+              type: "button",
+              className: "btn btn-primary btn-sm",
+              disabled: state.enablingApi,
+              onClick: async () => {
+                try {
+                  state.enablingApi = true;
+                  renderApp();
+                  showToast(`Enabling Cloud Billing API on ${selectedProj}…`, "info");
+                  state.overview = await enableGcpServiceApi(
+                    selectedProj,
+                    "cloudbilling.googleapis.com"
+                  );
+                  showToast("Cloud Billing API enabled! Billing accounts refreshed.", "success");
+                } catch (err) {
+                  showToast(
+                    err instanceof Error ? err.message : "Failed to enable Cloud Billing API",
+                    "error"
+                  );
+                } finally {
+                  state.enablingApi = false;
+                  renderApp();
+                }
+              },
+            },
+            state.enablingApi
+              ? "Enabling Cloud Billing API (~10s)…"
+              : `⚡ Enable Cloud Billing API on ${selectedProj}`
+          )
+        : null,
+      h(
+        "a",
+        {
+          className: "btn btn-sm",
+          href: consoleUrl,
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+        "Open GCP Console ↗"
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-sm",
+          disabled: state.refreshing || state.enablingApi,
+          onClick: () => {
+            void loadData(true);
+          },
+        },
+        "↻ Refresh"
+      )
+    )
+  );
 }
 
 function renderDeltaBadge(delta: number | null): HTMLElement {
@@ -594,6 +753,8 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
       )
     );
   } else {
+    const billingOff = isCloudBillingApiDisabled(overview);
+    const billingApiPrompt = renderBillingApiSetupPrompt(overview);
     // Progressive Base Mode card when BigQuery export isn't linked yet (or returned 0 rows)
     sections.push(
       h(
@@ -608,16 +769,37 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
         h(
           "div",
           { className: "kpi-cell" },
-          h("span", { className: "kpi-num" }, String(overview.summary.openBillingAccounts)),
-          h("span", { className: "kpi-label" }, "Open Billing Accts")
+          h(
+            "span",
+            { className: "kpi-num" },
+            billingOff ? "—" : String(overview.summary.openBillingAccounts)
+          ),
+          h(
+            "span",
+            { className: "kpi-label" },
+            billingOff ? "Billing API Off" : "Open Billing Accts"
+          )
         ),
         h(
           "div",
           { className: "kpi-cell" },
-          h("span", { className: "kpi-num" }, String(overview.summary.unbilledProjects)),
-          h("span", { className: "kpi-label" }, "Unbilled / Sandbox")
+          h(
+            "span",
+            { className: "kpi-num" },
+            billingOff ? "—" : String(overview.summary.unbilledProjects)
+          ),
+          h(
+            "span",
+            { className: "kpi-label" },
+            billingOff ? "Enable API Below" : "Unbilled / Sandbox"
+          )
         )
-      ),
+      )
+    );
+    if (billingApiPrompt) {
+      sections.push(billingApiPrompt);
+    }
+    sections.push(
       h(
         "section",
         { className: "card callout-card" },
@@ -708,18 +890,48 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
   );
 
   // Warnings Banner (non-fatal API permissions or stale fallback notes)
-  if (overview.warnings.length > 0) {
+  const remainingWarnings = getNonBillingApiWarnings(overview);
+  if (remainingWarnings.length > 0) {
     sections.push(
       h(
         "section",
         { className: "card warning-card" },
         h("h3", { className: "section-title" }, "Diagnostics & Notes"),
-        ...overview.warnings.map((w) => h("p", { className: "warning-line" }, w))
+        ...remainingWarnings.map((w) => renderWarningLine(w))
       )
     );
   }
 
   return h("div", { className: "tab-panel" }, ...sections);
+}
+
+function renderWarningLine(warningText: string): HTMLElement {
+  const urlMatch = /(https:\/\/console\.(?:cloud|developers)\.google\.com\/[^\s)]+)/.exec(
+    warningText
+  );
+  if (!urlMatch) {
+    return h("p", { className: "warning-line" }, warningText);
+  }
+  const consoleUrl = urlMatch[1];
+  return h(
+    "div",
+    { className: "warning-line" },
+    h("p", null, warningText),
+    h(
+      "div",
+      { className: "action-row" },
+      h(
+        "a",
+        {
+          className: "btn btn-primary btn-sm",
+          href: consoleUrl,
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+        "Enable API in GCP Console ↗"
+      )
+    )
+  );
 }
 
 function renderQuickProjectItem(
@@ -1716,20 +1928,36 @@ function renderSettingsDetails(overview: CompanionOverviewResponse): HTMLElement
 }
 
 function renderBillingTab(overview: CompanionOverviewResponse): HTMLElement {
+  const billingApiPrompt = renderBillingApiSetupPrompt(overview);
+  const otherWarnings = getNonBillingApiWarnings(overview);
+  const warningSection =
+    otherWarnings.length > 0
+      ? h(
+          "section",
+          { className: "card warning-card" },
+          h("h3", { className: "section-title" }, "Billing API Diagnostics"),
+          ...otherWarnings.map((w) => renderWarningLine(w))
+        )
+      : null;
+
   return h(
     "div",
     { className: "tab-panel" },
+    billingApiPrompt,
+    warningSection,
     overview.billingAccounts.length > 0
       ? h(
           "div",
           { className: "stack-list" },
           ...overview.billingAccounts.map((ba) => renderBillingAccountCard(ba, overview))
         )
-      : h(
-          "div",
-          { className: "card muted-note" },
-          "No Cloud Billing accounts visible to the active Google account (requires `billing.accounts.get` or `billing.accounts.list`)."
-        ),
+      : billingApiPrompt
+        ? null
+        : h(
+            "div",
+            { className: "card muted-note" },
+            "No Cloud Billing accounts visible to the active Google account (requires `billing.accounts.get` or `billing.accounts.list`)."
+          ),
     renderBillingExportSetupCard(overview),
     renderSettingsDetails(overview)
   );

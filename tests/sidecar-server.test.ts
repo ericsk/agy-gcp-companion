@@ -292,6 +292,39 @@ describe("Sidecar HTTP Server Security & API Integration", () => {
     const activeJson = JSON.parse(proxyPost.body) as { activeProject: string };
     assert.equal(activeJson.activeProject, "acme-data-platform");
 
+    // 4b. Service enablement allowlist check: rejects arbitrary APIs, accepts cloudbilling.googleapis.com
+    const disallowedApi = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/enable-service",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "acme-data-platform",
+        serviceName: "compute.googleapis.com",
+      }),
+    });
+    assert.equal(disallowedApi.status, 400);
+
+    const allowedApi = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/enable-service",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "acme-data-platform",
+        serviceName: "cloudbilling.googleapis.com",
+      }),
+    });
+    assert.equal(allowedApi.status, 200);
+
     // 5. Project cost breakdown endpoint -> 200
     const breakdownRes = await sendRawHttpRequest(server, {
       path: "/api/project-breakdown?projectId=acme-ai-assistant-prod",

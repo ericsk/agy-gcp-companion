@@ -163,6 +163,50 @@ export async function fetchBillingAccountsAndProjectLinks(
   const warnings: string[] = [];
   const rawAccounts: RawBillingAccount[] = [];
 
+  // Try without `x-goog-user-project` first (succeeds immediately for first-party gcloud CLI tokens
+  // even when Cloud Billing API is not enabled on any user project). If using ADC (which requires a quota
+  // project), automatically probe quotaProject + sample active projects to find one with Cloud Billing API enabled.
+  const fallbackProjects = Array.from(
+    new Set(
+      [quotaProject, ...projects.slice(0, 10).map((p) => p.projectId)].filter(
+        (id): id is string => Boolean(id)
+      )
+    )
+  );
+  let resolvedQuotaProj: string | null | undefined = undefined;
+
+  const billingGetJson = async <T>(url: string): Promise<T> => {
+    if (resolvedQuotaProj !== undefined) {
+      return gcpGetJson<T>(url, accessToken, resolvedQuotaProj, fetchFn);
+    }
+
+    const candidates: Array<string | null> = [null, ...fallbackProjects];
+    let preferredErr: unknown = null;
+
+    for (const candidate of candidates) {
+      try {
+        const res = await gcpGetJson<T>(url, accessToken, candidate, fetchFn);
+        resolvedQuotaProj = candidate;
+        return res;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Save the error from the user's active quotaProject as the most actionable diagnostic
+        if (candidate === quotaProject || !preferredErr) {
+          preferredErr = err;
+        }
+        // Only continue probing other quota projects on quota/API-disabled 403s
+        const isQuotaOrDisabled =
+          /requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED/i.test(
+            msg
+          );
+        if (!isQuotaOrDisabled) {
+          throw err;
+        }
+      }
+    }
+    throw preferredErr ?? new Error("Unable to query Cloud Billing API.");
+  };
+
   try {
     let pageToken = "";
     let pages = 0;
@@ -171,7 +215,7 @@ export async function fetchBillingAccountsAndProjectLinks(
       const params = new URLSearchParams({ pageSize: "100" });
       if (pageToken) params.set("pageToken", pageToken);
       const url = `https://cloudbilling.googleapis.com/v1/billingAccounts?${params.toString()}`;
-      const data = await gcpGetJson<{
+      const data = await billingGetJson<{
         billingAccounts?: Array<{
           name?: string;
           displayName?: string;
@@ -180,7 +224,7 @@ export async function fetchBillingAccountsAndProjectLinks(
           currencyCode?: string;
         }>;
         nextPageToken?: string;
-      }>(url, accessToken, quotaProject, fetchFn);
+      }>(url);
 
       for (const acct of data.billingAccounts ?? []) {
         if (!acct.name) continue;
@@ -223,14 +267,14 @@ export async function fetchBillingAccountsAndProjectLinks(
         const params = new URLSearchParams({ pageSize: "200" });
         if (pageToken) params.set("pageToken", pageToken);
         const url = `https://cloudbilling.googleapis.com/v1/${acct.resourceName}/projects?${params.toString()}`;
-        const data = await gcpGetJson<{
+        const data = await billingGetJson<{
           projectBillingInfo?: Array<{
             projectId?: string;
             billingAccountName?: string;
             billingEnabled?: boolean;
           }>;
           nextPageToken?: string;
-        }>(url, accessToken, quotaProject, fetchFn);
+        }>(url);
 
         for (const info of data.projectBillingInfo ?? []) {
           if (!info.projectId) continue;
@@ -261,10 +305,10 @@ export async function fetchBillingAccountsAndProjectLinks(
     await runWithConcurrency(sampleProjects, 5, async (proj) => {
       try {
         const url = `https://cloudbilling.googleapis.com/v1/projects/${encodeURIComponent(proj.projectId)}/billingInfo`;
-        const info = await gcpGetJson<{
+        const info = await billingGetJson<{
           billingAccountName?: string;
           billingEnabled?: boolean;
-        }>(url, accessToken, quotaProject, fetchFn);
+        }>(url);
         if (info.billingAccountName) {
           const id = normalizeBillingAccountId(info.billingAccountName);
           proj.billingAccountId = id;
@@ -308,7 +352,7 @@ export async function fetchBillingAccountsAndProjectLinks(
             };
             thresholdRules?: Array<{ thresholdPercent?: number; spendBasis?: string }>;
           }>;
-        }>(url, accessToken, quotaProject, fetchFn);
+        }>(url, accessToken, resolvedQuotaProj ?? quotaProject, fetchFn);
 
         acct.budgets = (data.budgets ?? []).map((b): BudgetInfo => {
           const specified = b.amount?.specifiedAmount;

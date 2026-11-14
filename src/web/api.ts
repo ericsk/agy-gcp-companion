@@ -18,7 +18,7 @@ export function clearClientSession(): void {
   activeSession = null;
 }
 
-const FETCH_TIMEOUT_MS = 25_000;
+const FETCH_TIMEOUT_MS = 45_000;
 
 function resolveEndpointCandidates(endpoint: string): string[] {
   const clean = endpoint.replace(/^\.?\//, "");
@@ -205,4 +205,15 @@ export async function fetchProjectBreakdownApi(projectId: string): Promise<{
     throw new Error(payload.error || `Failed to load breakdown (HTTP ${res.status})`);
   }
   return payload;
+}
+
+export async function enableGcpServiceApi(
+  projectId: string,
+  serviceName: string
+): Promise<CompanionOverviewResponse> {
+  const data = await apiPost<{ overview: CompanionOverviewResponse }>("./api/enable-service", {
+    projectId,
+    serviceName,
+  });
+  return data.overview;
 }
