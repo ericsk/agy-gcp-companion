@@ -503,14 +503,12 @@ export class CompanionService {
 
     await this.gcloud.enableProjectService(validProj, cleanSvc, prefs.gcloudPathOverride);
 
-    // Ensure the newly API-enabled project is used as the quota project if no override was set
+    // Record the newly API-enabled project as `lastWorkingQuotaProject` without mutating user-facing `quotaProjectOverride`
     const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
-    if (!prefs.quotaProjectOverride && auth.activeProject !== validProj) {
-      this.store.updatePreferences((curr) => ({
-        ...curr,
-        quotaProjectOverride: validProj,
-      }));
-    }
+    this.store.updatePreferences((curr) => ({
+      ...curr,
+      lastWorkingQuotaProject: validProj,
+    }));
     if (auth.activeAccount) {
       this.store.clearSnapshot(auth.activeAccount);
     }

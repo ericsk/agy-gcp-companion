@@ -598,6 +598,6 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
     assert.equal(result.warnings.length, 1);
     assert.ok(result.warnings[0].includes("sk-dev-backyard"));
     assert.ok(!result.warnings[0].includes("beaming-light-336511"));
-    assert.ok(!seenQuotaProjects.includes("beaming-light-336511"));
+    assert.ok(seenQuotaProjects.includes("beaming-light-336511"));
   });
 });

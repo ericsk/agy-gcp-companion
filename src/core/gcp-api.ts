@@ -168,9 +168,9 @@ export async function fetchBillingAccountsAndProjectLinks(
   const warnings: string[] = [];
   const rawAccounts: RawBillingAccount[] = [];
 
-  // Try without `x-goog-user-project` first; if Google requires a quota project, use `quotaProject`
-  // (and optionally a previously verified working project so switching Active Project never loses Billing Accounts),
-  // while strictly keeping any diagnostic error tied to `targetQuotaProject`.
+  // Try `targetQuotaProject` (user's Active Project / override) first, then `verifiedFallbackQuotaProject`
+  // (a project previously confirmed to have Cloud Billing API enabled so switching Active Project never loses
+  // Billing Accounts), and finally `null` (no header). Any diagnostic error strictly reports `targetQuotaProject`.
   const targetQuotaProject = quotaProject || projects[0]?.projectId || null;
   let resolvedQuotaProj: string | null | undefined = undefined;
 
@@ -179,15 +179,26 @@ export async function fetchBillingAccountsAndProjectLinks(
       return gcpGetJson<T>(url, accessToken, resolvedQuotaProj, fetchFn);
     }
 
-    const candidates: Array<string | null> = [null];
-    if (targetQuotaProject) candidates.push(targetQuotaProject);
+    const candidates: Array<string | null> = [];
+    const pushUnique = (id: string | null | undefined) => {
+      if (id === undefined) return;
+      if (!candidates.includes(id)) candidates.push(id);
+    };
+
+    pushUnique(targetQuotaProject);
     if (
       verifiedFallbackQuotaProject &&
-      verifiedFallbackQuotaProject !== targetQuotaProject &&
       projects.some((p) => p.projectId === verifiedFallbackQuotaProject)
     ) {
-      candidates.push(verifiedFallbackQuotaProject);
+      pushUnique(verifiedFallbackQuotaProject);
     }
+    // Also include remaining user projects as silent quota fallbacks so if ANY project in the account
+    // already has Cloud Billing API enabled (e.g. `sk-dev-backyard`), Billing Accounts work regardless of Active Project.
+    for (const p of projects.slice(0, 15)) {
+      pushUnique(p.projectId);
+    }
+    pushUnique(null);
+
     let preferredErr: unknown = null;
 
     for (const candidate of candidates) {
@@ -196,21 +207,22 @@ export async function fetchBillingAccountsAndProjectLinks(
         resolvedQuotaProj = candidate;
         return res;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
         if (candidate === targetQuotaProject || !preferredErr) {
           preferredErr = err;
         }
-        if (candidate === null && /requires a quota project/i.test(msg)) {
-          continue;
-        }
+        const msg = err instanceof Error ? err.message : String(err);
+        // If this was `targetQuotaProject` and failed due to user lacking `billing.accounts.list` IAM permission
+        // (not a quota/service-disabled issue), stop immediately rather than repeating the same call 15 times.
         if (
           candidate === targetQuotaProject &&
-          candidates.length > 2 &&
-          /has not been used in project|SERVICE_DISABLED/i.test(msg)
+          !/requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED|permission to use project/i.test(
+            msg
+          )
         ) {
-          continue;
+          throw preferredErr;
         }
-        throw preferredErr ?? err;
+        // For any fallback candidate failure (including IAM/permission denials on shared projects), silently continue
+        continue;
       }
     }
     throw preferredErr ?? new Error("Unable to query Cloud Billing API.");

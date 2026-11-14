@@ -7,7 +7,7 @@ import type { CachedCloudSnapshot, CompanionPreferences } from "./types.ts";
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const MIN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const SNAPSHOT_SCHEMA_VERSION = 4;
+const SNAPSHOT_SCHEMA_VERSION = 5;
 
 export function getDefaultStoreDir(): string {
   if (process.env.AGY_GCP_COMPANION_STORE_DIR) {
