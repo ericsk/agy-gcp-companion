@@ -516,7 +516,9 @@ export class GcpCompanionMcpHandler {
           billingAccounts: overview.billingAccounts.map((ba) => ({
             ...ba,
             spend: overview.spend.byBillingAccount[ba.id] ?? null,
-            consoleReportUrl: `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports`,
+            consoleReportUrl: overview.auth.activeProject
+              ? `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports?project=${encodeURIComponent(overview.auth.activeProject)}`
+              : `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports`,
           })),
         };
       }

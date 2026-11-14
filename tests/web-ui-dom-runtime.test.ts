@@ -295,6 +295,17 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       assert.ok(appRoot.allText.includes("Enable Cloud Billing API"));
       assert.ok(!appRoot.allText.includes("No Cloud Billing accounts visible"));
 
+      // Verify Console link uses `/apis/api/.../overview?project=<id>` so GCP Console never drops `project=` on redirect
+      const anchors = appRoot.querySelectorAll("a") as MockAnchorElement[];
+      const enableConsoleLink = anchors.find((a) =>
+        a.href.includes("cloudbilling.googleapis.com")
+      );
+      assert.ok(enableConsoleLink, "Expected Console enablement link");
+      assert.equal(
+        enableConsoleLink.href,
+        "https://console.cloud.google.com/apis/api/cloudbilling.googleapis.com/overview?project=acme-ai-assistant-prod"
+      );
+
       const enableBtn = appRoot.findButtonsByText("Enable Cloud Billing API on")[0];
       assert.ok(enableBtn, "Expected 1-click Enable Cloud Billing API button");
       enableBtn.click();

@@ -693,26 +693,40 @@ function getNonBillingApiWarnings(overview                           )          
   );
 }
 
+function getPreferredConsoleProject(overview                           )         {
+  const activeValid = overview.projects.some((p) => p.projectId === overview.auth.activeProject)
+    ? overview.auth.activeProject
+    : null;
+  return (
+    state.enableTargetProject ||
+    overview.preferences.quotaProjectOverride ||
+    activeValid ||
+    overview.auth.activeProject ||
+    overview.projects[0]?.projectId ||
+    ""
+  );
+}
+
+function withConsoleProject(url        , projectId                           )         {
+  if (!projectId) return url;
+  if (/[?&]project=/.test(url)) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}project=${encodeURIComponent(projectId)}`;
+}
+
 function renderBillingApiSetupPrompt(overview                           )                     {
   if (!isCloudBillingApiDisabled(overview)) {
     return null;
   }
 
-  const activeValid = overview.projects.some((p) => p.projectId === overview.auth.activeProject)
-    ? overview.auth.activeProject
-    : null;
-  const selectedProj =
-    state.enableTargetProject ||
-    overview.preferences.quotaProjectOverride ||
-    activeValid ||
-    overview.projects[0]?.projectId ||
-    "";
+  const selectedProj = getPreferredConsoleProject(overview);
 
-  const consoleUrl = selectedProj
-    ? `https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com?project=${encodeURIComponent(
-        selectedProj
-      )}`
-    : "https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com";
+  // Use `/apis/api/<service>/overview?project=...` rather than `/apis/library/...` because GCP Console's
+  // `/apis/library/...` redirects to `/marketplace/product/...` and drops `project=`, falling back to the last-visited project.
+  const consoleUrl = withConsoleProject(
+    "https://console.cloud.google.com/apis/api/cloudbilling.googleapis.com/overview",
+    selectedProj
+  );
 
   return h(
     "section",
@@ -800,7 +814,7 @@ function renderBillingApiSetupPrompt(overview                           )       
           target: "_blank",
           rel: "noopener noreferrer",
         },
-        "Open GCP Console ↗"
+        selectedProj ? `Open GCP Console (${selectedProj}) ↗` : "Open GCP Console ↗"
       ),
       h(
         "button",
@@ -1444,13 +1458,14 @@ function renderOverviewTab(overview                           )              {
 
   // Warnings Banner (non-fatal API permissions or stale fallback notes)
   const remainingWarnings = getNonBillingApiWarnings(overview);
+  const preferredProj = getPreferredConsoleProject(overview);
   if (remainingWarnings.length > 0) {
     sections.push(
       h(
         "section",
         { className: "card warning-card" },
         h("h3", { className: "section-title" }, "Diagnostics & Notes"),
-        ...remainingWarnings.map((w) => renderWarningLine(w))
+        ...remainingWarnings.map((w) => renderWarningLine(w, preferredProj))
       )
     );
   }
@@ -1458,14 +1473,14 @@ function renderOverviewTab(overview                           )              {
   return h("div", { className: "tab-panel" }, ...sections);
 }
 
-function renderWarningLine(warningText        )              {
+function renderWarningLine(warningText        , fallbackProjectId         )              {
   const urlMatch = /(https:\/\/console\.(?:cloud|developers)\.google\.com\/[^\s)]+)/.exec(
     warningText
   );
   if (!urlMatch) {
     return h("p", { className: "warning-line" }, warningText);
   }
-  const consoleUrl = urlMatch[1];
+  const consoleUrl = withConsoleProject(urlMatch[1], fallbackProjectId);
   return h(
     "div",
     { className: "warning-line" },
@@ -2004,7 +2019,10 @@ function renderBillingAccountCard(
         "a",
         {
           className: "btn btn-xs",
-          href: `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports`,
+          href: withConsoleProject(
+            `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports`,
+            getPreferredConsoleProject(overview)
+          ),
           target: "_blank",
           rel: "noopener noreferrer",
         },
@@ -2361,7 +2379,10 @@ function renderBillingExportSetupCard(overview                           )      
         "a",
         {
           className: "link-external",
-          href: "https://console.cloud.google.com/billing",
+          href: withConsoleProject(
+            "https://console.cloud.google.com/billing",
+            state.discoverHostProject.trim() || getPreferredConsoleProject(overview)
+          ),
           target: "_blank",
           rel: "noopener noreferrer",
         },
@@ -2489,7 +2510,7 @@ function renderBillingTab(overview                           )              {
           "section",
           { className: "card warning-card" },
           h("h3", { className: "section-title" }, "Billing API Diagnostics"),
-          ...otherWarnings.map((w) => renderWarningLine(w))
+          ...otherWarnings.map((w) => renderWarningLine(w, getPreferredConsoleProject(overview)))
         )
       : null;
 
