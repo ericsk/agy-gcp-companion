@@ -80,6 +80,10 @@ export class CompanionStore {
           typeof raw.quotaProjectOverride === "string" && raw.quotaProjectOverride.trim()
             ? raw.quotaProjectOverride.trim()
             : null,
+        lastWorkingQuotaProject:
+          typeof raw.lastWorkingQuotaProject === "string" && raw.lastWorkingQuotaProject.trim()
+            ? raw.lastWorkingQuotaProject.trim()
+            : null,
         demoMode: Boolean(raw.demoMode),
       };
     } catch {
@@ -95,6 +99,7 @@ export class CompanionStore {
       maskEmails: Boolean(prefs.maskEmails),
       gcloudPathOverride: prefs.gcloudPathOverride?.trim() || null,
       quotaProjectOverride: prefs.quotaProjectOverride?.trim() || null,
+      lastWorkingQuotaProject: prefs.lastWorkingQuotaProject?.trim() || null,
       demoMode: Boolean(prefs.demoMode),
     };
     this.writeJsonAtomic("preferences.json", normalized);

@@ -1045,6 +1045,35 @@ body {
   margin: 10px 0 12px;
 }
 
+.linked-projects-block {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.linked-projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.linked-projects-empty {
+  margin-top: 8px;
+}
+
+.billing-export-hint {
+  margin-top: 10px;
+}
+
+.billing-card-closed {
+  opacity: 0.88;
+}
+
+.closed-accounts-list {
+  margin-top: 10px;
+}
+
 .warning-line {
   margin: 4px 0 0;
   font-size: 11.5px;

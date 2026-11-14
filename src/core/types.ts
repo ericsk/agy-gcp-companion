@@ -149,6 +149,7 @@ export interface CompanionPreferences {
   maskEmails: boolean;
   gcloudPathOverride: string | null;
   quotaProjectOverride: string | null;
+  lastWorkingQuotaProject?: string | null;
   demoMode: boolean;
 }
 

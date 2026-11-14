@@ -123,8 +123,24 @@ export class CompanionService {
       const quotaProject =
         prefs.quotaProjectOverride || (activeProjectExists ? auth.activeProject : null) || null;
 
-      const { billingAccounts: rawBillingAccounts, warnings } =
-        await fetchBillingAccountsAndProjectLinks(token, rawProjects, quotaProject, this.fetchFn);
+      const {
+        billingAccounts: rawBillingAccounts,
+        warnings,
+        usedQuotaProject,
+      } = await fetchBillingAccountsAndProjectLinks(
+        token,
+        rawProjects,
+        quotaProject,
+        this.fetchFn,
+        prefs.lastWorkingQuotaProject
+      );
+
+      if (usedQuotaProject && usedQuotaProject !== prefs.lastWorkingQuotaProject) {
+        this.store.updatePreferences((curr) => ({
+          ...curr,
+          lastWorkingQuotaProject: usedQuotaProject,
+        }));
+      }
 
       const { report: spendReport, warnings: spendWarnings } = await queryBillingExportSpend(
         token,
@@ -194,6 +210,7 @@ export class CompanionService {
     }
 
     const globalExport = prefs.billingExportTables["*"]?.tableId ?? null;
+    const spend = snapshot.spendReport ?? createEmptySpendReport(this.nowFn());
 
     const billingAccounts                   = snapshot.billingAccounts.map((ba) => ({
       id: ba.id,
@@ -208,7 +225,17 @@ export class CompanionService {
       exportTableId: prefs.billingExportTables[ba.id]?.tableId ?? globalExport,
     }));
 
-    const spend = snapshot.spendReport ?? createEmptySpendReport(this.nowFn());
+    // Sort: OPEN accounts first -> Linked project count desc -> Spend desc -> Alphabetical
+    billingAccounts.sort((a, b) => {
+      if (a.open !== b.open) return a.open ? -1 : 1;
+      if (a.linkedProjectCount !== b.linkedProjectCount) {
+        return b.linkedProjectCount - a.linkedProjectCount;
+      }
+      const spendA = spend.byBillingAccount[a.id]?.currentMonthNetCost ?? -1;
+      const spendB = spend.byBillingAccount[b.id]?.currentMonthNetCost ?? -1;
+      if (spendA !== spendB) return spendB - spendA;
+      return a.displayName.localeCompare(b.displayName);
+    });
 
     const projects               = snapshot.projects.map((p) => ({
       projectId: p.projectId,

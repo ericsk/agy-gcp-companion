@@ -158,14 +158,19 @@ export async function fetchBillingAccountsAndProjectLinks(
   accessToken        ,
   projects                 ,
   quotaProject                ,
-  fetchFn            = globalThis.fetch
-)                                                                        {
+  fetchFn            = globalThis.fetch,
+  verifiedFallbackQuotaProject                
+)           
+                                       
+                     
+                                  
+   {
   const warnings           = [];
   const rawAccounts                      = [];
 
-  // Try without `x-goog-user-project` first; if Google requires a quota project, strictly use the user's
-  // configured/active `quotaProject` (or the first active project only when no active project is set)
-  // so diagnostics and API enablement prompts always match the user's Active Project rather than unrelated projects.
+  // Try without `x-goog-user-project` first; if Google requires a quota project, use `quotaProject`
+  // (and optionally a previously verified working project so switching Active Project never loses Billing Accounts),
+  // while strictly keeping any diagnostic error tied to `targetQuotaProject`.
   const targetQuotaProject = quotaProject || projects[0]?.projectId || null;
   let resolvedQuotaProj                            = undefined;
 
@@ -174,9 +179,15 @@ export async function fetchBillingAccountsAndProjectLinks(
       return gcpGetJson   (url, accessToken, resolvedQuotaProj, fetchFn);
     }
 
-    const candidates                       = targetQuotaProject
-      ? [null, targetQuotaProject]
-      : [null];
+    const candidates                       = [null];
+    if (targetQuotaProject) candidates.push(targetQuotaProject);
+    if (
+      verifiedFallbackQuotaProject &&
+      verifiedFallbackQuotaProject !== targetQuotaProject &&
+      projects.some((p) => p.projectId === verifiedFallbackQuotaProject)
+    ) {
+      candidates.push(verifiedFallbackQuotaProject);
+    }
     let preferredErr          = null;
 
     for (const candidate of candidates) {
@@ -189,8 +200,14 @@ export async function fetchBillingAccountsAndProjectLinks(
         if (candidate === targetQuotaProject || !preferredErr) {
           preferredErr = err;
         }
-        // If `null` failed only because a quota project is required, try `targetQuotaProject` next
         if (candidate === null && /requires a quota project/i.test(msg)) {
+          continue;
+        }
+        if (
+          candidate === targetQuotaProject &&
+          candidates.length > 2 &&
+          /has not been used in project|SERVICE_DISABLED/i.test(msg)
+        ) {
           continue;
         }
         throw preferredErr ?? err;
@@ -377,5 +394,9 @@ export async function fetchBillingAccountsAndProjectLinks(
     });
   }
 
-  return { billingAccounts: rawAccounts, warnings };
+  return {
+    billingAccounts: rawAccounts,
+    warnings,
+    usedQuotaProject: resolvedQuotaProj ?? null,
+  };
 }

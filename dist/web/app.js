@@ -1411,6 +1411,120 @@ function buildProjectCards(
   });
 }
 
+function renderLinkedProjectsForBillingAccount(
+  ba                ,
+  overview                           
+)              {
+  if (ba.linkedProjectIds.length === 0) {
+    return h(
+      "div",
+      { className: "linked-projects-empty muted-micro" },
+      "No active projects linked to this billing account."
+    );
+  }
+
+  const projectMap = new Map                    ();
+  for (const p of overview.projects) {
+    projectMap.set(p.projectId, p);
+  }
+
+  const rows = ba.linkedProjectIds.map((projId) => {
+    const proj = projectMap.get(projId);
+    const ps = overview.spend.byProject[projId];
+    const displayName = proj ? proj.name : projId;
+    const isActive = proj ? proj.isActiveProject : overview.auth.activeProject === projId;
+
+    return h(
+      "div",
+      { className: "compact-row linked-project-row" },
+      h(
+        "div",
+        { className: "compact-row-main" },
+        h(
+          "div",
+          { className: "inline-badges" },
+          proj?.pinned ? h("span", { className: "star-active" }, "★") : null,
+          h("span", { className: "row-primary-text" }, displayName),
+          isActive ? h("span", { className: "badge badge-active" }, "ACTIVE") : null
+        ),
+        h("span", { className: "row-mono" }, projId)
+      ),
+      h(
+        "div",
+        { className: "compact-row-actions" },
+        ps
+          ? h(
+              "span",
+              { className: "amount-strong" },
+              formatMoney(ps.currentMonthNetCost, ps.currency)
+            )
+          : null,
+        !isActive
+          ? h(
+              "button",
+              {
+                type: "button",
+                className: "btn btn-xs",
+                title: `Set ${projId} as active gcloud project`,
+                onClick: async () => {
+                  try {
+                    state.enableTargetProject = "";
+                    state.overview = await switchActiveProject(projId);
+                    renderApp();
+                    showToast(`Active project set to ${projId}`, "success");
+                  } catch (err) {
+                    showToast(
+                      err instanceof Error ? err.message : "Failed to switch project",
+                      "error"
+                    );
+                  }
+                },
+              },
+              "Set Active"
+            )
+          : null,
+        h(
+          "a",
+          {
+            className: "icon-link",
+            href: `https://console.cloud.google.com/home/dashboard?project=${encodeURIComponent(
+              projId
+            )}`,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            title: `Open ${projId} in Google Cloud Console`,
+          },
+          "↗"
+        )
+      )
+    );
+  });
+
+  return h(
+    "div",
+    { className: "linked-projects-block" },
+    h(
+      "div",
+      { className: "linked-projects-header" },
+      h("span", { className: "eyebrow" }, `Linked Projects (${ba.linkedProjectIds.length})`),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "link-btn",
+          onClick: () => {
+            state.activeTab = "projects";
+            state.projectFilter = `ba:${ba.id}`;
+            renderApp();
+          },
+        },
+        "Filter in Projects tab →"
+      )
+    ),
+    h("div", { className: "compact-list" }, ...rows)
+  );
+}
+
 function renderBillingAccountCard(
   ba                ,
   overview                           
@@ -1419,7 +1533,7 @@ function renderBillingAccountCard(
 
   return h(
     "article",
-    { className: "card billing-card" },
+    { className: ba.open ? "card billing-card" : "card billing-card billing-card-closed" },
     h(
       "div",
       { className: "billing-header-row" },
@@ -1434,7 +1548,10 @@ function renderBillingAccountCard(
             "span",
             { className: ba.open ? "badge badge-active" : "badge badge-neutral" },
             ba.open ? "OPEN" : "CLOSED"
-          )
+          ),
+          ba.currencyCode
+            ? h("span", { className: "badge badge-neutral" }, ba.currencyCode)
+            : null
         ),
         h(
           "div",
@@ -1453,17 +1570,9 @@ function renderBillingAccountCard(
             `${ba.id} ⧉`
           ),
           h(
-            "button",
-            {
-              type: "button",
-              className: "link-btn",
-              onClick: () => {
-                state.activeTab = "projects";
-                state.projectFilter = `ba:${ba.id}`;
-                renderApp();
-              },
-            },
-            `${ba.linkedProjectCount} linked projects →`
+            "span",
+            { className: "muted-micro" },
+            `${ba.linkedProjectCount} project${ba.linkedProjectCount === 1 ? "" : "s"}`
           )
         )
       ),
@@ -1473,7 +1582,7 @@ function renderBillingAccountCard(
           className: "btn btn-xs",
           href: withConsoleProject(
             `https://console.cloud.google.com/billing/${encodeURIComponent(ba.id)}/reports`,
-            getPreferredConsoleProject(overview)
+            ba.linkedProjectIds[0] || getPreferredConsoleProject(overview)
           ),
           target: "_blank",
           rel: "noopener noreferrer",
@@ -1481,6 +1590,7 @@ function renderBillingAccountCard(
         "Console Report ↗"
       )
     ),
+    renderLinkedProjectsForBillingAccount(ba, overview),
     bs
       ? h(
           "div",
@@ -1514,13 +1624,15 @@ function renderBillingAccountCard(
           renderDailySparkline(bs.dailySeries, bs.currency),
           renderServiceBreakdownList(bs.topServices.slice(0, 4), bs.currency)
         )
-      : h(
-          "div",
-          { className: "muted-note" },
-          ba.exportTableId
-            ? `Bound to ${ba.exportTableId} (no rows for current month yet).`
-            : "Link a BigQuery Billing Export table below to display spend for this billing account."
-        ),
+      : ba.open
+        ? h(
+            "div",
+            { className: "muted-note billing-export-hint" },
+            ba.exportTableId
+              ? `Bound to ${ba.exportTableId} (no rows for current month yet).`
+              : "Link a BigQuery Billing Export table below to display spend for this billing account."
+          )
+        : null,
     ba.budgets.length > 0
       ? h(
           "div",
@@ -1966,6 +2078,13 @@ function renderBillingTab(overview                           )              {
         )
       : null;
 
+  const primaryAccounts = overview.billingAccounts.filter(
+    (ba) => ba.open || ba.linkedProjectCount > 0 || Boolean(overview.spend.byBillingAccount[ba.id])
+  );
+  const inactiveClosedAccounts = overview.billingAccounts.filter(
+    (ba) => !ba.open && ba.linkedProjectCount === 0 && !overview.spend.byBillingAccount[ba.id]
+  );
+
   return h(
     "div",
     { className: "tab-panel" },
@@ -1975,7 +2094,26 @@ function renderBillingTab(overview                           )              {
       ? h(
           "div",
           { className: "stack-list" },
-          ...overview.billingAccounts.map((ba) => renderBillingAccountCard(ba, overview))
+          ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
+          inactiveClosedAccounts.length > 0
+            ? h(
+                "details",
+                {
+                  className: "card closed-accounts-details",
+                  ...(primaryAccounts.length === 0 ? { open: "open" } : {}),
+                }                           ,
+                h(
+                  "summary",
+                  { className: "settings-summary" },
+                  `Closed / Inactive Billing Accounts (${inactiveClosedAccounts.length})`
+                ),
+                h(
+                  "div",
+                  { className: "stack-list closed-accounts-list" },
+                  ...inactiveClosedAccounts.map((ba) => renderBillingAccountCard(ba, overview))
+                )
+              )
+            : null
         )
       : billingApiPrompt
         ? null
