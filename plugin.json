@@ -1,0 +1,33 @@
+{
+  "name": "agy-gcp-companion",
+  "displayName": "GCP Companion",
+  "version": "1.0.0",
+  "description": "Monitor Google Cloud projects, billing accounts, budgets, and BigQuery month-to-date spend from the Antigravity side panel and chat agent.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Show me my current Google Cloud month-to-date spend and top spending projects",
+    "Which GCP services are driving costs in my active project this month?",
+    "List my unbilled or sandbox GCP projects and switch my active gcloud project"
+  ],
+  "author": {
+    "name": "EricSk",
+    "url": "https://github.com/ericsk"
+  },
+  "homepage": "https://github.com/ericsk/agy-gcp-companion",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ericsk/agy-gcp-companion.git"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "gcp",
+    "google-cloud",
+    "billing",
+    "cost",
+    "bigquery",
+    "projects",
+    "gcloud",
+    "finops",
+    "sidecar"
+  ]
+}

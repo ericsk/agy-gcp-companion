@@ -1,0 +1,20 @@
+{
+  "command": "node",
+  "args": [
+    "../../dist/sidecar.mjs"
+  ],
+  "restart_policy": "always",
+  "display_name": "GCP Companion",
+  "description": "Interactive panel for inspecting Google Cloud projects, billing accounts, budgets, and BigQuery billing spend.",
+  "has_web_ui": true,
+  "ui_config": {
+    "display_name": "GCP Companion",
+    "views": [
+      {
+        "title": "GCP Companion",
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE"
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "gcp-companion": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/dist/mcp-server.mjs"
+      ],
+      "cwd": "${PLUGIN_ROOT}",
+      "env": {
+        "AGY_GCP_COMPANION_PLUGIN_DATA": "${PLUGIN_DATA}"
+      }
+    }
+  }
+}
