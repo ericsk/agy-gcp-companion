@@ -267,6 +267,14 @@ export class CompanionService {
       this.demoActiveProject = validId;
     } else {
       await this.gcloud.setActiveProject(validId, prefs.gcloudPathOverride);
+      // If previous snapshot had 0 billing accounts due to a quota/API warning on the old project, invalidate cache so the new project is queried cleanly
+      const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
+      if (auth.activeAccount) {
+        const prev = this.store.loadSnapshot(auth.activeAccount);
+        if (prev && prev.billingAccounts.length === 0 && prev.warnings.length > 0) {
+          this.store.clearSnapshot(auth.activeAccount);
+        }
+      }
     }
     return { activeProject: validId };
   }

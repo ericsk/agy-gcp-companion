@@ -163,16 +163,10 @@ export async function fetchBillingAccountsAndProjectLinks(
   const warnings: string[] = [];
   const rawAccounts: RawBillingAccount[] = [];
 
-  // Try without `x-goog-user-project` first (succeeds immediately for first-party gcloud CLI tokens
-  // even when Cloud Billing API is not enabled on any user project). If using ADC (which requires a quota
-  // project), automatically probe quotaProject + sample active projects to find one with Cloud Billing API enabled.
-  const fallbackProjects = Array.from(
-    new Set(
-      [quotaProject, ...projects.slice(0, 10).map((p) => p.projectId)].filter(
-        (id): id is string => Boolean(id)
-      )
-    )
-  );
+  // Try without `x-goog-user-project` first; if Google requires a quota project, strictly use the user's
+  // configured/active `quotaProject` (or the first active project only when no active project is set)
+  // so diagnostics and API enablement prompts always match the user's Active Project rather than unrelated projects.
+  const targetQuotaProject = quotaProject || projects[0]?.projectId || null;
   let resolvedQuotaProj: string | null | undefined = undefined;
 
   const billingGetJson = async <T>(url: string): Promise<T> => {
@@ -180,7 +174,9 @@ export async function fetchBillingAccountsAndProjectLinks(
       return gcpGetJson<T>(url, accessToken, resolvedQuotaProj, fetchFn);
     }
 
-    const candidates: Array<string | null> = [null, ...fallbackProjects];
+    const candidates: Array<string | null> = targetQuotaProject
+      ? [null, targetQuotaProject]
+      : [null];
     let preferredErr: unknown = null;
 
     for (const candidate of candidates) {
@@ -190,18 +186,14 @@ export async function fetchBillingAccountsAndProjectLinks(
         return res;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        // Save the error from the user's active quotaProject as the most actionable diagnostic
-        if (candidate === quotaProject || !preferredErr) {
+        if (candidate === targetQuotaProject || !preferredErr) {
           preferredErr = err;
         }
-        // Only continue probing other quota projects on quota/API-disabled 403s
-        const isQuotaOrDisabled =
-          /requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED/i.test(
-            msg
-          );
-        if (!isQuotaOrDisabled) {
-          throw err;
+        // If `null` failed only because a quota project is required, try `targetQuotaProject` next
+        if (candidate === null && /requires a quota project/i.test(msg)) {
+          continue;
         }
+        throw preferredErr ?? err;
       }
     }
     throw preferredErr ?? new Error("Unable to query Cloud Billing API.");

@@ -10,6 +10,7 @@ import {
   inferBillingAccountFromTableName,
 } from "../src/core/bigquery-billing.ts";
 import { CompanionService } from "../src/core/companion-service.ts";
+import { fetchBillingAccountsAndProjectLinks } from "../src/core/gcp-api.ts";
 import { GcloudClient } from "../src/core/gcloud.ts";
 import {
   maskEmail,
@@ -532,5 +533,71 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it("scopes Cloud Billing API diagnostics strictly to active quotaProject without leaking unrelated project IAM errors", async () => {
+    const seenQuotaProjects: Array<string | null> = [];
+    const mockFetch: typeof globalThis.fetch = async (_input, init) => {
+      const hdrs = (init?.headers ?? {}) as Record<string, string>;
+      const qp = hdrs["x-goog-user-project"] ?? null;
+      seenQuotaProjects.push(qp);
+      if (qp === null) {
+        return new Response(
+          JSON.stringify({
+            error: { message: "The cloudbilling.googleapis.com API requires a quota project." },
+          }),
+          { status: 403 }
+        );
+      }
+      if (qp === "sk-dev-backyard") {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "Cloud Billing API has not been used in project sk-dev-backyard before or it is disabled.",
+            },
+          }),
+          { status: 403 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Caller does not have required permission to use project beaming-light-336511.",
+          },
+        }),
+        { status: 403 }
+      );
+    };
+
+    const result = await fetchBillingAccountsAndProjectLinks(
+      "ya29.mock",
+      [
+        {
+          projectId: "beaming-light-336511",
+          projectNumber: "1",
+          name: "Other Shared Project",
+          lifecycleState: "ACTIVE",
+          billingAccountId: null,
+          billingEnabled: false,
+        },
+        {
+          projectId: "sk-dev-backyard",
+          projectNumber: "2",
+          name: "SK Dev Backyard",
+          lifecycleState: "ACTIVE",
+          billingAccountId: null,
+          billingEnabled: false,
+        },
+      ],
+      "sk-dev-backyard",
+      mockFetch
+    );
+
+    assert.equal(result.billingAccounts.length, 0);
+    assert.equal(result.warnings.length, 1);
+    assert.ok(result.warnings[0].includes("sk-dev-backyard"));
+    assert.ok(!result.warnings[0].includes("beaming-light-336511"));
+    assert.ok(!seenQuotaProjects.includes("beaming-light-336511"));
   });
 });

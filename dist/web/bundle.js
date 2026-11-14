@@ -645,11 +645,11 @@ async function loadData(forceRefresh = false)                {
     if (!state.discoverHostProject && data.auth.activeProject) {
       state.discoverHostProject = data.auth.activeProject;
     }
-    if (!state.enableTargetProject) {
-      const validActive = data.projects.some((p) => p.projectId === data.auth.activeProject)
-        ? data.auth.activeProject
-        : null;
-      state.enableTargetProject = validActive || data.projects[0]?.projectId || "";
+    if (
+      state.enableTargetProject &&
+      !data.projects.some((p) => p.projectId === state.enableTargetProject)
+    ) {
+      state.enableTargetProject = "";
     }
     if (
       state.manualBillingAccountId === "*" &&
@@ -1481,6 +1481,9 @@ function renderWarningLine(warningText        , fallbackProjectId         )     
     return h("p", { className: "warning-line" }, warningText);
   }
   const consoleUrl = withConsoleProject(urlMatch[1], fallbackProjectId);
+  const label = consoleUrl.includes("/iam-admin/")
+    ? "Open IAM Permissions in GCP Console ↗"
+    : "Enable API in GCP Console ↗";
   return h(
     "div",
     { className: "warning-line" },
@@ -1496,7 +1499,7 @@ function renderWarningLine(warningText        , fallbackProjectId         )     
           target: "_blank",
           rel: "noopener noreferrer",
         },
-        "Enable API in GCP Console ↗"
+        label
       )
     )
   );
@@ -1547,6 +1550,7 @@ function renderQuickProjectItem(
               title: `Run gcloud config set project ${proj.projectId}`,
               onClick: async () => {
                 try {
+                  state.enableTargetProject = "";
                   state.overview = await switchActiveProject(proj.projectId);
                   renderApp();
                   showToast(`Active project set to ${proj.projectId}`, "success");
@@ -1824,6 +1828,7 @@ function buildProjectCards(
                     onClick: async (ev) => {
                       ev.stopPropagation();
                       try {
+                        state.enableTargetProject = "";
                         state.overview = await switchActiveProject(proj.projectId);
                         renderApp();
                         showToast(`Switched active project to ${proj.projectId}`, "success");
