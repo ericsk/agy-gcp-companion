@@ -37,13 +37,17 @@ function resolveEndpointCandidates(endpoint: string): string[] {
   return primary === rootFallback ? [primary] : [primary, rootFallback];
 }
 
-async function fetchEndpoint(endpoint: string, init: RequestInit): Promise<Response> {
+async function fetchEndpoint(
+  endpoint: string,
+  init: RequestInit,
+  timeoutMs = FETCH_TIMEOUT_MS
+): Promise<Response> {
   const candidates = resolveEndpointCandidates(endpoint);
   let lastRes: Response | null = null;
   for (let i = 0; i < candidates.length; i++) {
     const res = await fetch(candidates[i], {
       ...init,
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     lastRes = res;
     if (res.status !== 404 || i === candidates.length - 1) {
@@ -78,25 +82,34 @@ async function ensureSession(forceNew = false): Promise<SessionState> {
   return activeSession;
 }
 
-async function apiPost<T>(path: string, body: Record<string, unknown>, retried = false): Promise<T> {
+async function apiPost<T>(
+  path: string,
+  body: Record<string, unknown>,
+  retried = false,
+  timeoutMs = FETCH_TIMEOUT_MS
+): Promise<T> {
   const session = await ensureSession(false);
-  const res = await fetchEndpoint(path, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-AGY-Companion": "1",
-      "X-CSRF-Token": session.csrfToken,
-      "X-CSRF-Proxy-Token": session.proxyCsrfToken,
+  const res = await fetchEndpoint(
+    path,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Token": session.csrfToken,
+        "X-CSRF-Proxy-Token": session.proxyCsrfToken,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    timeoutMs
+  );
 
   if (res.status === 403 && !retried) {
     // Server may have restarted and rotated its ephemeral instance secret; re-handshake once
     await ensureSession(true);
-    return apiPost<T>(path, body, true);
+    return apiPost<T>(path, body, true, timeoutMs);
   }
 
   const payload = (await res.json().catch(() => ({}))) as { error?: string } & T;
@@ -215,5 +228,15 @@ export async function enableGcpServiceApi(
     projectId,
     serviceName,
   });
+  return data.overview;
+}
+
+export async function startBrowserLoginApi(): Promise<CompanionOverviewResponse> {
+  const data = await apiPost<{ overview: CompanionOverviewResponse }>(
+    "./api/auth-login",
+    {},
+    false,
+    125_000
+  );
   return data.overview;
 }

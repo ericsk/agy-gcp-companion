@@ -37,13 +37,17 @@ function resolveEndpointCandidates(endpoint        )           {
   return primary === rootFallback ? [primary] : [primary, rootFallback];
 }
 
-async function fetchEndpoint(endpoint        , init             )                    {
+async function fetchEndpoint(
+  endpoint        ,
+  init             ,
+  timeoutMs = FETCH_TIMEOUT_MS
+)                    {
   const candidates = resolveEndpointCandidates(endpoint);
   let lastRes                  = null;
   for (let i = 0; i < candidates.length; i++) {
     const res = await fetch(candidates[i], {
       ...init,
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     lastRes = res;
     if (res.status !== 404 || i === candidates.length - 1) {
@@ -78,25 +82,34 @@ async function ensureSession(forceNew = false)                        {
   return activeSession;
 }
 
-async function apiPost   (path        , body                         , retried = false)             {
+async function apiPost   (
+  path        ,
+  body                         ,
+  retried = false,
+  timeoutMs = FETCH_TIMEOUT_MS
+)             {
   const session = await ensureSession(false);
-  const res = await fetchEndpoint(path, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-AGY-Companion": "1",
-      "X-CSRF-Token": session.csrfToken,
-      "X-CSRF-Proxy-Token": session.proxyCsrfToken,
+  const res = await fetchEndpoint(
+    path,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Token": session.csrfToken,
+        "X-CSRF-Proxy-Token": session.proxyCsrfToken,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    timeoutMs
+  );
 
   if (res.status === 403 && !retried) {
     // Server may have restarted and rotated its ephemeral instance secret; re-handshake once
     await ensureSession(true);
-    return apiPost   (path, body, true);
+    return apiPost   (path, body, true, timeoutMs);
   }
 
   const payload = (await res.json().catch(() => ({})))                          ;
@@ -215,5 +228,15 @@ export async function enableGcpServiceApi(
     projectId,
     serviceName,
   });
+  return data.overview;
+}
+
+export async function startBrowserLoginApi()                                     {
+  const data = await apiPost                                         (
+    "./api/auth-login",
+    {},
+    false,
+    125_000
+  );
   return data.overview;
 }

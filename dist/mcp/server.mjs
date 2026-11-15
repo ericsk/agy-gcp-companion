@@ -435,14 +435,41 @@ export class GcpCompanionMcpHandler {
         const overview = await this.service.getOverview({
           forceRefresh: Boolean(args.forceRefresh),
         });
+        const onboarding = !overview.auth.authenticated
+          ? !overview.auth.gcloudInstalled
+            ? {
+                actionRequired: "install_gcloud_cli",
+                installUrl: "https://cloud.google.com/sdk/docs/install",
+                macosBrewCommand: "brew install --cask gcloud-cli",
+                nextStepCommand: "gcloud auth login",
+                message:
+                  "Google Cloud CLI (`gcloud`) is not installed on this machine. Guide the user to install it from https://cloud.google.com/sdk/docs/install (or `brew install --cask gcloud-cli` on macOS), then run `gcloud auth login`.",
+              }
+            : {
+                actionRequired: "login_gcloud_account",
+                loginCommand: "gcloud auth login",
+                message:
+                  "Google Cloud CLI (`gcloud`) is installed, but no active Google account is signed in yet. Guide the user to run `gcloud auth login` or click 'Sign in with Browser' inside the GCP Companion panel.",
+              }
+          : !overview.auth.gcloudInstalled
+            ? {
+                actionRequired: "optional_install_gcloud_cli",
+                installUrl: "https://cloud.google.com/sdk/docs/install",
+                message:
+                  "Authenticated via Application Default Credentials, but `gcloud` CLI is not installed. Recommend installing `gcloud` if the user wants multi-account or default project switching.",
+              }
+            : null;
         return {
           authenticated: overview.auth.authenticated,
           source: overview.auth.source,
           gcloudInstalled: overview.auth.gcloudInstalled,
+          gcloudBinaryPath: overview.auth.gcloudBinaryPath,
           activeAccount: overview.preferences.maskEmails
             ? overview.auth.maskedActiveAccount
             : overview.auth.activeAccount,
           activeProject: overview.auth.activeProject,
+          setupHint: overview.auth.setupHint,
+          onboarding,
           pinnedProjects: overview.preferences.pinnedProjects,
           billingExportTables: overview.preferences.billingExportTables,
           cache: overview.cache,
@@ -455,6 +482,19 @@ export class GcpCompanionMcpHandler {
         const overview = await this.service.getOverview({
           forceRefresh: Boolean(args.forceRefresh),
         });
+        if (!overview.auth.authenticated) {
+          return {
+            authenticated: false,
+            gcloudInstalled: overview.auth.gcloudInstalled,
+            onboardingMessage: !overview.auth.gcloudInstalled
+              ? "Google Cloud CLI (`gcloud`) is not installed. Ask the user to install Google Cloud SDK (https://cloud.google.com/sdk/docs/install or `brew install --cask gcloud-cli`), then sign in with `gcloud auth login`."
+              : "No Google Cloud account is signed in yet. Ask the user to run `gcloud auth login` or click 'Sign in with Browser' in the GCP Companion panel.",
+            count: 0,
+            activeProject: null,
+            spendConfigured: false,
+            projects: [],
+          };
+        }
         const q = typeof args.query === "string" ? args.query.trim().toLowerCase() : "";
         const baFilter =
           typeof args.billingAccountId === "string" ? args.billingAccountId.trim().toUpperCase() : "";
@@ -510,6 +550,18 @@ export class GcpCompanionMcpHandler {
         const overview = await this.service.getOverview({
           forceRefresh: Boolean(args.forceRefresh),
         });
+        if (!overview.auth.authenticated) {
+          return {
+            authenticated: false,
+            gcloudInstalled: overview.auth.gcloudInstalled,
+            onboardingMessage: !overview.auth.gcloudInstalled
+              ? "Google Cloud CLI (`gcloud`) is not installed. Ask the user to install Google Cloud SDK (https://cloud.google.com/sdk/docs/install or `brew install --cask gcloud-cli`), then sign in with `gcloud auth login`."
+              : "No Google Cloud account is signed in yet. Ask the user to run `gcloud auth login` or click 'Sign in with Browser' in the GCP Companion panel.",
+            count: 0,
+            spendConfigured: false,
+            billingAccounts: [],
+          };
+        }
         return {
           count: overview.billingAccounts.length,
           spendConfigured: overview.spend.configured,

@@ -420,6 +420,13 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
         return;
       }
 
+      if (method === "POST" && pathname.endsWith("/api/auth-login")) {
+        await readJsonBody(req);
+        const overview = await service.startInteractiveLogin();
+        sendJson(res, 200, { overview });
+        return;
+      }
+
       if (pathname.includes("/api/")) {
         sendJson(res, 404, { error: "API route not found." });
         return;

@@ -26,6 +26,10 @@ Actual dollar spend (`gross_cost`, `credits`, `net_cost`, daily trend, and per-s
 
 ## Preferred Workflow
 
+0. **Environment & Login Pre-Flight Check**:
+   - Always check `gcloudInstalled` and `authenticated` from `gcp_companion_status` (or any `gcp_*` tool response):
+     - If `gcloudInstalled: false` and `authenticated: false`: Prompt the user to install **Google Cloud CLI (`gcloud`)** first (`https://cloud.google.com/sdk/docs/install`, or `brew install --cask gcloud-cli` on macOS), and then run `gcloud auth login`.
+     - If `gcloudInstalled: true` and `authenticated: false`: Guide the user to sign in by clicking **Sign in with Browser (`gcloud auth login`)** inside the **GCP Companion** side panel, or running `gcloud auth login` in their terminal.
 1. **Prefer MCP Tools over raw `gcloud` shell calls**:
    - Call `gcp_companion_status` to check active `gcloud` account, active project, pinned projects, and whether BigQuery spend tracking is configured.
    - Call `gcp_list_projects` (supports `query`, `billingAccountId`, `pinnedOnly`, `unbilledOnly`) to inspect projects and their linked billing accounts / MTD spend.

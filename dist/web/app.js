@@ -9,6 +9,7 @@ import {
   discoverExportTablesApi,
   enableGcpServiceApi,
   fetchOverview,
+  startBrowserLoginApi,
   switchActiveAccount,
   switchActiveProject,
   togglePinProject,
@@ -45,6 +46,7 @@ import {
                         
                               
                        
+                            
  
 
 const state          = {
@@ -65,6 +67,7 @@ const state          = {
   manualTableId: "",
   enableTargetProject: "",
   enablingApi: false,
+  signingInBrowser: false,
 };
 
 function showToast(message        , kind                               = "info")       {
@@ -467,39 +470,215 @@ function bindLogoSources(container             )       {
   });
 }
 
+function renderCopyCommandBox(label        , command        )              {
+  return h(
+    "div",
+    { className: "cmd-group" },
+    h("div", { className: "eyebrow" }, label),
+    h(
+      "div",
+      { className: "cmd-box" },
+      h("code", null, command),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs",
+          onClick: async () => {
+            const ok = await copyToClipboard(command);
+            showToast(ok ? `Copied \`${command}\`` : command, "info");
+          },
+        },
+        "Copy"
+      )
+    )
+  );
+}
+
 function renderUnauthenticatedView(overview                           )              {
+  const installDocsUrl = "https://cloud.google.com/sdk/docs/install";
+  const brewInstallCmd = "brew install --cask gcloud-cli";
   const loginCmd = "gcloud auth login";
+
+  if (!overview.auth.gcloudInstalled) {
+    return h(
+      "section",
+      { className: "card onboarding-card" },
+      h(
+        "div",
+        { className: "api-setup-header" },
+        h("span", { className: "badge badge-warn" }, "STEP 1 OF 2 · CLI REQUIRED"),
+        h("h2", { className: "card-title" }, "Install Google Cloud CLI (gcloud)")
+      ),
+      h(
+        "p",
+        { className: "card-desc" },
+        "Google Cloud CLI (`gcloud`) was not detected on your computer. Install it first, then sign in to inspect your GCP projects and billing accounts."
+      ),
+      h(
+        "div",
+        { className: "setup-checklist" },
+        h(
+          "div",
+          { className: "setup-step setup-step-active" },
+          h("span", { className: "step-pill step-pill-warn" }, "1"),
+          h(
+            "div",
+            { className: "setup-step-body" },
+            h("div", { className: "row-primary-text" }, "Install Google Cloud CLI (`gcloud`)"),
+            h(
+              "div",
+              { className: "muted-micro" },
+              "Not found in PATH or standard SDK folders. Install via official installer or Homebrew."
+            )
+          )
+        ),
+        h(
+          "div",
+          { className: "setup-step" },
+          h("span", { className: "step-pill" }, "2"),
+          h(
+            "div",
+            { className: "setup-step-body" },
+            h("div", { className: "row-primary-text" }, "Sign in to Google Cloud"),
+            h("div", { className: "muted-micro" }, "Run `gcloud auth login` after installation.")
+          )
+        )
+      ),
+      h(
+        "div",
+        { className: "action-row onboarding-links" },
+        h(
+          "a",
+          {
+            className: "btn btn-primary",
+            href: installDocsUrl,
+            target: "_blank",
+            rel: "noopener noreferrer",
+          },
+          "Download & Install gcloud CLI ↗"
+        )
+      ),
+      renderCopyCommandBox("macOS Quick Install (Homebrew)", brewInstallCmd),
+      renderCopyCommandBox("Step 2 — Sign In After Installing", loginCmd),
+      h(
+        "div",
+        { className: "action-row" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-primary",
+            disabled: state.refreshing,
+            onClick: () => {
+              void loadData(true);
+            },
+          },
+          state.refreshing ? "Checking…" : "↻ Re-check gcloud Installation"
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn",
+            onClick: async () => {
+              state.overview = await updateCompanionPreferences({ demoMode: true });
+              renderApp();
+              showToast("Demo Preview Mode enabled", "info");
+            },
+          },
+          "Preview Demo Dashboard"
+        )
+      ),
+      renderSettingsDetails(overview)
+    );
+  }
+
+  // `gcloud` CLI is installed, but no active Google account is authenticated yet (or session expired)
   return h(
     "section",
     { className: "card onboarding-card" },
-    h("h2", { className: "card-title" }, "Connect Your Google Cloud Account"),
+    h(
+      "div",
+      { className: "api-setup-header" },
+      h("span", { className: "badge badge-warn" }, "STEP 2 OF 2 · SIGN IN REQUIRED"),
+      h("h2", { className: "card-title" }, "Sign in to Your Google Cloud Account")
+    ),
     h(
       "p",
       { className: "card-desc" },
-      overview.auth.gcloudInstalled
-        ? "Google Cloud CLI (`gcloud`) was found, but no active authenticated account is currently signed in."
-        : "No local `gcloud` session or Application Default Credentials were detected yet."
+      "Google Cloud CLI (`gcloud`) is installed on your computer, but no authenticated Google account is active yet. Sign in to view your projects and billing."
+    ),
+    h(
+      "div",
+      { className: "setup-checklist" },
+      h(
+        "div",
+        { className: "setup-step" },
+        h("span", { className: "step-pill step-pill-done" }, "✓"),
+        h(
+          "div",
+          { className: "setup-step-body" },
+          h("div", { className: "row-primary-text" }, "Google Cloud CLI Detected"),
+          h(
+            "div",
+            { className: "row-mono" },
+            overview.auth.gcloudBinaryPath || "gcloud"
+          )
+        )
+      ),
+      h(
+        "div",
+        { className: "setup-step setup-step-active" },
+        h("span", { className: "step-pill step-pill-warn" }, "2"),
+        h(
+          "div",
+          { className: "setup-step-body" },
+          h("div", { className: "row-primary-text" }, "Authenticate Google Account"),
+          h(
+            "div",
+            { className: "muted-micro" },
+            "Click below to launch Google Sign-In in your browser, or run `gcloud auth login` in a terminal."
+          )
+        )
+      )
     ),
     overview.auth.setupHint
       ? h("div", { className: "callout callout-info" }, overview.auth.setupHint)
       : null,
     h(
       "div",
-      { className: "cmd-box" },
-      h("code", null, loginCmd),
+      { className: "action-row onboarding-links" },
       h(
         "button",
         {
           type: "button",
-          className: "btn btn-sm",
+          className: "btn btn-primary",
+          disabled: state.signingInBrowser || state.refreshing,
           onClick: async () => {
-            const ok = await copyToClipboard(loginCmd);
-            showToast(ok ? "Copied `gcloud auth login`" : loginCmd, "info");
+            try {
+              state.signingInBrowser = true;
+              renderApp();
+              showToast("Opening Google Sign-In in your browser…", "info");
+              state.overview = await startBrowserLoginApi();
+              showToast("Signed in to Google Cloud!", "success");
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : "Browser sign-in did not complete",
+                "error"
+              );
+            } finally {
+              state.signingInBrowser = false;
+              renderApp();
+            }
           },
         },
-        "Copy"
+        state.signingInBrowser
+          ? "Waiting for Browser Sign-In…"
+          : "🔑 Sign in with Browser (gcloud auth login)"
       )
     ),
+    renderCopyCommandBox("Or Run in Your Terminal", loginCmd),
     h(
       "div",
       { className: "action-row" },
@@ -507,18 +686,20 @@ function renderUnauthenticatedView(overview                           )         
         "button",
         {
           type: "button",
-          className: "btn btn-primary",
+          className: "btn",
+          disabled: state.refreshing || state.signingInBrowser,
           onClick: () => {
             void loadData(true);
           },
         },
-        "Check Login Again"
+        state.refreshing ? "Checking…" : "↻ I Signed In — Refresh"
       ),
       h(
         "button",
         {
           type: "button",
           className: "btn",
+          disabled: state.signingInBrowser,
           onClick: async () => {
             state.overview = await updateCompanionPreferences({ demoMode: true });
             renderApp();
@@ -565,6 +746,40 @@ function renderTabNav(overview                           )              {
 function renderOverviewTab(overview                           )              {
   const spend = overview.spend;
   const sections                = [];
+
+  if (!overview.preferences.demoMode && !overview.auth.gcloudInstalled) {
+    sections.push(
+      h(
+        "section",
+        { className: "card warning-card" },
+        h(
+          "div",
+          { className: "api-setup-header" },
+          h("span", { className: "badge badge-warn" }, "CLI RECOMMENDED"),
+          h("h3", { className: "section-title" }, "Google Cloud CLI (`gcloud`) Not Found")
+        ),
+        h(
+          "p",
+          { className: "card-desc" },
+          "Connected using saved Application Default Credentials, but `gcloud` CLI was not found on your computer. Install `gcloud` to enable account switching and CLI project sync."
+        ),
+        h(
+          "div",
+          { className: "action-row" },
+          h(
+            "a",
+            {
+              className: "btn btn-primary btn-sm",
+              href: "https://cloud.google.com/sdk/docs/install",
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            "Install gcloud CLI ↗"
+          )
+        )
+      )
+    );
+  }
 
   if (spend.configured && spend.totalsByCurrency.length > 0) {
     for (const total of spend.totalsByCurrency) {

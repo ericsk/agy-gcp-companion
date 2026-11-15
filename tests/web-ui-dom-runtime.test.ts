@@ -188,6 +188,7 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
     };
 
     let simulateBillingApiDisabled = false;
+    let simulatedAuthMode: "normal" | "no_cli" | "no_login" = "normal";
     Object.assign(globalThis, {
       Node: MockNode,
       HTMLAnchorElement: MockAnchorElement,
@@ -223,8 +224,53 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           const overview = await service.getOverview();
           return new Response(JSON.stringify({ overview }), { status: 200 });
         }
+        if (url.includes("/api/auth-login")) {
+          simulatedAuthMode = "normal";
+          const overview = await service.getOverview();
+          return new Response(JSON.stringify({ overview }), { status: 200 });
+        }
         if (url.includes("/api/overview")) {
           const overview = await service.getOverview();
+          if (simulatedAuthMode === "no_cli") {
+            return new Response(
+              JSON.stringify({
+                ...overview,
+                preferences: { ...overview.preferences, demoMode: false },
+                auth: {
+                  authenticated: false,
+                  source: "none",
+                  gcloudInstalled: false,
+                  gcloudBinaryPath: null,
+                  activeAccount: null,
+                  maskedActiveAccount: null,
+                  activeProject: null,
+                  accounts: [],
+                  setupHint: "Install Google Cloud SDK (`gcloud`) and run `gcloud auth login`.",
+                },
+              }),
+              { status: 200 }
+            );
+          }
+          if (simulatedAuthMode === "no_login") {
+            return new Response(
+              JSON.stringify({
+                ...overview,
+                preferences: { ...overview.preferences, demoMode: false },
+                auth: {
+                  authenticated: false,
+                  source: "none",
+                  gcloudInstalled: true,
+                  gcloudBinaryPath: "/opt/homebrew/bin/gcloud",
+                  activeAccount: null,
+                  maskedActiveAccount: null,
+                  activeProject: null,
+                  accounts: [],
+                  setupHint: "Run `gcloud auth login` in your terminal, then click Refresh.",
+                },
+              }),
+              { status: 200 }
+            );
+          }
           if (simulateBillingApiDisabled) {
             return new Response(
               JSON.stringify({
@@ -309,6 +355,43 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       const enableBtn = appRoot.findButtonsByText("Enable Cloud Billing API on")[0];
       assert.ok(enableBtn, "Expected 1-click Enable Cloud Billing API button");
       enableBtn.click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("Acme Cloud Production Billing"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("Acme Cloud Production Billing"));
+
+      // 5. Simulate missing `gcloud` CLI -> verify installation prompt & official install link
+      simulatedAuthMode = "no_cli";
+      appRoot.findButtonsByText("Refresh")[0].click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("Install Google Cloud CLI"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("STEP 1 OF 2 · CLI REQUIRED"));
+      assert.ok(appRoot.allText.includes("Install Google Cloud CLI (gcloud)"));
+      assert.ok(appRoot.allText.includes("brew install --cask gcloud-cli"));
+      const installLinks = appRoot.querySelectorAll("a") as MockAnchorElement[];
+      assert.ok(
+        installLinks.some((a) => a.href === "https://cloud.google.com/sdk/docs/install"),
+        "Expected official Google Cloud SDK install link"
+      );
+
+      // 6. Simulate `gcloud` installed but NOT signed in -> verify browser sign-in guide & 1-click login
+      simulatedAuthMode = "no_login";
+      appRoot.findButtonsByText("Re-check gcloud Installation")[0].click();
+      for (
+        let i = 0;
+        i < 40 && !appRoot.allText.includes("Sign in to Your Google Cloud Account");
+        i++
+      ) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("STEP 2 OF 2 · SIGN IN REQUIRED"));
+      assert.ok(appRoot.allText.includes("Google Cloud CLI Detected"));
+      assert.ok(appRoot.allText.includes("/opt/homebrew/bin/gcloud"));
+
+      const browserLoginBtn = appRoot.findButtonsByText("Sign in with Browser")[0];
+      assert.ok(browserLoginBtn, "Expected interactive browser sign-in button");
+      browserLoginBtn.click();
       for (let i = 0; i < 40 && !appRoot.allText.includes("Acme Cloud Production Billing"); i++) {
         await new Promise((r) => setTimeout(r, 15));
       }

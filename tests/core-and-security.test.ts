@@ -600,4 +600,44 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
     assert.ok(!result.warnings[0].includes("beaming-light-336511"));
     assert.ok(seenQuotaProjects.includes("beaming-light-336511"));
   });
+
+  it("gracefully guides user to re-login when saved OAuth refresh token is expired or revoked", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-revoked-auth-"));
+    const fakeGcloudDir = join(tmpDir, "gcloud-cfg");
+    mkdirSync(join(fakeGcloudDir, "configurations"), { recursive: true });
+    writeFileSync(join(fakeGcloudDir, "active_config"), "default");
+    writeFileSync(
+      join(fakeGcloudDir, "configurations", "config_default"),
+      "[core]\naccount = expired@example.com\n"
+    );
+    writeFileSync(
+      join(fakeGcloudDir, "application_default_credentials.json"),
+      JSON.stringify({
+        type: "authorized_user",
+        client_id: "cid",
+        client_secret: "csecret",
+        refresh_token: "1//revoked-token",
+      })
+    );
+
+    const mockFetch: typeof globalThis.fetch = async () =>
+      new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+
+    try {
+      const store = new CompanionStore(join(tmpDir, "store"));
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no gcloud");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({ store, gcloud, fetchFn: mockFetch });
+      const overview = await service.getOverview();
+      assert.equal(overview.auth.authenticated, false);
+      assert.ok((overview.auth.setupHint || "").includes("gcloud auth login"));
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

@@ -217,6 +217,7 @@ export class GcloudClient {
   invalidateTokenCache(): void {
     this.cachedToken = null;
     this.cachedAuth = null;
+    this.resolvedBinaryCache = null;
   }
 
   private resolveGcloudBinarySync(overridePath?: string | null): string | null {
@@ -239,7 +240,12 @@ export class GcloudClient {
 
   async resolveGcloudBinary(overridePath?: string | null): Promise<string | null> {
     const overrideKey = overridePath?.trim() || "";
-    if (this.resolvedBinaryCache && this.resolvedBinaryCache.overrideKey === overrideKey) {
+    if (
+      this.resolvedBinaryCache &&
+      this.resolvedBinaryCache.overrideKey === overrideKey &&
+      this.resolvedBinaryCache.path !== null &&
+      isExecutableFile(this.resolvedBinaryCache.path)
+    ) {
       return this.resolvedBinaryCache.path;
     }
 
@@ -391,9 +397,16 @@ export class GcloudClient {
     return null;
   }
 
-  async getAuthStatus(overridePath?: string | null): Promise<AuthStatus> {
+  async getAuthStatus(overridePath?: string | null, forceRefresh = false): Promise<AuthStatus> {
     const overrideKey = overridePath?.trim() || "";
+    if (forceRefresh) {
+      this.cachedAuth = null;
+      if (this.resolvedBinaryCache?.path === null) {
+        this.resolvedBinaryCache = null;
+      }
+    }
     if (
+      !forceRefresh &&
       this.cachedAuth &&
       this.cachedAuth.overrideKey === overrideKey &&
       Date.now() < this.cachedAuth.expiresAt
@@ -423,7 +436,9 @@ export class GcloudClient {
         localCfg.account && fastAccounts.includes(localCfg.account)
           ? localCfg.account
           : fastAccounts[0];
-      const syncBin = this.resolveGcloudBinarySync(overridePath);
+      const detectedBin =
+        this.resolveGcloudBinarySync(overridePath) ??
+        (await this.resolveGcloudBinary(overridePath));
       const accounts: GcloudAccount[] = fastAccounts.map((acct) => ({
         account: acct,
         maskedAccount: maskEmail(acct) ?? acct,
@@ -432,13 +447,15 @@ export class GcloudClient {
       return cacheAndReturn({
         authenticated: true,
         source: "gcloud",
-        gcloudInstalled: Boolean(syncBin),
-        gcloudBinaryPath: syncBin,
+        gcloudInstalled: Boolean(detectedBin),
+        gcloudBinaryPath: detectedBin,
         activeAccount: preferred,
         maskedActiveAccount: maskEmail(preferred) ?? preferred,
         activeProject: localCfg.project || null,
         accounts,
-        setupHint: null,
+        setupHint: detectedBin
+          ? null
+          : "Authenticated via saved credentials, but `gcloud` CLI binary was not found in PATH.",
       });
     }
 
@@ -809,22 +826,39 @@ export class GcloudClient {
     }
 
     const op = (await res.json().catch(() => ({}))) as { name?: string; done?: boolean };
-    if (op.name && !op.done && op.name !== "operations/noop.DONE_OPERATION") {
-      const pollUrl = `https://serviceusage.googleapis.com/v1/${op.name.replace(/^\/+/, "")}`;
-      for (let i = 0; i < 10; i++) {
-        await new Promise((r) => setTimeout(r, 1_200));
-        const pollRes = await this.fetchFn(pollUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-goog-user-project": validId,
-          },
-          signal: AbortSignal.timeout(10_000),
-        });
-        if (!pollRes.ok) break;
-        const pollData = (await pollRes.json().catch(() => ({}))) as { done?: boolean };
-        if (pollData.done) break;
+      if (op.name && !op.done && op.name !== "operations/noop.DONE_OPERATION") {
+        const pollUrl = `https://serviceusage.googleapis.com/v1/${op.name.replace(/^\/+/, "")}`;
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 1_200));
+          const pollRes = await this.fetchFn(pollUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "x-goog-user-project": validId,
+            },
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (!pollRes.ok) break;
+          const pollData = (await pollRes.json().catch(() => ({}))) as { done?: boolean };
+          if (pollData.done) break;
+        }
       }
+  }
+
+  /**
+   * Launches interactive browser OAuth sign-in (`gcloud auth login --quiet`), which opens the user's
+   * default browser to Google Sign-In and populates `~/.config/gcloud/` upon completion.
+   */
+  async triggerInteractiveLogin(overridePath?: string | null): Promise<AuthStatus> {
+    this.invalidateTokenCache();
+    const binary = await this.resolveGcloudBinary(overridePath);
+    if (!binary) {
+      throw new Error(
+        "Google Cloud CLI (`gcloud`) is not installed yet. Install it from https://cloud.google.com/sdk/docs/install first."
+      );
     }
+    await this.execFn(binary, ["auth", "login", "--quiet"], 120_000);
+    this.invalidateTokenCache();
+    return this.getAuthStatus(overridePath, true);
   }
 }

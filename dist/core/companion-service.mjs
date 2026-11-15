@@ -55,33 +55,12 @@ export class CompanionService {
       return buildDemoOverview(prefs, now, this.demoActiveProject);
     }
 
-    const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
+    const auth = await this.gcloud.getAuthStatus(
+      prefs.gcloudPathOverride,
+      Boolean(options.forceRefresh)
+    );
     if (!auth.authenticated || !auth.activeAccount) {
-      const emptySpend = createEmptySpendReport(now);
-      return {
-        auth,
-        preferences: this.formatPublicPreferences(prefs),
-        cache: {
-          hit: false,
-          stale: false,
-          fetchedAt: null,
-          ageMs: null,
-          ttlMs: prefs.cacheTtlMs,
-        },
-        summary: {
-          totalProjects: 0,
-          billedProjects: 0,
-          unbilledProjects: 0,
-          pinnedProjectsCount: prefs.pinnedProjects.length,
-          totalBillingAccounts: 0,
-          openBillingAccounts: 0,
-          spendConfigured: Object.keys(prefs.billingExportTables).length > 0,
-        },
-        projects: [],
-        billingAccounts: [],
-        spend: emptySpend,
-        warnings: [],
-      };
+      return this.buildUnauthenticatedOverview(auth, prefs, now);
     }
 
     const activeAccount = auth.activeAccount;
@@ -165,15 +144,33 @@ export class CompanionService {
         ageMs: 0,
       });
     } catch (err) {
+      const errMsg = sanitizeErrorMessage(err);
+      const isAuthExpiredOrRevoked =
+        /Unable to obtain Google Cloud access token|ADC token refresh failed|invalid_grant|HTTP 401\b/i.test(
+          errMsg
+        );
+      if (isAuthExpiredOrRevoked) {
+        this.gcloud.invalidateTokenCache();
+        return this.buildUnauthenticatedOverview(
+          {
+            ...auth,
+            authenticated: false,
+            activeAccount: null,
+            maskedActiveAccount: null,
+            setupHint:
+              "Your Google Cloud session has expired or been revoked. Please sign in again with `gcloud auth login`.",
+          },
+          prefs,
+          now
+        );
+      }
+
       // Fail resiliently: if we have a previous snapshot on disk, return it marked stale with warning
       if (cached) {
         const ageMs = Math.max(0, now.getTime() - new Date(cached.fetchedAt).getTime());
         const fallbackSnapshot                      = {
           ...cached,
-          warnings: [
-            `Live refresh failed (${sanitizeErrorMessage(err)}); showing cached data.`,
-            ...cached.warnings,
-          ],
+          warnings: [`Live refresh failed (${errMsg}); showing cached data.`, ...cached.warnings],
         };
         return this.assembleOverviewResponse(auth, prefs, fallbackSnapshot, {
           hit: true,
@@ -181,8 +178,40 @@ export class CompanionService {
           ageMs,
         });
       }
-      throw new Error(`Failed to fetch Google Cloud data: ${sanitizeErrorMessage(err)}`);
+      throw new Error(`Failed to fetch Google Cloud data: ${errMsg}`);
     }
+  }
+
+          buildUnauthenticatedOverview(
+    auth                                   ,
+    prefs                      ,
+    now      
+  )                            {
+    const emptySpend = createEmptySpendReport(now);
+    return {
+      auth,
+      preferences: this.formatPublicPreferences(prefs),
+      cache: {
+        hit: false,
+        stale: false,
+        fetchedAt: null,
+        ageMs: null,
+        ttlMs: prefs.cacheTtlMs,
+      },
+      summary: {
+        totalProjects: 0,
+        billedProjects: 0,
+        unbilledProjects: 0,
+        pinnedProjectsCount: prefs.pinnedProjects.length,
+        totalBillingAccounts: 0,
+        openBillingAccounts: 0,
+        spendConfigured: Object.keys(prefs.billingExportTables).length > 0,
+      },
+      projects: [],
+      billingAccounts: [],
+      spend: emptySpend,
+      warnings: [],
+    };
   }
 
           formatPublicPreferences(prefs                      ) {
@@ -518,6 +547,18 @@ export class CompanionService {
       await new Promise((r) => setTimeout(r, 2_500));
     }
 
+    return this.getOverview({ forceRefresh: true });
+  }
+
+  async startInteractiveLogin()                                     {
+    const prefs = this.store.loadPreferences();
+    if (prefs.demoMode) {
+      this.store.updatePreferences((curr) => ({ ...curr, demoMode: false }));
+    }
+    const newAuth = await this.gcloud.triggerInteractiveLogin(prefs.gcloudPathOverride);
+    if (newAuth.activeAccount) {
+      this.store.clearSnapshot(newAuth.activeAccount);
+    }
     return this.getOverview({ forceRefresh: true });
   }
 }

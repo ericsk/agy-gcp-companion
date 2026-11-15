@@ -14,7 +14,44 @@
 - **Zero External Runtime Dependencies**:
   - Pre-compiled to pure ES Modules (`dist/`) that run directly on Antigravity's bundled Node.js runtime without requiring `npm install`.
 
-## Quick Start
+## Installation (For Antigravity Users)
+
+Because `dist/` is pre-compiled with **zero external runtime dependencies**, no `npm install` or build step is required.
+
+### Option A: One-Line Install via Antigravity CLI (`agy`)
+
+```bash
+agy plugin install https://github.com/ericsk/agy-gcp-companion
+```
+
+### Option B: Direct Git Clone (If `agy` CLI is not in your `PATH`)
+
+**macOS / Linux:**
+```bash
+mkdir -p ~/.gemini/config/plugins
+git clone https://github.com/ericsk/agy-gcp-companion.git ~/.gemini/config/plugins/agy-gcp-companion
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\.gemini\config\plugins" | Out-Null
+git clone https://github.com/ericsk/agy-gcp-companion.git "$HOME\.gemini\config\plugins\agy-gcp-companion"
+```
+
+### Opening & First-Time Setup in Antigravity
+
+1. **Restart or Reload Antigravity** so the newly installed plugin and background sidecar register.
+2. *(Optional check)* Open **Customizations → Installed** in the left sidebar to confirm **GCP Companion** is enabled.
+3. Inside any conversation, open the **Plugins / Auxiliary Side Pane (`+`)** at the top-right and select **GCP Companion**.
+4. **Guided Onboarding Inside the Panel**:
+   - **No `gcloud` CLI installed yet?** The panel will prompt you with official Google Cloud SDK / Homebrew installation links.
+   - **Not signed in yet?** Click **🔑 Sign in with Browser (`gcloud auth login`)** right inside the panel to authenticate your Google account.
+   - **Cloud Billing API not enabled yet?** Click **⚡ Enable Cloud Billing API** inside the panel (free GCP API) to load all your Billing Accounts and mapped projects.
+   - **Want exact dollar spend & service breakdowns?** Go to the **Billing** tab → **BigQuery Billing Export Connection** to auto-discover or link your `gcp_billing_export_*` table.
+
+---
+
+## Local Development
 
 ### 1. Build & Run Tests
 
@@ -22,19 +59,11 @@
 npm test
 ```
 
-### 2. Use in Antigravity
+### 2. Symlink Global Dev Install
 
-- **Workspace-Scoped (Automatic)**: Opening this repository in Antigravity automatically discovers `.agents/plugins/agy-gcp-companion`.
-- **Global Installation (All Workspaces)**:
-  ```bash
-  npm run install:global
-  ```
-  Or install directly via the Antigravity CLI (from GitHub or a local clone):
-  ```bash
-  agy plugin install https://github.com/ericsk/agy-gcp-companion
-  # or from a local clone:
-  agy plugin install .
-  ```
+```bash
+npm run install:global
+```
 
 ### 3. Local Standalone Preview
 
