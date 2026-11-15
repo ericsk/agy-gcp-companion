@@ -1,3 +1,5 @@
+import { getActiveLocale, t } from "./i18n/index.js";
+
                                                                                 
 
                                
@@ -141,7 +143,7 @@ export function clearElement(el         )       {
 export function formatMoney(amount        , currency = "USD")         {
   const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "USD";
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(getActiveLocale(), {
       style: "currency",
       currency: safeCurrency,
       minimumFractionDigits: Math.abs(amount) < 10 && amount !== 0 ? 2 : 2,
@@ -153,15 +155,15 @@ export function formatMoney(amount        , currency = "USD")         {
 }
 
 export function formatRelativeAge(ageMs               , stale         )         {
-  if (ageMs === null) return "Not synced";
+  if (ageMs === null) return t("age.notSynced");
   const sec = Math.floor(ageMs / 1000);
-  const suffix = stale ? " (offline cache)" : "";
-  if (sec < 15) return `Just now${suffix}`;
-  if (sec < 60) return `${sec}s ago${suffix}`;
+  const suffix = stale ? t("age.offlineCacheSuffix") : "";
+  if (sec < 15) return t("age.justNow", { suffix });
+  if (sec < 60) return t("age.secondsAgo", { n: sec, suffix });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago${suffix}`;
+  if (min < 60) return t("age.minutesAgo", { n: min, suffix });
   const hr = Math.floor(min / 60);
-  return `${hr}h ${min % 60}m ago${suffix}`;
+  return t("age.hoursMinutesAgo", { h: hr, m: min % 60, suffix });
 }
 
 export async function copyToClipboard(text        )                   {

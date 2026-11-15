@@ -142,6 +142,9 @@ export interface SpendReport {
   byProject: Record<string, ProjectSpendSummary>;
 }
 
+export type LocaleCode = "en" | "ja" | "ko" | "zh-CN" | "zh-TW";
+export type LocalePreference = "auto" | LocaleCode;
+
 export interface CompanionPreferences {
   pinnedProjects: string[];
   billingExportTables: Record<string, BillingExportMapping>;
@@ -151,6 +154,7 @@ export interface CompanionPreferences {
   quotaProjectOverride: string | null;
   lastWorkingQuotaProject?: string | null;
   demoMode: boolean;
+  locale?: LocalePreference;
 }
 
 export interface CachedCloudSnapshot {
@@ -191,6 +195,7 @@ export interface CompanionOverviewResponse {
     gcloudPathOverride: string | null;
     quotaProjectOverride: string | null;
     demoMode: boolean;
+    locale: LocalePreference;
   };
   cache: {
     hit: boolean;

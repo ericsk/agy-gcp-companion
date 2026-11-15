@@ -1,17 +1,30 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+function walkFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      out.push(...walkFiles(full));
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 describe("Frontend Security Static Audit & Plugin Packaging Verification", () => {
   it("contains zero unsafe DOM sinks, inline styles, storage tokens, or blocking dialogs in src/web", () => {
     const webSrcDir = join(ROOT, "src", "web");
-    const files = readdirSync(webSrcDir).filter((f) => f.endsWith(".ts") || f.endsWith(".html"));
-    assert.ok(files.length >= 5);
+    const files = walkFiles(webSrcDir).filter((f) => f.endsWith(".ts") || f.endsWith(".html"));
+    assert.ok(files.length >= 10);
 
     const forbiddenPatterns: Array<{ name: string; regex: RegExp }> = [
       { name: "innerHTML", regex: /\.innerHTML\b/ },
@@ -29,12 +42,13 @@ describe("Frontend Security Static Audit & Plugin Packaging Verification", () =>
     ];
 
     for (const file of files) {
-      const content = readFileSync(join(webSrcDir, file), "utf-8");
+      const content = readFileSync(file, "utf-8");
+      const rel = relative(webSrcDir, file);
       for (const rule of forbiddenPatterns) {
         assert.equal(
           rule.regex.test(content),
           false,
-          `Forbidden pattern '${rule.name}' detected in src/web/${file}`
+          `Forbidden pattern '${rule.name}' detected in src/web/${rel}`
         );
       }
     }
@@ -42,11 +56,11 @@ describe("Frontend Security Static Audit & Plugin Packaging Verification", () =>
 
   it("compiles valid browser ES modules and Node sidecar/MCP bundles", () => {
     const distWebDir = join(ROOT, "dist", "web");
-    const jsFiles = readdirSync(distWebDir).filter((f) => f.endsWith(".js"));
-    assert.ok(jsFiles.length >= 4);
+    const jsFiles = walkFiles(distWebDir).filter((f) => f.endsWith(".js"));
+    assert.ok(jsFiles.length >= 10);
 
     for (const file of jsFiles) {
-      execFileSync(process.execPath, ["--check", join(distWebDir, file)]);
+      execFileSync(process.execPath, ["--check", file]);
     }
     execFileSync(process.execPath, ["--check", join(ROOT, "dist", "sidecar.mjs")]);
     execFileSync(process.execPath, ["--check", join(ROOT, "dist", "mcp-server.mjs")]);

@@ -2,6 +2,7 @@
                             
                          
              
+                   
                       
                           
 
@@ -165,6 +166,7 @@ export async function updateCompanionPreferences(prefs
                                      
                                        
                      
+                            
  )                                     {
   const data = await apiPost                                         ("./api/preferences", prefs);
   return data.overview;

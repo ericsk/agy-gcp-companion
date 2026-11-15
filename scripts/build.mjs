@@ -32,12 +32,23 @@ function rewriteRelativeTsSpecifiers(jsCode, targetExt) {
 function stripModuleSyntaxForIife(jsSource) {
   // Strip top-level ESM `import ... from "...";` statements and `export ` keywords so modules concatenate cleanly into a single IIFE
   return jsSource
-    .replace(/^\s*import\s+[\s\S]*?\s+from\s+["'][^"']+["']\s*;?/gm, "")
+    .replace(/^\s*import\s+(?:[\w*{}\s,]+from\s+)?["'][^"']+["']\s*;?/gm, "")
     .replace(/^\s*export\s+(?=(?:async\s+)?function\b|const\b|let\b|class\b)/gm, "");
 }
 
 function buildWebBundle(distWebDir) {
-  const orderedModules = ["dom.js", "charts.js", "api.js", "app.js"];
+  const orderedModules = [
+    "i18n/en.js",
+    "i18n/ja.js",
+    "i18n/ko.js",
+    "i18n/zh-CN.js",
+    "i18n/zh-TW.js",
+    "i18n/index.js",
+    "dom.js",
+    "charts.js",
+    "api.js",
+    "app.js",
+  ];
   const chunks = orderedModules.map((file) => {
     const raw = readFileSync(join(distWebDir, file), "utf-8");
     return `// --- ${file} ---\n${stripModuleSyntaxForIife(raw)}`;
@@ -72,7 +83,7 @@ function build() {
       const targetExt = isWeb ? ".js" : ".mjs";
       const jsCode = rewriteRelativeTsSpecifiers(stripped, targetExt);
 
-      if (isWeb && /from\s+["']node:|from\s+["']\.\.\/core\//.test(jsCode)) {
+      if (isWeb && /from\s+["']node:|from\s+["'](?:\.\.\/)+core\//.test(jsCode)) {
         throw new Error(`Forbidden server/Node runtime import leaked into browser bundle: ${relPath}`);
       }
 

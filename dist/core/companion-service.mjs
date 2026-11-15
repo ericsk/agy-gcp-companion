@@ -14,7 +14,7 @@ import {
   validateBigQueryTableId,
   validateProjectId,
 } from "./security.mjs";
-import { CompanionStore } from "./store.mjs";
+import { CompanionStore, VALID_LOCALE_PREFERENCES, normalizeLocalePreference } from "./store.mjs";
              
                  
                        
@@ -23,6 +23,7 @@ import { CompanionStore } from "./store.mjs";
                        
                          
              
+                   
                       
                     
 
@@ -223,6 +224,7 @@ export class CompanionService {
       gcloudPathOverride: prefs.gcloudPathOverride,
       quotaProjectOverride: prefs.quotaProjectOverride,
       demoMode: prefs.demoMode,
+      locale: normalizeLocalePreference(prefs.locale),
     };
   }
 
@@ -366,6 +368,7 @@ export class CompanionService {
                                        
                                          
                        
+                              
    )                       {
     let validQuotaProj                            = undefined;
     if (input.quotaProjectOverride !== undefined) {
@@ -383,6 +386,10 @@ export class CompanionService {
       throw new Error("Invalid gcloud binary path override.");
     }
 
+    if (input.locale !== undefined && !VALID_LOCALE_PREFERENCES.has(input.locale)) {
+      throw new Error("Unsupported locale preference.");
+    }
+
     return this.store.updatePreferences((curr) => ({
       ...curr,
       maskEmails: input.maskEmails !== undefined ? Boolean(input.maskEmails) : curr.maskEmails,
@@ -397,6 +404,7 @@ export class CompanionService {
       quotaProjectOverride:
         validQuotaProj !== undefined ? validQuotaProj : curr.quotaProjectOverride,
       demoMode: input.demoMode !== undefined ? Boolean(input.demoMode) : curr.demoMode,
+      locale: input.locale !== undefined ? input.locale : normalizeLocalePreference(curr.locale),
     }));
   }
 

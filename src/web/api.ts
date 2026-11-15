@@ -2,6 +2,7 @@ import type {
   CompanionOverviewResponse,
   DiscoveredBillingTable,
   GcpProject,
+  LocalePreference,
   ProjectSpendSummary,
 } from "../core/types.ts";
 
@@ -165,6 +166,7 @@ export async function updateCompanionPreferences(prefs: {
   gcloudPathOverride?: string | null;
   quotaProjectOverride?: string | null;
   demoMode?: boolean;
+  locale?: LocalePreference;
 }): Promise<CompanionOverviewResponse> {
   const data = await apiPost<{ overview: CompanionOverviewResponse }>("./api/preferences", prefs);
   return data.overview;

@@ -324,6 +324,7 @@ export function buildDemoOverview(
       gcloudPathOverride: prefs.gcloudPathOverride,
       quotaProjectOverride: prefs.quotaProjectOverride,
       demoMode: true,
+      locale: prefs.locale ?? "auto",
     },
     cache: {
       hit: false,

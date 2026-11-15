@@ -110,8 +110,15 @@ body {
 .brand-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.lang-select {
+  padding: 3px 6px;
+  font-size: 11px;
+  height: 26px;
+  cursor: pointer;
 }
 
 .sync-age {
@@ -538,6 +545,19 @@ body {
   color: var(--accent);
   border-color: var(--accent);
   font-weight: 600;
+}
+
+.projects-more-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.linked-projects-more {
+  margin-top: 6px;
 }
 
 .project-card {

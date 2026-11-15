@@ -1,5 +1,6 @@
                                                                          
 import { formatMoney, h, svgEl } from "./dom.js";
+import { t } from "./i18n/index.js";
 
 /**
  * Renders a crisp, responsive SVG daily spend sparkline using `createElementNS`.
@@ -9,7 +10,7 @@ export function renderDailySparkline(
   currency        
 )              {
   if (series.length === 0) {
-    return h("div", { className: "sparkline-empty" }, "No daily usage rows for this month yet");
+    return h("div", { className: "sparkline-empty" }, t("chart.noDailyUsage"));
   }
 
   const width = 320;
@@ -86,7 +87,7 @@ export function renderDailySparkline(
       viewBox: `0 0 ${width} ${height}`,
       class: "sparkline-svg",
       role: "img",
-      "aria-label": `Daily net spend trend (${series.length} days)`,
+      "aria-label": t("chart.dailyTrendAria", { days: series.length }),
     },
     ...children
   );
@@ -103,7 +104,7 @@ export function renderDailySparkline(
       "div",
       { className: "sparkline-caption" },
       h("span", null, firstDate),
-      h("span", null, `Peak ${formatMoney(peakCost, currency)}/d`),
+      h("span", null, t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })),
       h("span", null, lastDate)
     )
   );
@@ -117,7 +118,7 @@ export function renderServiceBreakdownList(
   currency        
 )              {
   if (services.length === 0) {
-    return h("div", { className: "muted-note" }, "No billable service usage recorded this month.");
+    return h("div", { className: "muted-note" }, t("chart.noBillableServices"));
   }
 
   const rows = services.slice(0, 6).map((svc) => {
@@ -164,7 +165,10 @@ export function renderServiceBreakdownList(
                 "span",
                 {
                   className: "svc-credit-hint",
-                  title: `Gross ${formatMoney(svc.grossCost, currency)}, Credits ${formatMoney(svc.creditsAmount, currency)}`,
+                  title: t("chart.grossCreditsHint", {
+                    gross: formatMoney(svc.grossCost, currency),
+                    credits: formatMoney(svc.creditsAmount, currency),
+                  }),
                 },
                 ` (${svc.sharePercent.toFixed(0)}%)`
               )

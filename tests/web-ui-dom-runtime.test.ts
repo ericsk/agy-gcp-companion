@@ -201,8 +201,21 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         setTimeout: (fn: () => void) => setTimeout(fn, 5),
       },
       document: {
-        getElementById: (id: string) =>
-          id === "app" ? appRoot : id === "toast-root" ? toastRoot : null,
+        getElementById: (id: string) => {
+          if (id === "app") return appRoot;
+          if (id === "toast-root") return toastRoot;
+          let found: MockElement | null = null;
+          const search = (node: MockNode) => {
+            if (found) return;
+            if (node instanceof MockElement && node.id === id) {
+              found = node;
+              return;
+            }
+            for (const c of node.childNodes) search(c);
+          };
+          search(appRoot);
+          return found;
+        },
         createElement: (tag: string) => createEl(tag),
         createElementNS: (_ns: string, tag: string) => new MockElement(tag),
         createTextNode: (txt: string) => new MockTextNode(txt),
@@ -286,6 +299,10 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           }
           return new Response(JSON.stringify(overview), { status: 200 });
         }
+        if (url.includes("/api/preferences")) {
+          const overview = await service.getOverview();
+          return new Response(JSON.stringify({ overview }), { status: 200 });
+        }
         return new Response("{}", { status: 200 });
       },
     });
@@ -309,10 +326,25 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       byServiceBtn.click();
       assert.ok(appRoot.allText.includes("Vertex AI"));
 
-      // 2. Switch to Projects Tab and expand a project drawer
+      // 2. Switch to Projects Tab: verify compact default (only Active/Pinned shown, not all projects)
       const projectsTabBtn = appRoot.findButtonsByText("Projects")[0];
       assert.ok(projectsTabBtn);
       projectsTabBtn.click();
+      assert.ok(appRoot.allText.includes("Acme AI Assistant (Prod)"));
+      assert.ok(
+        !appRoot.allText.includes("Legacy Hackathon Prototype"),
+        "Expected unpinned projects to stay hidden by default so panel stays compact"
+      );
+
+      // Typing in search box searches across ALL projects immediately without needing to switch filter chips
+      const searchInputs = (appRoot.querySelectorAll("input") as MockInputElement[]).filter(
+        (inp) => inp.type === "search"
+      );
+      assert.equal(searchInputs.length, 1);
+      searchInputs[0].value = "legacy";
+      for (const fn of searchInputs[0].listeners.input ?? []) {
+        fn({ target: searchInputs[0] });
+      }
       assert.ok(appRoot.allText.includes("Legacy Hackathon Prototype"));
 
       const detailsBtn = appRoot.findButtonsByText("Details")[0];
@@ -396,6 +428,40 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         await new Promise((r) => setTimeout(r, 15));
       }
       assert.ok(appRoot.allText.includes("Acme Cloud Production Billing"));
+
+      // 7. Live Language Switching across Japanese, Korean, Simplified Chinese, Traditional Chinese, and English
+      const switchHeaderLocale = async (localeValue: string) => {
+        const selects = appRoot.querySelectorAll("select") as MockSelectElement[];
+        const langSelect = selects.find((s) =>
+          s.childNodes.some((opt) => opt instanceof MockOptionElement && opt.value === "zh-TW")
+        );
+        assert.ok(langSelect, "Expected header language switcher <select>");
+        langSelect.value = localeValue;
+        service.updateSettings({ locale: localeValue as "en" | "ja" | "ko" | "zh-CN" | "zh-TW" });
+        await Promise.all(
+          (langSelect.listeners.change ?? []).map((fn) => Promise.resolve(fn({ target: langSelect })))
+        );
+      };
+
+      await switchHeaderLocale("ja");
+      assert.ok(appRoot.allText.includes("概要"), "Expected Japanese Overview tab");
+      assert.ok(appRoot.allText.includes("請求"), "Expected Japanese Billing tab");
+
+      await switchHeaderLocale("ko");
+      assert.ok(appRoot.allText.includes("개요"), "Expected Korean Overview tab");
+      assert.ok(appRoot.allText.includes("결제"), "Expected Korean Billing tab");
+
+      await switchHeaderLocale("zh-CN");
+      assert.ok(appRoot.allText.includes("概览"), "Expected Simplified Chinese Overview tab");
+      assert.ok(appRoot.allText.includes("结算"), "Expected Simplified Chinese Billing tab");
+
+      await switchHeaderLocale("zh-TW");
+      assert.ok(appRoot.allText.includes("總覽"), "Expected Traditional Chinese Overview tab");
+      assert.ok(appRoot.allText.includes("帳單"), "Expected Traditional Chinese Billing tab");
+
+      await switchHeaderLocale("en");
+      assert.ok(appRoot.allText.includes("Overview"), "Expected English Overview tab");
+      assert.ok(appRoot.allText.includes("Billing"), "Expected English Billing tab");
     } finally {
       Object.assign(globalThis, prevGlobals);
       rmSync(tmpDir, { recursive: true, force: true });

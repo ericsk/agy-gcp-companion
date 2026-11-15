@@ -5,6 +5,7 @@ import { dirname, extname, basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CompanionService } from "../core/companion-service.ts";
 import { sanitizeErrorMessage } from "../core/security.ts";
+import type { LocalePreference } from "../core/types.ts";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB max JSON payload
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30-minute CSRF/session lifetime
@@ -385,6 +386,7 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
               ? (body.quotaProjectOverride as string | null)
               : undefined,
           demoMode: typeof body.demoMode === "boolean" ? body.demoMode : undefined,
+          locale: typeof body.locale === "string" ? (body.locale as LocalePreference) : undefined,
         });
         const overview = await service.getOverview({ forceRefresh: false });
         sendJson(res, 200, { overview });

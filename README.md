@@ -9,6 +9,7 @@
   - **Overview Tab**: Month-to-date net spend (after credits & free-tier discounts), gross vs. credits breakdown, comparison vs. previous month same-day spend, daily SVG spend sparkline, breakdown toggle (**By Project** / **By Billing Account**), and pinned projects.
   - **Projects Tab**: Search by name, project ID, project number, or label; filter by Billing Account, Pinned, or Unbilled; expand any project to inspect top GCP Services (`Vertex AI`, `Cloud Run`, `BigQuery`, etc.) and jump directly to Console dashboards.
   - **Billing Tab**: Inspect open/closed Cloud Billing Accounts, configured Budget alert thresholds, and connect **BigQuery Cloud Billing Export** tables via 1-click dataset auto-discovery or manual `project.dataset.table` binding.
+  - **Multi-Language Support (`i18n`)**: Automatic system/browser locale detection plus 1-click switching between **English (`en`)**, **日本語 (`ja`)**, **한국어 (`ko`)**, **简体中文 (`zh-CN`)**, and **繁體中文 (`zh-TW`)**, persisted locally across sessions.
 - **Agent Chat Integration (`mcp_config.json` + `SKILL.md`)**:
   - Exposes 8 structured MCP tools (`gcp_companion_status`, `gcp_list_projects`, `gcp_list_billing_accounts`, `gcp_get_billing_summary`, `gcp_get_project_cost_breakdown`, `gcp_set_active_project`, `gcp_set_active_account`, `gcp_configure_billing_export`) sharing the same 6-hour local cache (`~/.gemini/agy-gcp-companion/`) as the panel.
 - **Zero External Runtime Dependencies**:

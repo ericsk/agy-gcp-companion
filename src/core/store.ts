@@ -2,12 +2,28 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { hashAccountKey, safeStoreFilePath } from "./security.ts";
-import type { CachedCloudSnapshot, CompanionPreferences } from "./types.ts";
+import type { CachedCloudSnapshot, CompanionPreferences, LocalePreference } from "./types.ts";
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const MIN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SNAPSHOT_SCHEMA_VERSION = 5;
+
+export const VALID_LOCALE_PREFERENCES: ReadonlySet<LocalePreference> = new Set<LocalePreference>([
+  "auto",
+  "en",
+  "ja",
+  "ko",
+  "zh-CN",
+  "zh-TW",
+]);
+
+export function normalizeLocalePreference(value: unknown): LocalePreference {
+  if (typeof value === "string" && VALID_LOCALE_PREFERENCES.has(value as LocalePreference)) {
+    return value as LocalePreference;
+  }
+  return "auto";
+}
 
 export function getDefaultStoreDir(): string {
   if (process.env.AGY_GCP_COMPANION_STORE_DIR) {
@@ -24,6 +40,7 @@ export const DEFAULT_PREFERENCES: CompanionPreferences = {
   gcloudPathOverride: null,
   quotaProjectOverride: null,
   demoMode: false,
+  locale: "auto",
 };
 
 export class CompanionStore {
@@ -85,6 +102,7 @@ export class CompanionStore {
             ? raw.lastWorkingQuotaProject.trim()
             : null,
         demoMode: Boolean(raw.demoMode),
+        locale: normalizeLocalePreference(raw.locale),
       };
     } catch {
       return { ...DEFAULT_PREFERENCES, billingExportTables: {}, pinnedProjects: [] };
@@ -101,6 +119,7 @@ export class CompanionStore {
       quotaProjectOverride: prefs.quotaProjectOverride?.trim() || null,
       lastWorkingQuotaProject: prefs.lastWorkingQuotaProject?.trim() || null,
       demoMode: Boolean(prefs.demoMode),
+      locale: normalizeLocalePreference(prefs.locale),
     };
     this.writeJsonAtomic("preferences.json", normalized);
     return normalized;

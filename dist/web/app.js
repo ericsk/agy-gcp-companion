@@ -3,6 +3,7 @@
                             
                          
              
+                   
                           
 import {
   configureExportTableApi,
@@ -23,10 +24,21 @@ import {
   formatRelativeAge,
   h,
 } from "./dom.js";
+import {
+  SUPPORTED_LOCALES,
+  getActiveLocale,
+  getLocalePreference,
+  localizeSetupHint,
+  setLocalePreference,
+  t,
+} from "./i18n/index.js";
 
                                                      
                                                                   
                                                   
+
+const PROJECT_PAGE_SIZE = 6;
+const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
 
                    
                                              
@@ -36,9 +48,11 @@ import {
                        
                                       
                         
-                                                                     
+                                                                    
                                
+                           
                                   
+                                        
                               
                              
                                                     
@@ -57,9 +71,11 @@ const state          = {
   activeTab: "overview",
   overviewMode: "projects",
   projectSearch: "",
-  projectFilter: "all",
+  projectFilter: "focus",
   projectSort: "smart",
+  projectPageLimit: PROJECT_PAGE_SIZE,
   expandedProjectIds: new Set        (),
+  expandedBillingLinkedIds: new Set        (),
   discoverHostProject: "",
   discoveringTables: false,
   discoveredTables: null,
@@ -71,6 +87,7 @@ const state          = {
 };
 
 function showToast(message        , kind                               = "info")       {
+  if (typeof document === "undefined" || !document) return;
   const root = document.getElementById("toast-root");
   if (!root) return;
   const item = h("div", { className: `toast toast-${kind}` }, message);
@@ -92,6 +109,7 @@ async function loadData(forceRefresh = false)                {
   try {
     const data = await fetchOverview(forceRefresh);
     state.overview = data;
+    setLocalePreference(data.preferences.locale);
     if (!state.discoverHostProject && data.auth.activeProject) {
       state.discoverHostProject = data.auth.activeProject;
     }
@@ -108,10 +126,10 @@ async function loadData(forceRefresh = false)                {
       state.manualBillingAccountId = data.billingAccounts[0].id;
     }
     if (forceRefresh) {
-      showToast("Google Cloud data refreshed", "success");
+      showToast(t("toast.refreshed"), "success");
     }
   } catch (err) {
-    state.error = err instanceof Error ? err.message : "Failed to load data";
+    state.error = err instanceof Error ? err.message : t("toast.loadFailed");
     showToast(state.error, "error");
   } finally {
     state.loading = false;
@@ -184,19 +202,15 @@ function renderBillingApiSetupPrompt(overview                           )       
     h(
       "div",
       { className: "api-setup-header" },
-      h("span", { className: "badge badge-warn" }, "ACTION NEEDED"),
-      h("h3", { className: "section-title" }, "Enable Cloud Billing API")
+      h("span", { className: "badge badge-warn" }, t("billingApi.badge")),
+      h("h3", { className: "section-title" }, t("billingApi.title"))
     ),
-    h(
-      "p",
-      { className: "card-desc" },
-      "To display your Cloud Billing Accounts and project billing status, Google Cloud requires the free Cloud Billing API (cloudbilling.googleapis.com) to be enabled on a quota project."
-    ),
+    h("p", { className: "card-desc" }, t("billingApi.desc")),
     overview.projects.length > 0
       ? h(
           "label",
           { className: "field-label api-setup-field" },
-          "Quota Project to Enable API On",
+          t("billingApi.quotaProjectLabel"),
           h(
             "select",
             {
@@ -234,15 +248,15 @@ function renderBillingApiSetupPrompt(overview                           )       
                 try {
                   state.enablingApi = true;
                   renderApp();
-                  showToast(`Enabling Cloud Billing API on ${selectedProj}…`, "info");
+                  showToast(t("toast.enablingBillingApi", { project: selectedProj }), "info");
                   state.overview = await enableGcpServiceApi(
                     selectedProj,
                     "cloudbilling.googleapis.com"
                   );
-                  showToast("Cloud Billing API enabled! Billing accounts refreshed.", "success");
+                  showToast(t("toast.enabledBillingApi"), "success");
                 } catch (err) {
                   showToast(
-                    err instanceof Error ? err.message : "Failed to enable Cloud Billing API",
+                    err instanceof Error ? err.message : t("toast.enableBillingApiFailed"),
                     "error"
                   );
                 } finally {
@@ -252,8 +266,8 @@ function renderBillingApiSetupPrompt(overview                           )       
               },
             },
             state.enablingApi
-              ? "Enabling Cloud Billing API (~10s)…"
-              : `⚡ Enable Cloud Billing API on ${selectedProj}`
+              ? t("billingApi.enablingBtn")
+              : t("billingApi.enableBtn", { project: selectedProj })
           )
         : null,
       h(
@@ -264,7 +278,9 @@ function renderBillingApiSetupPrompt(overview                           )       
           target: "_blank",
           rel: "noopener noreferrer",
         },
-        selectedProj ? `Open GCP Console (${selectedProj}) ↗` : "Open GCP Console ↗"
+        selectedProj
+          ? t("billingApi.openConsoleProject", { project: selectedProj })
+          : t("billingApi.openConsole")
       ),
       h(
         "button",
@@ -276,7 +292,7 @@ function renderBillingApiSetupPrompt(overview                           )       
             void loadData(true);
           },
         },
-        "↻ Refresh"
+        t("header.refresh")
       )
     )
   );
@@ -284,7 +300,7 @@ function renderBillingApiSetupPrompt(overview                           )       
 
 function renderDeltaBadge(delta               )              {
   if (delta === null || !Number.isFinite(delta)) {
-    return h("span", { className: "badge badge-neutral" }, "No prior MTD baseline");
+    return h("span", { className: "badge badge-neutral" }, t("spend.noBaseline"));
   }
   const sign = delta > 0 ? "+" : "";
   const cls =
@@ -293,7 +309,47 @@ function renderDeltaBadge(delta               )              {
       : delta < -2
         ? "badge badge-good"
         : "badge badge-neutral";
-  return h("span", { className: cls }, `${sign}${delta.toFixed(1)}% vs prev MTD`);
+  return h("span", { className: cls }, t("spend.vsPrevMtd", { delta: `${sign}${delta.toFixed(1)}` }));
+}
+
+function renderLanguageSelect(compact         )              {
+  const currentPref = getLocalePreference();
+  return h(
+    "select",
+    {
+      className: compact ? "compact-select lang-select" : "compact-select full-width",
+      ariaLabel: t("header.languageAria"),
+      title: t("header.languageTitle"),
+      onChange: async (ev) => {
+        const nextPref = (ev.target                     ).value                    ;
+        setLocalePreference(nextPref);
+        renderApp();
+        try {
+          state.overview = await updateCompanionPreferences({ locale: nextPref });
+          setLocalePreference(state.overview.preferences.locale);
+          renderApp();
+          showToast(t("toast.languageUpdated"), "success");
+        } catch (err) {
+          showToast(
+            err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+            "error"
+          );
+        }
+      },
+    },
+    h(
+      "option",
+      { value: "auto", selected: currentPref === "auto" },
+      compact ? t("locale.autoShort") : t("locale.autoFull")
+    ),
+    ...SUPPORTED_LOCALES.map((loc) =>
+      h(
+        "option",
+        { value: loc.code, selected: currentPref === loc.code },
+        compact ? loc.shortName : loc.nativeName
+      )
+    )
+  );
 }
 
 function renderHeader(overview                           )              {
@@ -317,12 +373,12 @@ function renderHeader(overview                           )              {
           h(
             "div",
             { className: "context-item context-account" },
-            h("span", { className: "context-label" }, "Account"),
+            h("span", { className: "context-label" }, t("header.account")),
             h(
               "select",
               {
                 className: "compact-select",
-                ariaLabel: "Active Google Cloud Account",
+                ariaLabel: t("header.accountAria"),
                 disabled: state.refreshing || overview.preferences.demoMode,
                 onChange: async (ev) => {
                   const target = ev.target                     ;
@@ -332,10 +388,10 @@ function renderHeader(overview                           )              {
                     state.refreshing = true;
                     renderApp();
                     state.overview = await switchActiveAccount(nextAcct);
-                    showToast("Switched active gcloud account", "success");
+                    showToast(t("toast.switchedAccount"), "success");
                   } catch (err) {
                     showToast(
-                      err instanceof Error ? err.message : "Failed to switch account",
+                      err instanceof Error ? err.message : t("toast.switchAccountFailed"),
                       "error"
                     );
                   } finally {
@@ -351,15 +407,15 @@ function renderHeader(overview                           )              {
               {
                 type: "button",
                 className: "icon-btn",
-                title: mask ? "Show full email" : "Mask email (PII protection)",
-                ariaLabel: mask ? "Show full email" : "Mask email",
+                title: mask ? t("header.showEmailTitle") : t("header.maskEmailTitle"),
+                ariaLabel: mask ? t("header.showEmailAria") : t("header.maskEmailAria"),
                 onClick: async () => {
                   try {
                     state.overview = await updateCompanionPreferences({ maskEmails: !mask });
                     renderApp();
                   } catch (err) {
                     showToast(
-                      err instanceof Error ? err.message : "Failed to update preference",
+                      err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
                       "error"
                     );
                   }
@@ -371,20 +427,20 @@ function renderHeader(overview                           )              {
           h(
             "div",
             { className: "context-item context-project" },
-            h("span", { className: "context-label" }, "Active Project"),
+            h("span", { className: "context-label" }, t("header.activeProject")),
             overview.auth.activeProject
               ? h(
                   "button",
                   {
                     type: "button",
                     className: "project-pill-btn",
-                    title: "Click to copy active gcloud project ID",
+                    title: t("header.copyProjectTitle"),
                     onClick: async () => {
                       if (!overview.auth.activeProject) return;
                       const ok = await copyToClipboard(overview.auth.activeProject);
                       showToast(
                         ok
-                          ? `Copied ${overview.auth.activeProject}`
+                          ? t("toast.copied", { value: overview.auth.activeProject })
                           : overview.auth.activeProject,
                         "info"
                       );
@@ -392,7 +448,7 @@ function renderHeader(overview                           )              {
                   },
                   overview.auth.activeProject
                 )
-              : h("span", { className: "muted-inline" }, "(unset)")
+              : h("span", { className: "muted-inline" }, t("header.unset"))
           )
         )
       : null;
@@ -414,14 +470,14 @@ function renderHeader(overview                           )              {
               {
                 type: "button",
                 className: "badge badge-demo",
-                title: "Click to exit Demo Mode and return to live gcloud data",
+                title: t("header.demoExitTitle"),
                 onClick: async () => {
                   state.overview = await updateCompanionPreferences({ demoMode: false });
                   renderApp();
-                  showToast("Exited Demo Mode", "info");
+                  showToast(t("toast.exitedDemo"), "info");
                 },
               },
-              "DEMO ×"
+              t("header.demoBadge")
             )
           : null
       ),
@@ -433,18 +489,19 @@ function renderHeader(overview                           )              {
           { className: "sync-age", title: overview.cache.fetchedAt || "" },
           formatRelativeAge(overview.cache.ageMs, overview.cache.stale)
         ),
+        renderLanguageSelect(true),
         h(
           "button",
           {
             type: "button",
             className: state.refreshing ? "btn btn-sm btn-spinning" : "btn btn-sm",
             disabled: state.refreshing,
-            title: "Force refresh from Google Cloud & BigQuery",
+            title: t("header.refreshTitle"),
             onClick: () => {
               void loadData(true);
             },
           },
-          state.refreshing ? "Syncing…" : "↻ Refresh"
+          state.refreshing ? t("header.syncing") : t("header.refresh")
         )
       )
     ),
@@ -486,10 +543,10 @@ function renderCopyCommandBox(label        , command        )              {
           className: "btn btn-xs",
           onClick: async () => {
             const ok = await copyToClipboard(command);
-            showToast(ok ? `Copied \`${command}\`` : command, "info");
+            showToast(ok ? t("toast.copied", { value: `\`${command}\`` }) : command, "info");
           },
         },
-        "Copy"
+        t("common.copy")
       )
     )
   );
@@ -499,6 +556,7 @@ function renderUnauthenticatedView(overview                           )         
   const installDocsUrl = "https://cloud.google.com/sdk/docs/install";
   const brewInstallCmd = "brew install --cask gcloud-cli";
   const loginCmd = "gcloud auth login";
+  const localizedHint = localizeSetupHint(overview.auth.setupHint);
 
   if (!overview.auth.gcloudInstalled) {
     return h(
@@ -507,14 +565,10 @@ function renderUnauthenticatedView(overview                           )         
       h(
         "div",
         { className: "api-setup-header" },
-        h("span", { className: "badge badge-warn" }, "STEP 1 OF 2 · CLI REQUIRED"),
-        h("h2", { className: "card-title" }, "Install Google Cloud CLI (gcloud)")
+        h("span", { className: "badge badge-warn" }, t("onboard.step1Badge")),
+        h("h2", { className: "card-title" }, t("onboard.step1Title"))
       ),
-      h(
-        "p",
-        { className: "card-desc" },
-        "Google Cloud CLI (`gcloud`) was not detected on your computer. Install it first, then sign in to inspect your GCP projects and billing accounts."
-      ),
+      h("p", { className: "card-desc" }, t("onboard.step1Desc")),
       h(
         "div",
         { className: "setup-checklist" },
@@ -525,12 +579,8 @@ function renderUnauthenticatedView(overview                           )         
           h(
             "div",
             { className: "setup-step-body" },
-            h("div", { className: "row-primary-text" }, "Install Google Cloud CLI (`gcloud`)"),
-            h(
-              "div",
-              { className: "muted-micro" },
-              "Not found in PATH or standard SDK folders. Install via official installer or Homebrew."
-            )
+            h("div", { className: "row-primary-text" }, t("onboard.step1Check1Title")),
+            h("div", { className: "muted-micro" }, t("onboard.step1Check1Desc"))
           )
         ),
         h(
@@ -540,8 +590,8 @@ function renderUnauthenticatedView(overview                           )         
           h(
             "div",
             { className: "setup-step-body" },
-            h("div", { className: "row-primary-text" }, "Sign in to Google Cloud"),
-            h("div", { className: "muted-micro" }, "Run `gcloud auth login` after installation.")
+            h("div", { className: "row-primary-text" }, t("onboard.step1Check2Title")),
+            h("div", { className: "muted-micro" }, t("onboard.step1Check2Desc"))
           )
         )
       ),
@@ -556,11 +606,11 @@ function renderUnauthenticatedView(overview                           )         
             target: "_blank",
             rel: "noopener noreferrer",
           },
-          "Download & Install gcloud CLI ↗"
+          t("onboard.downloadInstallBtn")
         )
       ),
-      renderCopyCommandBox("macOS Quick Install (Homebrew)", brewInstallCmd),
-      renderCopyCommandBox("Step 2 — Sign In After Installing", loginCmd),
+      renderCopyCommandBox(t("onboard.homebrewLabel"), brewInstallCmd),
+      renderCopyCommandBox(t("onboard.signInAfterInstallLabel"), loginCmd),
       h(
         "div",
         { className: "action-row" },
@@ -574,7 +624,7 @@ function renderUnauthenticatedView(overview                           )         
               void loadData(true);
             },
           },
-          state.refreshing ? "Checking…" : "↻ Re-check gcloud Installation"
+          state.refreshing ? t("common.checking") : t("onboard.recheckCliBtn")
         ),
         h(
           "button",
@@ -584,10 +634,10 @@ function renderUnauthenticatedView(overview                           )         
             onClick: async () => {
               state.overview = await updateCompanionPreferences({ demoMode: true });
               renderApp();
-              showToast("Demo Preview Mode enabled", "info");
+              showToast(t("toast.demoEnabled"), "info");
             },
           },
-          "Preview Demo Dashboard"
+          t("onboard.previewDemoBtn")
         )
       ),
       renderSettingsDetails(overview)
@@ -601,14 +651,10 @@ function renderUnauthenticatedView(overview                           )         
     h(
       "div",
       { className: "api-setup-header" },
-      h("span", { className: "badge badge-warn" }, "STEP 2 OF 2 · SIGN IN REQUIRED"),
-      h("h2", { className: "card-title" }, "Sign in to Your Google Cloud Account")
+      h("span", { className: "badge badge-warn" }, t("onboard.step2Badge")),
+      h("h2", { className: "card-title" }, t("onboard.step2Title"))
     ),
-    h(
-      "p",
-      { className: "card-desc" },
-      "Google Cloud CLI (`gcloud`) is installed on your computer, but no authenticated Google account is active yet. Sign in to view your projects and billing."
-    ),
+    h("p", { className: "card-desc" }, t("onboard.step2Desc")),
     h(
       "div",
       { className: "setup-checklist" },
@@ -619,7 +665,7 @@ function renderUnauthenticatedView(overview                           )         
         h(
           "div",
           { className: "setup-step-body" },
-          h("div", { className: "row-primary-text" }, "Google Cloud CLI Detected"),
+          h("div", { className: "row-primary-text" }, t("onboard.cliDetectedTitle")),
           h(
             "div",
             { className: "row-mono" },
@@ -634,18 +680,12 @@ function renderUnauthenticatedView(overview                           )         
         h(
           "div",
           { className: "setup-step-body" },
-          h("div", { className: "row-primary-text" }, "Authenticate Google Account"),
-          h(
-            "div",
-            { className: "muted-micro" },
-            "Click below to launch Google Sign-In in your browser, or run `gcloud auth login` in a terminal."
-          )
+          h("div", { className: "row-primary-text" }, t("onboard.authAccountTitle")),
+          h("div", { className: "muted-micro" }, t("onboard.authAccountDesc"))
         )
       )
     ),
-    overview.auth.setupHint
-      ? h("div", { className: "callout callout-info" }, overview.auth.setupHint)
-      : null,
+    localizedHint ? h("div", { className: "callout callout-info" }, localizedHint) : null,
     h(
       "div",
       { className: "action-row onboarding-links" },
@@ -659,12 +699,12 @@ function renderUnauthenticatedView(overview                           )         
             try {
               state.signingInBrowser = true;
               renderApp();
-              showToast("Opening Google Sign-In in your browser…", "info");
+              showToast(t("toast.openingBrowserSignIn"), "info");
               state.overview = await startBrowserLoginApi();
-              showToast("Signed in to Google Cloud!", "success");
+              showToast(t("toast.signedInSuccess"), "success");
             } catch (err) {
               showToast(
-                err instanceof Error ? err.message : "Browser sign-in did not complete",
+                err instanceof Error ? err.message : t("toast.signInIncomplete"),
                 "error"
               );
             } finally {
@@ -673,12 +713,10 @@ function renderUnauthenticatedView(overview                           )         
             }
           },
         },
-        state.signingInBrowser
-          ? "Waiting for Browser Sign-In…"
-          : "🔑 Sign in with Browser (gcloud auth login)"
+        state.signingInBrowser ? t("onboard.waitingBrowserBtn") : t("onboard.signInBrowserBtn")
       )
     ),
-    renderCopyCommandBox("Or Run in Your Terminal", loginCmd),
+    renderCopyCommandBox(t("onboard.orRunInTerminal"), loginCmd),
     h(
       "div",
       { className: "action-row" },
@@ -692,7 +730,7 @@ function renderUnauthenticatedView(overview                           )         
             void loadData(true);
           },
         },
-        state.refreshing ? "Checking…" : "↻ I Signed In — Refresh"
+        state.refreshing ? t("common.checking") : t("onboard.signedInRefreshBtn")
       ),
       h(
         "button",
@@ -703,10 +741,10 @@ function renderUnauthenticatedView(overview                           )         
           onClick: async () => {
             state.overview = await updateCompanionPreferences({ demoMode: true });
             renderApp();
-            showToast("Demo Preview Mode enabled", "info");
+            showToast(t("toast.demoEnabled"), "info");
           },
         },
-        "Preview Demo Dashboard"
+        t("onboard.previewDemoBtn")
       )
     ),
     renderSettingsDetails(overview)
@@ -715,32 +753,38 @@ function renderUnauthenticatedView(overview                           )         
 
 function renderTabNav(overview                           )              {
   const tabs                                                          = [
-    { id: "overview", label: "Overview" },
-    { id: "projects", label: "Projects", count: overview.summary.totalProjects },
-    { id: "billing", label: "Billing", count: overview.summary.totalBillingAccounts },
+    { id: "overview", label: t("tabs.overview") },
+    { id: "projects", label: t("tabs.projects"), count: overview.summary.totalProjects },
+    { id: "billing", label: t("tabs.billing"), count: overview.summary.totalBillingAccounts },
   ];
 
   return h(
     "nav",
-    { className: "tab-bar", role: "tablist", ariaLabel: "GCP Companion Sections" },
-    ...tabs.map((t) =>
+    { className: "tab-bar", role: "tablist", ariaLabel: t("tabs.ariaLabel") },
+    ...tabs.map((tab) =>
       h(
         "button",
         {
           type: "button",
           role: "tab",
-          ariaSelected: String(state.activeTab === t.id),
-          className: state.activeTab === t.id ? "tab-btn tab-btn-active" : "tab-btn",
+          ariaSelected: String(state.activeTab === tab.id),
+          className: state.activeTab === tab.id ? "tab-btn tab-btn-active" : "tab-btn",
           onClick: () => {
-            state.activeTab = t.id;
+            state.activeTab = tab.id;
             renderApp();
           },
         },
-        t.label,
-        t.count !== undefined ? h("span", { className: "tab-count" }, String(t.count)) : null
+        tab.label,
+        tab.count !== undefined ? h("span", { className: "tab-count" }, String(tab.count)) : null
       )
     )
   );
+}
+
+function formatLinkedProjectCount(count        )         {
+  return count === 1
+    ? t("billing.projectCountOne")
+    : t("billing.projectCountMany", { count });
 }
 
 function renderOverviewTab(overview                           )              {
@@ -755,14 +799,10 @@ function renderOverviewTab(overview                           )              {
         h(
           "div",
           { className: "api-setup-header" },
-          h("span", { className: "badge badge-warn" }, "CLI RECOMMENDED"),
-          h("h3", { className: "section-title" }, "Google Cloud CLI (`gcloud`) Not Found")
+          h("span", { className: "badge badge-warn" }, t("overview.cliRecommendedBadge")),
+          h("h3", { className: "section-title" }, t("overview.cliNotFoundTitle"))
         ),
-        h(
-          "p",
-          { className: "card-desc" },
-          "Connected using saved Application Default Credentials, but `gcloud` CLI was not found on your computer. Install `gcloud` to enable account switching and CLI project sync."
-        ),
+        h("p", { className: "card-desc" }, t("overview.cliNotFoundDesc")),
         h(
           "div",
           { className: "action-row" },
@@ -774,7 +814,7 @@ function renderOverviewTab(overview                           )              {
               target: "_blank",
               rel: "noopener noreferrer",
             },
-            "Install gcloud CLI ↗"
+            t("overview.installCliBtn")
           )
         )
       )
@@ -793,7 +833,9 @@ function renderOverviewTab(overview                           )              {
             h(
               "span",
               { className: "eyebrow" },
-              `Month-to-Date Net Spend (${spend.invoiceMonth.slice(0, 4)}-${spend.invoiceMonth.slice(4)})`
+              t("overview.mtdNetSpend", {
+                month: `${spend.invoiceMonth.slice(0, 4)}-${spend.invoiceMonth.slice(4)}`,
+              })
             ),
             renderDeltaBadge(total.deltaPercentVsPrevSameDay)
           ),
@@ -808,17 +850,19 @@ function renderOverviewTab(overview                           )              {
             h(
               "span",
               { className: "submetric" },
-              `Gross: ${formatMoney(total.currentMonthGrossCost, total.currency)}`
+              t("spend.gross", { amount: formatMoney(total.currentMonthGrossCost, total.currency) })
             ),
             h(
               "span",
               { className: "submetric submetric-credit" },
-              `Credits: ${formatMoney(total.currentMonthCredits, total.currency)}`
+              t("spend.credits", { amount: formatMoney(total.currentMonthCredits, total.currency) })
             ),
             h(
               "span",
               { className: "submetric" },
-              `Last mo total: ${formatMoney(total.prevMonthTotalNetCost, total.currency)}`
+              t("spend.lastMonthTotal", {
+                amount: formatMoney(total.prevMonthTotalNetCost, total.currency),
+              })
             )
           ),
           renderDailySparkline(total.dailySeries, total.currency)
@@ -843,7 +887,7 @@ function renderOverviewTab(overview                           )              {
         h(
           "div",
           { className: "section-header-row" },
-          h("h3", { className: "section-title" }, "Current Spend Breakdown"),
+          h("h3", { className: "section-title" }, t("overview.spendBreakdownTitle")),
           h(
             "div",
             { className: "segmented-mini" },
@@ -858,7 +902,7 @@ function renderOverviewTab(overview                           )              {
                   renderApp();
                 },
               },
-              "By Project"
+              t("overview.byProject")
             ),
             h(
               "button",
@@ -871,7 +915,7 @@ function renderOverviewTab(overview                           )              {
                   renderApp();
                 },
               },
-              "By Account"
+              t("overview.byAccount")
             ),
             h(
               "button",
@@ -884,7 +928,7 @@ function renderOverviewTab(overview                           )              {
                   renderApp();
                 },
               },
-              "By Service"
+              t("overview.byService")
             )
           )
         ),
@@ -923,14 +967,14 @@ function renderOverviewTab(overview                           )              {
                         ? h(
                             "span",
                             { className: "muted-micro" },
-                            `Top: ${ps.topServices[0].serviceName}`
+                            t("overview.topService", { service: ps.topServices[0].serviceName })
                           )
                         : null
                     )
                   );
                 })
               )
-            : h("div", { className: "muted-note" }, "No per-project costs recorded this month.")
+            : h("div", { className: "muted-note" }, t("overview.noProjectCosts"))
           : state.overviewMode === "services"
             ? renderServiceBreakdownList(
                 spend.totalsByCurrency[0]?.topServices ?? [],
@@ -957,7 +1001,7 @@ function renderOverviewTab(overview                           )              {
                     h(
                       "span",
                       { className: "row-mono" },
-                      `${ba.id} · ${ba.linkedProjectCount} projects`
+                      `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
                     )
                   ),
                   h(
@@ -969,11 +1013,11 @@ function renderOverviewTab(overview                           )              {
                           { className: "amount-strong" },
                           formatMoney(bs.currentMonthNetCost, bs.currency)
                         )
-                      : h("span", { className: "muted-micro" }, "No BQ rows"),
+                      : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
                     h(
                       "span",
                       { className: ba.open ? "status-dot-open" : "status-dot-closed" },
-                      ba.open ? "OPEN" : "CLOSED"
+                      ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
                     )
                   )
                 );
@@ -993,7 +1037,7 @@ function renderOverviewTab(overview                           )              {
           "div",
           { className: "kpi-cell" },
           h("span", { className: "kpi-num" }, String(overview.summary.totalProjects)),
-          h("span", { className: "kpi-label" }, "Active Projects")
+          h("span", { className: "kpi-label" }, t("overview.kpiActiveProjects"))
         ),
         h(
           "div",
@@ -1006,7 +1050,7 @@ function renderOverviewTab(overview                           )              {
           h(
             "span",
             { className: "kpi-label" },
-            billingOff ? "Billing API Off" : "Open Billing Accts"
+            billingOff ? t("overview.kpiBillingApiOff") : t("overview.kpiOpenBillingAccts")
           )
         ),
         h(
@@ -1020,7 +1064,7 @@ function renderOverviewTab(overview                           )              {
           h(
             "span",
             { className: "kpi-label" },
-            billingOff ? "Enable API Below" : "Unbilled / Sandbox"
+            billingOff ? t("overview.kpiEnableApiBelow") : t("overview.kpiUnbilledSandbox")
           )
         )
       )
@@ -1035,16 +1079,18 @@ function renderOverviewTab(overview                           )              {
         h(
           "h3",
           { className: "section-title" },
-          spend.configured
-            ? "BigQuery Connected — Waiting for Usage Rows"
-            : "Unlock Month-to-Date Spend Tracking"
+          spend.configured ? t("overview.bqWaitingTitle") : t("overview.unlockSpendTitle")
         ),
         h(
           "p",
           { className: "card-desc" },
           spend.configured
-            ? `Queried ${spend.queriedTables.join(", ")}, which currently has no rows for ${spend.invoiceMonth} / ${spend.previousInvoiceMonth}.`
-            : "GCP's REST API lists projects, billing accounts, and budget rules immediately. Connect a BigQuery Billing Export table to see exact net spend, credits, and per-service breakdowns."
+            ? t("overview.bqWaitingDesc", {
+                tables: spend.queriedTables.join(", "),
+                currentMonth: spend.invoiceMonth,
+                prevMonth: spend.previousInvoiceMonth,
+              })
+            : t("overview.unlockSpendDesc")
         ),
         h(
           "div",
@@ -1059,7 +1105,7 @@ function renderOverviewTab(overview                           )              {
                 renderApp();
               },
             },
-            spend.configured ? "Manage Export Tables →" : "Connect BigQuery Export →"
+            spend.configured ? t("overview.manageExportBtn") : t("overview.connectBqBtn")
           ),
           !overview.preferences.demoMode
             ? h(
@@ -1070,10 +1116,10 @@ function renderOverviewTab(overview                           )              {
                   onClick: async () => {
                     state.overview = await updateCompanionPreferences({ demoMode: true });
                     renderApp();
-                    showToast("Showing sample spend data", "info");
+                    showToast(t("toast.showingSampleSpend"), "info");
                   },
                 },
-                "Preview Sample Spend"
+                t("overview.previewSampleBtn")
               )
             : null
         )
@@ -1090,7 +1136,7 @@ function renderOverviewTab(overview                           )              {
       h(
         "div",
         { className: "section-header-row" },
-        h("h3", { className: "section-title" }, "Pinned & Active Projects"),
+        h("h3", { className: "section-title" }, t("overview.pinnedAndActiveTitle")),
         h(
           "button",
           {
@@ -1098,10 +1144,12 @@ function renderOverviewTab(overview                           )              {
             className: "link-btn",
             onClick: () => {
               state.activeTab = "projects";
+              state.projectFilter = "all";
+              state.projectPageLimit = PROJECT_PAGE_SIZE;
               renderApp();
             },
           },
-          `View all (${overview.projects.length}) →`
+          t("overview.viewAllProjects", { count: overview.projects.length })
         )
       ),
       quickProjects.length > 0
@@ -1110,11 +1158,7 @@ function renderOverviewTab(overview                           )              {
             { className: "compact-list" },
             ...quickProjects.map((proj) => renderQuickProjectItem(proj, overview))
           )
-        : h(
-            "div",
-            { className: "muted-note" },
-            "Star ★ your favorite projects in the Projects tab to pin them here for 1-click switching."
-          )
+        : h("div", { className: "muted-note" }, t("overview.pinEmptyHint"))
     )
   );
 
@@ -1126,7 +1170,7 @@ function renderOverviewTab(overview                           )              {
       h(
         "section",
         { className: "card warning-card" },
-        h("h3", { className: "section-title" }, "Diagnostics & Notes"),
+        h("h3", { className: "section-title" }, t("overview.diagnosticsTitle")),
         ...remainingWarnings.map((w) => renderWarningLine(w, preferredProj))
       )
     );
@@ -1144,8 +1188,8 @@ function renderWarningLine(warningText        , fallbackProjectId         )     
   }
   const consoleUrl = withConsoleProject(urlMatch[1], fallbackProjectId);
   const label = consoleUrl.includes("/iam-admin/")
-    ? "Open IAM Permissions in GCP Console ↗"
-    : "Enable API in GCP Console ↗";
+    ? t("warnings.openIamConsole")
+    : t("warnings.enableApiConsole");
   return h(
     "div",
     { className: "warning-line" },
@@ -1184,13 +1228,13 @@ function renderQuickProjectItem(
         proj.pinned ? h("span", { className: "star-active" }, "★") : null,
         h("span", { className: "row-primary-text" }, proj.name),
         proj.isActiveProject
-          ? h("span", { className: "badge badge-active" }, "Active")
+          ? h("span", { className: "badge badge-active" }, t("project.activeBadge"))
           : null
       ),
       h(
         "span",
         { className: "row-mono" },
-        `${proj.projectId}${proj.billingAccountName ? ` · ${proj.billingAccountName}` : " · Unbilled"}`
+        `${proj.projectId}${proj.billingAccountName ? ` · ${proj.billingAccountName}` : ` · ${t("project.unbilledTag")}`}`
       )
     ),
     h(
@@ -1209,22 +1253,22 @@ function renderQuickProjectItem(
             {
               type: "button",
               className: "btn btn-xs",
-              title: `Run gcloud config set project ${proj.projectId}`,
+              title: t("project.setActiveCmdTitle", { project: proj.projectId }),
               onClick: async () => {
                 try {
                   state.enableTargetProject = "";
                   state.overview = await switchActiveProject(proj.projectId);
                   renderApp();
-                  showToast(`Active project set to ${proj.projectId}`, "success");
+                  showToast(t("toast.activeProjectSet", { project: proj.projectId }), "success");
                 } catch (err) {
                   showToast(
-                    err instanceof Error ? err.message : "Failed to switch project",
+                    err instanceof Error ? err.message : t("toast.switchProjectFailed"),
                     "error"
                   );
                 }
               },
             },
-            "Set Active"
+            t("project.setActiveBtn")
           )
         : null,
       h(
@@ -1234,7 +1278,7 @@ function renderQuickProjectItem(
           href: `https://console.cloud.google.com/home/dashboard?project=${encodeURIComponent(proj.projectId)}`,
           target: "_blank",
           rel: "noopener noreferrer",
-          title: "Open in Google Cloud Console",
+          title: t("project.openConsoleTitle"),
         },
         "↗"
       )
@@ -1246,6 +1290,11 @@ function getFilteredAndSortedProjects(overview                           )      
   const searchLower = state.projectSearch.trim().toLowerCase();
 
   const filtered = overview.projects.filter((p) => {
+    // In default "focus" mode without a search query, show only Active / Pinned / Expanded projects so the panel stays compact.
+    // As soon as the user types in the search box, search across ALL projects automatically!
+    if (state.projectFilter === "focus" && !searchLower) {
+      return p.isActiveProject || p.pinned || state.expandedProjectIds.has(p.projectId);
+    }
     if (state.projectFilter === "pinned" && !p.pinned) return false;
     if (state.projectFilter === "unbilled" && p.billingEnabled) return false;
     if (state.projectFilter.startsWith("ba:")) {
@@ -1287,12 +1336,12 @@ function getFilteredAndSortedProjects(overview                           )      
 }
 
 function renderProjectsTab(overview                           )              {
-  const filtered = getFilteredAndSortedProjects(overview);
+  const focusCount = overview.projects.filter((p) => p.isActiveProject || p.pinned).length;
 
   const filterChips                                        = [
-    { key: "all", label: `All (${overview.projects.length})` },
-    { key: "pinned", label: `Pinned ★ (${overview.summary.pinnedProjectsCount})` },
-    { key: "unbilled", label: `Unbilled (${overview.summary.unbilledProjects})` },
+    { key: "focus", label: t("projects.filterFocus", { count: focusCount }) },
+    { key: "all", label: t("projects.filterAll", { count: overview.projects.length }) },
+    { key: "unbilled", label: t("projects.filterUnbilled", { count: overview.summary.unbilledProjects }) },
     ...overview.billingAccounts.map((ba) => ({
       key: `ba:${ba.id}`,
       label: `${ba.displayName} (${ba.linkedProjectCount})`,
@@ -1311,11 +1360,12 @@ function renderProjectsTab(overview                           )              {
         h("input", {
           type: "search",
           className: "search-input",
-          placeholder: "Search project name, ID, number, label…",
+          placeholder: t("projects.searchPlaceholder"),
           value: state.projectSearch,
-          ariaLabel: "Search GCP Projects",
+          ariaLabel: t("projects.searchAria"),
           onInput: (ev) => {
             state.projectSearch = (ev.target                    ).value;
+            state.projectPageLimit = PROJECT_PAGE_SIZE;
             renderProjectsListOnly();
           },
         }),
@@ -1323,19 +1373,19 @@ function renderProjectsTab(overview                           )              {
           "select",
           {
             className: "compact-select",
-            ariaLabel: "Sort projects",
+            ariaLabel: t("projects.sortAria"),
             onChange: (ev) => {
               state.projectSort = (ev.target                     ).value                   ;
               renderApp();
             },
           },
-          h("option", { value: "smart", selected: state.projectSort === "smart" }, "Sort: Smart"),
+          h("option", { value: "smart", selected: state.projectSort === "smart" }, t("projects.sortSmart")),
           h(
             "option",
             { value: "spend", selected: state.projectSort === "spend" },
-            "Sort: Spend ↓"
+            t("projects.sortSpend")
           ),
-          h("option", { value: "name", selected: state.projectSort === "name" }, "Sort: Name A–Z")
+          h("option", { value: "name", selected: state.projectSort === "name" }, t("projects.sortName"))
         )
       ),
       h(
@@ -1350,6 +1400,7 @@ function renderProjectsTab(overview                           )              {
                 state.projectFilter === chip.key ? "filter-chip filter-chip-active" : "filter-chip",
               onClick: () => {
                 state.projectFilter = chip.key;
+                state.projectPageLimit = PROJECT_PAGE_SIZE;
                 renderApp();
               },
             },
@@ -1361,7 +1412,7 @@ function renderProjectsTab(overview                           )              {
     h(
       "div",
       { id: "projects-results-container", className: "stack-list" },
-      ...buildProjectCards(filtered, overview)
+      ...buildProjectResultsNodes(overview)
     )
   );
 }
@@ -1369,11 +1420,125 @@ function renderProjectsTab(overview                           )              {
 function renderProjectsListOnly()       {
   const container = document.getElementById("projects-results-container");
   if (!container || !state.overview) return;
-  const filtered = getFilteredAndSortedProjects(state.overview);
   clearElement(container);
-  for (const node of buildProjectCards(filtered, state.overview)) {
+  for (const node of buildProjectResultsNodes(state.overview)) {
     container.appendChild(node);
   }
+}
+
+function buildProjectResultsNodes(overview                           )                {
+  const filtered = getFilteredAndSortedProjects(overview);
+  const isCompactDefault = state.projectFilter === "focus" && !state.projectSearch.trim();
+  const totalProjects = overview.projects.length;
+
+  // Empty compact state (e.g. 0 pinned & no active project yet, while projects exist)
+  if (isCompactDefault && filtered.length === 0 && totalProjects > 0) {
+    return [
+      h(
+        "div",
+        { className: "card projects-more-bar" },
+        h("span", { className: "muted-note" }, t("projects.focusEmptyPrompt", { total: totalProjects })),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs",
+            onClick: () => {
+              state.projectFilter = "all";
+              state.projectPageLimit = PROJECT_PAGE_SIZE;
+              renderApp();
+            },
+          },
+          t("projects.browseAllBtn", { total: totalProjects })
+        )
+      ),
+    ];
+  }
+
+  const visible = filtered.slice(0, state.projectPageLimit);
+  const nodes = buildProjectCards(visible, overview);
+  const remainingInFilter = Math.max(0, filtered.length - visible.length);
+
+  if (isCompactDefault && totalProjects > visible.length) {
+    nodes.push(
+      h(
+        "div",
+        { className: "card projects-more-bar" },
+        h(
+          "span",
+          { className: "muted-micro" },
+          t("projects.hiddenCompactHint", { shown: visible.length, total: totalProjects })
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs",
+            onClick: () => {
+              if (remainingInFilter > 0) {
+                state.projectPageLimit += PROJECT_PAGE_SIZE;
+                renderProjectsListOnly();
+              } else {
+                state.projectFilter = "all";
+                state.projectPageLimit = PROJECT_PAGE_SIZE;
+                renderApp();
+              }
+            },
+          },
+          remainingInFilter > 0
+            ? t("projects.showMoreBtn", { remaining: remainingInFilter })
+            : t("projects.browseAllBtn", { total: totalProjects })
+        )
+      )
+    );
+  } else if (remainingInFilter > 0 || (state.projectFilter === "all" && totalProjects > 0)) {
+    const actionButtons                = [];
+    if (remainingInFilter > 0) {
+      actionButtons.push(
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs",
+            onClick: () => {
+              state.projectPageLimit += PROJECT_PAGE_SIZE;
+              renderProjectsListOnly();
+            },
+          },
+          t("projects.showMoreBtn", { remaining: remainingInFilter })
+        )
+      );
+    }
+    if (state.projectFilter === "all" && !state.projectSearch.trim()) {
+      actionButtons.push(
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-ghost",
+            onClick: () => {
+              state.projectFilter = "focus";
+              state.projectPageLimit = PROJECT_PAGE_SIZE;
+              renderApp();
+            },
+          },
+          t("projects.collapseListBtn")
+        )
+      );
+    }
+    if (actionButtons.length > 0) {
+      nodes.push(
+        h(
+          "div",
+          { className: "card projects-more-bar" },
+          h("span", { className: "muted-micro" }, `${visible.length} / ${filtered.length}`),
+          h("div", { className: "action-row" }, ...actionButtons)
+        )
+      );
+    }
+  }
+
+  return nodes;
 }
 
 function buildProjectCards(
@@ -1382,7 +1547,7 @@ function buildProjectCards(
 )                {
   if (projects.length === 0) {
     return [
-      h("div", { className: "card muted-note" }, "No GCP projects match the current filter."),
+      h("div", { className: "card muted-note" }, t("projects.emptyFilter")),
     ];
   }
 
@@ -1413,8 +1578,10 @@ function buildProjectCards(
           {
             type: "button",
             className: proj.pinned ? "pin-btn pin-btn-on" : "pin-btn",
-            title: proj.pinned ? "Unpin project" : "Pin project to Overview",
-            ariaLabel: proj.pinned ? `Unpin ${proj.projectId}` : `Pin ${proj.projectId}`,
+            title: proj.pinned ? t("project.unpinTitle") : t("project.pinTitle"),
+            ariaLabel: proj.pinned
+              ? t("project.unpinAria", { project: proj.projectId })
+              : t("project.pinAria", { project: proj.projectId }),
             onClick: async (ev) => {
               ev.stopPropagation();
               try {
@@ -1422,7 +1589,7 @@ function buildProjectCards(
                 renderApp();
               } catch (err) {
                 showToast(
-                  err instanceof Error ? err.message : "Failed to update pin",
+                  err instanceof Error ? err.message : t("toast.pinUpdateFailed"),
                   "error"
                 );
               }
@@ -1441,7 +1608,7 @@ function buildProjectCards(
             { className: "inline-badges" },
             h("span", { className: "project-name" }, proj.name),
             proj.isActiveProject
-              ? h("span", { className: "badge badge-active" }, "Active")
+              ? h("span", { className: "badge badge-active" }, t("project.activeBadge"))
               : null
           ),
           h(
@@ -1452,18 +1619,18 @@ function buildProjectCards(
               {
                 type: "button",
                 className: "mono-copy-btn",
-                title: "Copy Project ID",
+                title: t("project.copyIdTitle"),
                 onClick: async (ev) => {
                   ev.stopPropagation();
                   const ok = await copyToClipboard(proj.projectId);
-                  showToast(ok ? `Copied ${proj.projectId}` : proj.projectId, "info");
+                  showToast(ok ? t("toast.copied", { value: proj.projectId }) : proj.projectId, "info");
                 },
               },
               `${proj.projectId} ⧉`
             ),
             proj.billingEnabled && proj.billingAccountName
               ? h("span", { className: "billing-tag" }, proj.billingAccountName)
-              : h("span", { className: "billing-tag billing-tag-off" }, "No Billing")
+              : h("span", { className: "billing-tag billing-tag-off" }, t("project.noBillingTag"))
           )
         ),
         h(
@@ -1493,16 +1660,16 @@ function buildProjectCards(
                         state.enableTargetProject = "";
                         state.overview = await switchActiveProject(proj.projectId);
                         renderApp();
-                        showToast(`Switched active project to ${proj.projectId}`, "success");
+                        showToast(t("toast.switchedProject", { project: proj.projectId }), "success");
                       } catch (err) {
                         showToast(
-                          err instanceof Error ? err.message : "Failed to switch project",
+                          err instanceof Error ? err.message : t("toast.switchProjectFailed"),
                           "error"
                         );
                       }
                     },
                   },
-                  "Set Active"
+                  t("project.setActiveBtn")
                 )
               : null,
             h(
@@ -1516,7 +1683,7 @@ function buildProjectCards(
                   toggleExpand();
                 },
               },
-              expanded ? "Hide ▴" : "Details ▾"
+              expanded ? t("project.hideBtn") : t("project.detailsBtn")
             )
           )
         )
@@ -1528,9 +1695,17 @@ function buildProjectCards(
             h(
               "div",
               { className: "drawer-meta-row" },
-              h("span", { className: "muted-micro" }, `Project # ${proj.projectNumber || "—"}`),
+              h(
+                "span",
+                { className: "muted-micro" },
+                t("project.projectNumber", { number: proj.projectNumber || "—" })
+              ),
               proj.billingAccountId
-                ? h("span", { className: "muted-micro" }, `Billing ID: ${proj.billingAccountId}`)
+                ? h(
+                    "span",
+                    { className: "muted-micro" },
+                    t("project.billingId", { id: proj.billingAccountId })
+                  )
                 : null,
               ...labelEntries.map(([k, v]) =>
                 h("span", { className: "label-chip" }, `${k}:${v}`)
@@ -1546,12 +1721,12 @@ function buildProjectCards(
                     h(
                       "span",
                       null,
-                      `Gross: ${formatMoney(ps.currentMonthGrossCost, ps.currency)}`
+                      t("spend.gross", { amount: formatMoney(ps.currentMonthGrossCost, ps.currency) })
                     ),
                     h(
                       "span",
                       { className: "submetric-credit" },
-                      `Credits: ${formatMoney(ps.currentMonthCredits, ps.currency)}`
+                      t("spend.credits", { amount: formatMoney(ps.currentMonthCredits, ps.currency) })
                     ),
                     renderDeltaBadge(ps.deltaPercentVsPrevSameDay)
                   ),
@@ -1561,8 +1736,8 @@ function buildProjectCards(
                   "div",
                   { className: "muted-note" },
                   overview.spend.configured
-                    ? "No BigQuery cost entries recorded for this project in the current month."
-                    : "Connect BigQuery Billing Export in the Billing tab to view per-service costs here."
+                    ? t("project.noBqCostThisMonth")
+                    : t("project.connectBqForCosts")
                 ),
             h(
               "div",
@@ -1575,7 +1750,7 @@ function buildProjectCards(
                   target: "_blank",
                   rel: "noopener noreferrer",
                 },
-                "Dashboard ↗"
+                t("project.linkDashboard")
               ),
               h(
                 "a",
@@ -1587,7 +1762,7 @@ function buildProjectCards(
                   target: "_blank",
                   rel: "noopener noreferrer",
                 },
-                "Billing Report ↗"
+                t("project.linkBillingReport")
               ),
               h(
                 "a",
@@ -1597,7 +1772,7 @@ function buildProjectCards(
                   target: "_blank",
                   rel: "noopener noreferrer",
                 },
-                "Cloud Run ↗"
+                t("project.linkCloudRun")
               ),
               h(
                 "a",
@@ -1607,7 +1782,7 @@ function buildProjectCards(
                   target: "_blank",
                   rel: "noopener noreferrer",
                 },
-                "BigQuery ↗"
+                t("project.linkBigQuery")
               ),
               h(
                 "a",
@@ -1617,7 +1792,7 @@ function buildProjectCards(
                   target: "_blank",
                   rel: "noopener noreferrer",
                 },
-                "Logs ↗"
+                t("project.linkLogs")
               )
             )
           )
@@ -1634,7 +1809,7 @@ function renderLinkedProjectsForBillingAccount(
     return h(
       "div",
       { className: "linked-projects-empty muted-micro" },
-      "No active projects linked to this billing account."
+      t("billing.noLinkedProjects")
     );
   }
 
@@ -1643,7 +1818,12 @@ function renderLinkedProjectsForBillingAccount(
     projectMap.set(p.projectId, p);
   }
 
-  const rows = ba.linkedProjectIds.map((projId) => {
+  const isLinkedExpanded = state.expandedBillingLinkedIds.has(ba.id);
+  const visibleProjectIds = isLinkedExpanded
+    ? ba.linkedProjectIds
+    : ba.linkedProjectIds.slice(0, LINKED_PROJECTS_PREVIEW_LIMIT);
+
+  const rows = visibleProjectIds.map((projId) => {
     const proj = projectMap.get(projId);
     const ps = overview.spend.byProject[projId];
     const displayName = proj ? proj.name : projId;
@@ -1660,7 +1840,7 @@ function renderLinkedProjectsForBillingAccount(
           { className: "inline-badges" },
           proj?.pinned ? h("span", { className: "star-active" }, "★") : null,
           h("span", { className: "row-primary-text" }, displayName),
-          isActive ? h("span", { className: "badge badge-active" }, "ACTIVE") : null
+          isActive ? h("span", { className: "badge badge-active" }, t("billing.activeUpperBadge")) : null
         ),
         h("span", { className: "row-mono" }, projId)
       ),
@@ -1680,22 +1860,22 @@ function renderLinkedProjectsForBillingAccount(
               {
                 type: "button",
                 className: "btn btn-xs",
-                title: `Set ${projId} as active gcloud project`,
+                title: t("billing.setActiveTitle", { project: projId }),
                 onClick: async () => {
                   try {
                     state.enableTargetProject = "";
                     state.overview = await switchActiveProject(projId);
                     renderApp();
-                    showToast(`Active project set to ${projId}`, "success");
+                    showToast(t("toast.activeProjectSet", { project: projId }), "success");
                   } catch (err) {
                     showToast(
-                      err instanceof Error ? err.message : "Failed to switch project",
+                      err instanceof Error ? err.message : t("toast.switchProjectFailed"),
                       "error"
                     );
                   }
                 },
               },
-              "Set Active"
+              t("project.setActiveBtn")
             )
           : null,
         h(
@@ -1707,7 +1887,7 @@ function renderLinkedProjectsForBillingAccount(
             )}`,
             target: "_blank",
             rel: "noopener noreferrer",
-            title: `Open ${projId} in Google Cloud Console`,
+            title: t("billing.openProjectConsoleTitle", { project: projId }),
           },
           "↗"
         )
@@ -1721,22 +1901,47 @@ function renderLinkedProjectsForBillingAccount(
     h(
       "div",
       { className: "linked-projects-header" },
-      h("span", { className: "eyebrow" }, `Linked Projects (${ba.linkedProjectIds.length})`),
+      h(
+        "span",
+        { className: "eyebrow" },
+        t("billing.linkedProjectsHeader", { count: ba.linkedProjectIds.length })
+      ),
       h(
         "button",
         {
           type: "button",
           className: "link-btn",
-          onClick: () => {
+        onClick: () => {
             state.activeTab = "projects";
             state.projectFilter = `ba:${ba.id}`;
+            state.projectPageLimit = PROJECT_PAGE_SIZE;
             renderApp();
           },
         },
-        "Filter in Projects tab →"
+        t("billing.filterInProjectsBtn")
       )
     ),
-    h("div", { className: "compact-list" }, ...rows)
+    h("div", { className: "compact-list" }, ...rows),
+    ba.linkedProjectIds.length > LINKED_PROJECTS_PREVIEW_LIMIT
+      ? h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-ghost linked-projects-more",
+            onClick: () => {
+              if (isLinkedExpanded) {
+                state.expandedBillingLinkedIds.delete(ba.id);
+              } else {
+                state.expandedBillingLinkedIds.add(ba.id);
+              }
+              renderApp();
+            },
+          },
+          isLinkedExpanded
+            ? t("projects.collapseListBtn")
+            : t("billing.showAllLinkedBtn", { count: ba.linkedProjectIds.length })
+        )
+      : null
   );
 }
 
@@ -1762,7 +1967,7 @@ function renderBillingAccountCard(
           h(
             "span",
             { className: ba.open ? "badge badge-active" : "badge badge-neutral" },
-            ba.open ? "OPEN" : "CLOSED"
+            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
           ),
           ba.currencyCode
             ? h("span", { className: "badge badge-neutral" }, ba.currencyCode)
@@ -1776,10 +1981,10 @@ function renderBillingAccountCard(
             {
               type: "button",
               className: "mono-copy-btn",
-              title: "Copy Billing Account ID",
+              title: t("billing.copyIdTitle"),
               onClick: async () => {
                 const ok = await copyToClipboard(ba.id);
-                showToast(ok ? `Copied ${ba.id}` : ba.id, "info");
+                showToast(ok ? t("toast.copied", { value: ba.id }) : ba.id, "info");
               },
             },
             `${ba.id} ⧉`
@@ -1787,7 +1992,7 @@ function renderBillingAccountCard(
           h(
             "span",
             { className: "muted-micro" },
-            `${ba.linkedProjectCount} project${ba.linkedProjectCount === 1 ? "" : "s"}`
+            formatLinkedProjectCount(ba.linkedProjectCount)
           )
         )
       ),
@@ -1802,7 +2007,7 @@ function renderBillingAccountCard(
           target: "_blank",
           rel: "noopener noreferrer",
         },
-        "Console Report ↗"
+        t("billing.consoleReportBtn")
       )
     ),
     renderLinkedProjectsForBillingAccount(ba, overview),
@@ -1816,7 +2021,7 @@ function renderBillingAccountCard(
             h(
               "div",
               null,
-              h("div", { className: "eyebrow" }, "Month-to-Date Net"),
+              h("div", { className: "eyebrow" }, t("billing.mtdNetLabel")),
               h(
                 "div",
                 { className: "billing-net-figure" },
@@ -1828,13 +2033,23 @@ function renderBillingAccountCard(
           h(
             "div",
             { className: "hero-submetrics" },
-            h("span", null, `Gross: ${formatMoney(bs.currentMonthGrossCost, bs.currency)}`),
+            h(
+              "span",
+              null,
+              t("spend.gross", { amount: formatMoney(bs.currentMonthGrossCost, bs.currency) })
+            ),
             h(
               "span",
               { className: "submetric-credit" },
-              `Credits: ${formatMoney(bs.currentMonthCredits, bs.currency)}`
+              t("spend.credits", { amount: formatMoney(bs.currentMonthCredits, bs.currency) })
             ),
-            h("span", null, `Last mo: ${formatMoney(bs.prevMonthTotalNetCost, bs.currency)}`)
+            h(
+              "span",
+              null,
+              t("spend.lastMonthShort", {
+                amount: formatMoney(bs.prevMonthTotalNetCost, bs.currency),
+              })
+            )
           ),
           renderDailySparkline(bs.dailySeries, bs.currency),
           renderServiceBreakdownList(bs.topServices.slice(0, 4), bs.currency)
@@ -1844,28 +2059,28 @@ function renderBillingAccountCard(
             "div",
             { className: "muted-note billing-export-hint" },
             ba.exportTableId
-              ? `Bound to ${ba.exportTableId} (no rows for current month yet).`
-              : "Link a BigQuery Billing Export table below to display spend for this billing account."
+              ? t("billing.boundNoRows", { table: ba.exportTableId })
+              : t("billing.linkExportHint")
           )
         : null,
     ba.budgets.length > 0
       ? h(
           "div",
           { className: "budgets-block" },
-          h("div", { className: "eyebrow" }, `Configured Budgets (${ba.budgets.length})`),
+          h("div", { className: "eyebrow" }, t("billing.configuredBudgets", { count: ba.budgets.length })),
           ...ba.budgets.map((b) => {
             const targetText =
               b.amountUnits !== null
                 ? formatMoney(b.amountUnits, b.currencyCode || bs?.currency || "USD")
                 : b.lastPeriodAmount
-                  ? "100% of last period"
-                  : "Custom target";
+                  ? t("billing.budgetLastPeriod")
+                  : t("billing.budgetCustomTarget");
             const rulesText =
               b.thresholds.length > 0
                 ? b.thresholds
-                    .map((t) => `${Math.round(t.thresholdPercent * 100)}%`)
+                    .map((rule) => `${Math.round(rule.thresholdPercent * 100)}%`)
                     .join(" · ")
-                : "No threshold rules";
+                : t("billing.budgetNoThresholds");
             return h(
               "div",
               { className: "budget-row" },
@@ -1896,7 +2111,7 @@ function renderBillingExportSetupCard(overview                           )      
     h(
       "option",
       { value: "*", selected: state.manualBillingAccountId === "*" },
-      "All Billing Accounts (* shared export)"
+      t("export.allAccountsOption")
     ),
     ...overview.billingAccounts.map((ba) =>
       h(
@@ -1910,12 +2125,8 @@ function renderBillingExportSetupCard(overview                           )      
   return h(
     "section",
     { className: "card" },
-    h("h3", { className: "section-title" }, "BigQuery Billing Export Connection"),
-    h(
-      "p",
-      { className: "card-desc" },
-      "Queries are cached locally (default 6h TTL) and strictly pruned by `_PARTITIONTIME` so only current & previous month partitions are scanned."
-    ),
+    h("h3", { className: "section-title" }, t("export.title")),
+    h("p", { className: "card-desc" }, t("export.desc")),
     existingMappings.length > 0
       ? h(
           "div",
@@ -1931,8 +2142,8 @@ function renderBillingExportSetupCard(overview                           )      
                   "span",
                   { className: "row-primary-text" },
                   m.billingAccountId === "*"
-                    ? "Shared Export (*)"
-                    : `Billing Account ${m.billingAccountId}`
+                    ? t("export.sharedMapping")
+                    : t("export.accountMapping", { id: m.billingAccountId })
                 ),
                 h("span", { className: "row-mono" }, m.tableId)
               ),
@@ -1948,16 +2159,16 @@ function renderBillingExportSetupCard(overview                           )      
                         remove: true,
                       });
                       renderApp();
-                      showToast("Removed export table mapping", "info");
+                      showToast(t("toast.removedExportMapping"), "info");
                     } catch (err) {
                       showToast(
-                        err instanceof Error ? err.message : "Failed to remove mapping",
+                        err instanceof Error ? err.message : t("toast.removeExportFailed"),
                         "error"
                       );
                     }
                   },
                 },
-                "Unlink"
+                t("export.unlinkBtn")
               )
             )
           )
@@ -1968,7 +2179,7 @@ function renderBillingExportSetupCard(overview                           )      
     h(
       "div",
       { className: "setup-subbox" },
-      h("div", { className: "eyebrow" }, "Auto-Detect Export Tables in Project"),
+      h("div", { className: "eyebrow" }, t("export.autoDetectLabel")),
       overview.projects.length > 0
         ? h("datalist", { id: "host-projects-datalist" }, ...projectSuggestions)
         : null,
@@ -1979,9 +2190,9 @@ function renderBillingExportSetupCard(overview                           )      
           type: "text",
           list: overview.projects.length > 0 ? "host-projects-datalist" : undefined,
           className: "text-input flex-1",
-          placeholder: "Select or type host project ID…",
+          placeholder: t("export.hostProjectPlaceholder"),
           value: state.discoverHostProject,
-          ariaLabel: "Billing Export Host Project ID",
+          ariaLabel: t("export.hostProjectAria"),
           onInput: (ev) => {
             state.discoverHostProject = (ev.target                    ).value;
           },
@@ -1995,7 +2206,7 @@ function renderBillingExportSetupCard(overview                           )      
             onClick: async () => {
               const host = state.discoverHostProject.trim();
               if (!host) {
-                showToast("Select or enter a host project ID first", "error");
+                showToast(t("toast.enterHostProject"), "error");
                 return;
               }
               try {
@@ -2003,16 +2214,16 @@ function renderBillingExportSetupCard(overview                           )      
                 renderApp();
                 state.discoveredTables = await discoverExportTablesApi(host);
                 if (state.discoveredTables.length === 0) {
-                  showToast(`No gcp_billing_export_* tables found in ${host}`, "info");
+                  showToast(t("toast.noExportTablesFound", { project: host }), "info");
                 } else {
                   showToast(
-                    `Found ${state.discoveredTables.length} billing export table(s)`,
+                    t("toast.foundExportTables", { count: state.discoveredTables.length }),
                     "success"
                   );
                 }
               } catch (err) {
                 showToast(
-                  err instanceof Error ? err.message : "Discovery failed",
+                  err instanceof Error ? err.message : t("toast.discoveryFailed"),
                   "error"
                 );
               } finally {
@@ -2021,7 +2232,7 @@ function renderBillingExportSetupCard(overview                           )      
               }
             },
           },
-          state.discoveringTables ? "Scanning…" : "Scan Datasets"
+          state.discoveringTables ? t("export.scanningBtn") : t("export.scanDatasetsBtn")
         )
       ),
       state.discoveredTables && state.discoveredTables.length > 0
@@ -2044,8 +2255,8 @@ function renderBillingExportSetupCard(overview                           )      
                     "span",
                     { className: "row-mono" },
                     tbl.inferredBillingAccountId
-                      ? `Matches Billing ID: ${tbl.inferredBillingAccountId}`
-                      : "Shared / Custom Export"
+                      ? t("export.matchesBillingId", { id: tbl.inferredBillingAccountId })
+                      : t("export.sharedCustomExport")
                   )
                 ),
                 h(
@@ -2062,10 +2273,10 @@ function renderBillingExportSetupCard(overview                           )      
                           tableId: tbl.tableId,
                           hostProjectId: tbl.hostProjectId,
                         });
-                        showToast("Connected BigQuery Billing Export!", "success");
+                        showToast(t("toast.connectedExport"), "success");
                       } catch (err) {
                         showToast(
-                          err instanceof Error ? err.message : "Failed to connect table",
+                          err instanceof Error ? err.message : t("toast.connectExportFailed"),
                           "error"
                         );
                       } finally {
@@ -2074,7 +2285,7 @@ function renderBillingExportSetupCard(overview                           )      
                       }
                     },
                   },
-                  "Link & Query"
+                  t("export.linkAndQueryBtn")
                 )
               )
             )
@@ -2090,7 +2301,7 @@ function renderBillingExportSetupCard(overview                           )      
         onSubmit: async () => {
           const tableId = state.manualTableId.trim();
           if (!tableId) {
-            showToast("Enter project.dataset.table first", "error");
+            showToast(t("toast.enterTableId"), "error");
             return;
           }
           try {
@@ -2101,21 +2312,21 @@ function renderBillingExportSetupCard(overview                           )      
               tableId,
             });
             state.manualTableId = "";
-            showToast("Saved BigQuery export table & loaded spend", "success");
+            showToast(t("toast.savedExportTable"), "success");
           } catch (err) {
-            showToast(err instanceof Error ? err.message : "Invalid table reference", "error");
+            showToast(err instanceof Error ? err.message : t("toast.invalidTableRef"), "error");
           } finally {
             state.refreshing = false;
             renderApp();
           }
         },
       },
-      h("div", { className: "eyebrow" }, "Or Bind Table ID Manually"),
+      h("div", { className: "eyebrow" }, t("export.manualBindLabel")),
       h(
         "select",
         {
           className: "compact-select full-width",
-          ariaLabel: "Target Billing Account",
+          ariaLabel: t("export.targetAccountAria"),
           onChange: (ev) => {
             state.manualBillingAccountId = (ev.target                     ).value;
           },
@@ -2137,7 +2348,7 @@ function renderBillingExportSetupCard(overview                           )      
         h(
           "button",
           { type: "submit", className: "btn btn-sm btn-primary", disabled: state.refreshing },
-          "Save"
+          t("export.saveBtn")
         )
       )
     ),
@@ -2145,14 +2356,14 @@ function renderBillingExportSetupCard(overview                           )      
     h(
       "details",
       { className: "help-details" },
-      h("summary", null, "How do I enable BigQuery Billing Export in GCP?"),
+      h("summary", null, t("export.helpSummary")),
       h(
         "ol",
         { className: "guide-steps" },
-        h("li", null, "Open Google Cloud Console → Billing → Billing export."),
-        h("li", null, "Choose a project & BigQuery dataset to store billing records."),
-        h("li", null, "Enable 'Standard usage cost' export (recommended, lightweight)."),
-        h("li", null, "Return here and click 'Scan Datasets' on that project.")
+        h("li", null, t("export.helpStep1")),
+        h("li", null, t("export.helpStep2")),
+        h("li", null, t("export.helpStep3")),
+        h("li", null, t("export.helpStep4"))
       ),
       h(
         "a",
@@ -2165,7 +2376,7 @@ function renderBillingExportSetupCard(overview                           )      
           target: "_blank",
           rel: "noopener noreferrer",
         },
-        "Open GCP Billing Console ↗"
+        t("export.openBillingConsole")
       )
     )
   );
@@ -2179,14 +2390,20 @@ function renderSettingsDetails(overview                           )             
   return h(
     "details",
     { className: "card settings-details" },
-    h("summary", { className: "settings-summary" }, "Companion Preferences & Cache Settings"),
+    h("summary", { className: "settings-summary" }, t("settings.summary")),
     h(
       "div",
       { className: "settings-body" },
       h(
         "label",
         { className: "field-label" },
-        "Local Cache TTL (avoids repeated BigQuery scans)",
+        t("settings.languageLabel"),
+        renderLanguageSelect(false)
+      ),
+      h(
+        "label",
+        { className: "field-label" },
+        t("settings.cacheTtlLabel"),
         h(
           "select",
           {
@@ -2195,14 +2412,18 @@ function renderSettingsDetails(overview                           )             
               const hrs = Number((ev.target                     ).value);
               state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
               renderApp();
-              showToast(`Cache TTL set to ${hrs}h`, "success");
+              showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
             },
           },
           ...[1, 6, 12, 24].map((hr) =>
             h(
               "option",
               { value: String(hr), selected: Math.round(currentHours) === hr },
-              hr === 6 ? "6 hours (Recommended)" : `${hr} hour${hr > 1 ? "s" : ""}`
+              hr === 6
+                ? t("settings.hoursRecommended")
+                : hr === 1
+                  ? t("settings.hourOne")
+                  : t("settings.hoursMany", { hours: hr })
             )
           )
         )
@@ -2210,11 +2431,11 @@ function renderSettingsDetails(overview                           )             
       h(
         "label",
         { className: "field-label" },
-        "Quota Project Override (x-goog-user-project)",
+        t("settings.quotaProjectLabel"),
         h("input", {
           type: "text",
           className: "text-input full-width",
-          placeholder: "Defaults to active gcloud project",
+          placeholder: t("settings.quotaProjectPlaceholder"),
           value: quotaInputVal,
           onInput: (ev) => {
             quotaInputVal = (ev.target                    ).value;
@@ -2224,7 +2445,7 @@ function renderSettingsDetails(overview                           )             
       h(
         "label",
         { className: "field-label" },
-        "Custom gcloud Binary Path (optional)",
+        t("settings.gcloudPathLabel"),
         h("input", {
           type: "text",
           className: "text-input full-width",
@@ -2250,16 +2471,16 @@ function renderSettingsDetails(overview                           )             
                   gcloudPathOverride: gcloudPathVal.trim() || null,
                 });
                 renderApp();
-                showToast("Saved companion settings", "success");
+                showToast(t("toast.savedSettings"), "success");
               } catch (err) {
                 showToast(
-                  err instanceof Error ? err.message : "Invalid settings input",
+                  err instanceof Error ? err.message : t("toast.invalidSettings"),
                   "error"
                 );
               }
             },
           },
-          "Apply Settings"
+          t("settings.applyBtn")
         ),
         h(
           "button",
@@ -2270,10 +2491,10 @@ function renderSettingsDetails(overview                           )             
               const nextDemo = !overview.preferences.demoMode;
               state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
               renderApp();
-              showToast(nextDemo ? "Demo Mode ON" : "Demo Mode OFF (Live gcloud)", "info");
+              showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
             },
           },
-          overview.preferences.demoMode ? "Switch to Live gcloud Data" : "Enable Demo Preview Mode"
+          overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
         )
       )
     )
@@ -2288,7 +2509,7 @@ function renderBillingTab(overview                           )              {
       ? h(
           "section",
           { className: "card warning-card" },
-          h("h3", { className: "section-title" }, "Billing API Diagnostics"),
+          h("h3", { className: "section-title" }, t("billing.diagnosticsTitle")),
           ...otherWarnings.map((w) => renderWarningLine(w, getPreferredConsoleProject(overview)))
         )
       : null;
@@ -2307,7 +2528,7 @@ function renderBillingTab(overview                           )              {
     warningSection,
     overview.billingAccounts.length > 0
       ? h(
-          "div",
+           "div",
           { className: "stack-list" },
           ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
           inactiveClosedAccounts.length > 0
@@ -2320,7 +2541,7 @@ function renderBillingTab(overview                           )              {
                 h(
                   "summary",
                   { className: "settings-summary" },
-                  `Closed / Inactive Billing Accounts (${inactiveClosedAccounts.length})`
+                  t("billing.closedAccountsSummary", { count: inactiveClosedAccounts.length })
                 ),
                 h(
                   "div",
@@ -2332,17 +2553,18 @@ function renderBillingTab(overview                           )              {
         )
       : billingApiPrompt
         ? null
-        : h(
-            "div",
-            { className: "card muted-note" },
-            "No Cloud Billing accounts visible to the active Google account (requires `billing.accounts.get` or `billing.accounts.list`)."
-          ),
+        : h("div", { className: "card muted-note" }, t("billing.noAccountsVisible")),
     renderBillingExportSetupCard(overview),
     renderSettingsDetails(overview)
   );
 }
 
 function renderApp()       {
+  if (typeof document === "undefined" || !document) return;
+  if (document.documentElement) {
+    document.documentElement.lang = getActiveLocale();
+  }
+
   const root = document.getElementById("app");
   if (!root) return;
   clearElement(root);
@@ -2353,7 +2575,7 @@ function renderApp()       {
         "div",
         { className: "boot-loading" },
         h("div", { className: "spinner" }),
-        h("div", null, "Connecting to Google Cloud Companion…")
+        h("div", null, t("boot.connecting"))
       )
     );
     return;
@@ -2364,8 +2586,8 @@ function renderApp()       {
       h(
         "div",
         { className: "card error-card" },
-        h("h2", { className: "card-title" }, "Unable to Load GCP Companion"),
-        h("p", { className: "card-desc" }, state.error || "Unknown connection error."),
+        h("h2", { className: "card-title" }, t("boot.errorTitle")),
+        h("p", { className: "card-desc" }, state.error || t("boot.unknownError")),
         h(
           "button",
           {
@@ -2375,7 +2597,7 @@ function renderApp()       {
               void loadData(true);
             },
           },
-          "Retry"
+          t("boot.retry")
         )
       )
     );
