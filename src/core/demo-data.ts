@@ -167,6 +167,10 @@ export function buildDemoOverview(
   const prevDate = new Date(Date.UTC(year, referenceDate.getUTCMonth() - 1, 1));
   const prevYear = prevDate.getUTCFullYear();
   const prevMonth = String(prevDate.getUTCMonth() + 1).padStart(2, "0");
+  const prev2Date = new Date(Date.UTC(year, referenceDate.getUTCMonth() - 2, 1));
+  const prev2Year = prev2Date.getUTCFullYear();
+  const prev2Month = String(prev2Date.getUTCMonth() + 1).padStart(2, "0");
+  const prev2InvoiceMonth = `${prev2Year}${prev2Month}`;
   const maxDay = Math.max(windowCtx.dayOfMonthCutoff, 12);
 
   const rows: RawSpendRow[] = [];
@@ -303,6 +307,46 @@ export function buildDemoOverview(
         grossCost: 6.0,
         creditsAmount: -4.0,
         netCost: 2.0,
+      }
+    );
+  }
+
+  // Two months ago rows (28 days) so Demo mode demonstrates 3 switchable months
+  for (let d = 1; d <= 28; d++) {
+    const dayStr = String(d).padStart(2, "0");
+    rows.push(
+      {
+        invoiceMonth: prev2InvoiceMonth,
+        billingAccountId: baProd,
+        projectId: "acme-ai-assistant-prod",
+        serviceName: "Vertex AI",
+        usageDate: `${prev2Year}-${prev2Month}-${dayStr}`,
+        currency: "USD",
+        grossCost: 16.5,
+        creditsAmount: -1.5,
+        netCost: 15.0,
+      },
+      {
+        invoiceMonth: prev2InvoiceMonth,
+        billingAccountId: baProd,
+        projectId: "acme-data-platform",
+        serviceName: "BigQuery",
+        usageDate: `${prev2Year}-${prev2Month}-${dayStr}`,
+        currency: "USD",
+        grossCost: 9.5,
+        creditsAmount: -0.5,
+        netCost: 9.0,
+      },
+      {
+        invoiceMonth: prev2InvoiceMonth,
+        billingAccountId: baSandbox,
+        projectId: "agy-agent-experiments",
+        serviceName: "Gemini API / Vertex AI",
+        usageDate: `${prev2Year}-${prev2Month}-${dayStr}`,
+        currency: "USD",
+        grossCost: 5.0,
+        creditsAmount: -5.0,
+        netCost: 0,
       }
     );
   }

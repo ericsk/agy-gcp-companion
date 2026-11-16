@@ -370,6 +370,25 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       byServiceBtn.click();
       assert.ok(appRoot.allText.includes("Vertex AI"));
 
+      // Switch between multi-month billing pills on Overview
+      const monthPills = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
+        b.className.includes("month-pill")
+      );
+      assert.ok(monthPills.length >= 3, `Expected >= 3 demo month pills, got ${monthPills.length}`);
+      assert.ok(monthPills[0].className.includes("month-pill-active"));
+      assert.ok(!monthPills[0].allText.includes("✓"), "Expected current month pill not to be marked settled");
+      assert.ok(monthPills[1].allText.includes("✓"), "Expected 28-day demo historical month pill to show settled ✓");
+      assert.ok(monthPills[1].allText.includes("$"), "Expected compact currency preview inside month pill");
+      monthPills[1].click();
+      assert.ok(appRoot.allText.includes("Monthly Net Spend"), "Expected Monthly Net Spend heading when viewing historical month");
+      assert.ok(appRoot.allText.includes("Archived"), "Expected settled archive badge when viewing settled historical month");
+      const refreshedPills = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
+        b.className.includes("month-pill")
+      );
+      assert.ok(refreshedPills[1].className.includes("month-pill-active"));
+      refreshedPills[0].click();
+      assert.ok(appRoot.allText.includes("Month-to-Date Net Spend"), "Expected return to Month-to-Date Net Spend");
+
       // 2. Switch to Projects Tab: verify ONLY the 3 filter chips (All, Unbilled, Active & Pinned) are rendered (no Billing Account chip spam)
       const projectsTabBtn = appRoot.findButtonsByText("Projects")[0];
       assert.ok(projectsTabBtn);

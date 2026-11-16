@@ -101,6 +101,8 @@ export interface ProjectSpendSummary {
   currentMonthNetCost: number;
   prevMonthSameDayNetCost: number;
   prevMonthTotalNetCost: number;
+  prevMonthGrossCost?: number;
+  prevMonthCredits?: number;
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
@@ -114,6 +116,8 @@ export interface BillingAccountSpendSummary {
   currentMonthNetCost: number;
   prevMonthSameDayNetCost: number;
   prevMonthTotalNetCost: number;
+  prevMonthGrossCost?: number;
+  prevMonthCredits?: number;
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
@@ -126,9 +130,23 @@ export interface CurrencyTotalSummary {
   currentMonthNetCost: number;
   prevMonthSameDayNetCost: number;
   prevMonthTotalNetCost: number;
+  prevMonthGrossCost?: number;
+  prevMonthCredits?: number;
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
+}
+
+export interface MonthlySpendSnapshot {
+  invoiceMonth: string; // YYYYMM
+  previousInvoiceMonth: string; // YYYYMM
+  hasRows: boolean;
+  rowCount: number;
+  settled?: boolean;
+  coveredDays?: number;
+  totalsByCurrency: CurrencyTotalSummary[];
+  byBillingAccount: Record<string, BillingAccountSpendSummary>;
+  byProject: Record<string, ProjectSpendSummary>;
 }
 
 export interface SpendReport {
@@ -140,6 +158,8 @@ export interface SpendReport {
   totalsByCurrency: CurrencyTotalSummary[];
   byBillingAccount: Record<string, BillingAccountSpendSummary>;
   byProject: Record<string, ProjectSpendSummary>;
+  availableMonths?: string[];
+  byMonth?: Record<string, MonthlySpendSnapshot>;
 }
 
 export type LocaleCode = "en" | "es" | "fr" | "ja" | "ko" | "zh-CN" | "zh-TW";

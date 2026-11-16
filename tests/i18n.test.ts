@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { CompanionService } from "../src/core/companion-service.ts";
 import { CompanionStore } from "../src/core/store.ts";
 import type { LocaleCode } from "../src/core/types.ts";
+import { formatMoney } from "../src/web/dom.ts";
 import { EN_MESSAGES, type TranslationKey } from "../src/web/i18n/en.ts";
 import {
   SUPPORTED_LOCALES,
@@ -137,6 +138,28 @@ describe("Internationalization (i18n) Architecture & 7-Language Catalog Parity",
       }, /Unsupported locale preference/);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("formats TWD explicitly as NT$ in zh-TW and normalizes near-zero amounts", () => {
+    try {
+      setLocalePreference("zh-TW");
+      assert.equal(formatMoney(0, "TWD"), "NT$0.00");
+      assert.equal(formatMoney(-0.0002, "TWD"), "NT$0.00");
+      assert.equal(formatMoney(254.6649, "TWD"), "NT$254.66");
+      assert.equal(formatMoney(-164.9, "TWD"), "-NT$164.90");
+      assert.ok(!formatMoney(0, "USD").includes("NT$"));
+
+      for (const loc of ["en", "es", "fr", "ja", "ko", "zh-CN", "zh-TW"] as const) {
+        setLocalePreference(loc);
+        const formatted = formatMoney(-10.5, "TWD");
+        assert.ok(
+          formatted.includes("NT$") || formatted.includes("TWD"),
+          `Expected unambiguous TWD indicator for locale ${loc}, got: ${formatted}`
+        );
+      }
+    } finally {
+      setLocalePreference("auto");
     }
   });
 });
