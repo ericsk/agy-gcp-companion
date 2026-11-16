@@ -31,6 +31,8 @@ export const JA_MESSAGES                     = {
   "header.refreshTitle": "Google Cloud と BigQuery から強制更新",
   "header.syncing": "同期中…",
   "header.refresh": "↻ 更新",
+  "header.settingsBtn": "⚙ 設定",
+  "header.settingsTitle": "設定と言語メニューを開く",
   "header.account": "アカウント",
   "header.accountAria": "有効な Google Cloud アカウント",
   "header.showEmailTitle": "メールアドレス全体を表示",
@@ -242,8 +244,13 @@ export const JA_MESSAGES                     = {
   "export.openBillingConsole": "GCP 課金コンソールを開く ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "設定",
+  "settings.closeBtnAria": "設定メニューを閉じる",
   "settings.summary": "Companion 設定とキャッシュ管理",
   "settings.languageLabel": "表示言語",
+  "settings.privacySection": "プライバシーとプレビュー",
+  "settings.maskEmailToggle": "アカウントのメールアドレスをマスク",
+  "settings.advancedSummary": "CLI・割り当てプロジェクトの詳細設定",
   "settings.cacheTtlLabel": "ローカルキャッシュ有効期間（BigQuery の重複スキャンを防止）",
   "settings.hoursRecommended": "6時間（推奨）",
   "settings.hourOne": "1時間",

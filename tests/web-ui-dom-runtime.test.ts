@@ -429,39 +429,46 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       }
       assert.ok(appRoot.allText.includes("Acme Cloud Production Billing"));
 
-      // 7. Live Language Switching across Japanese, Korean, Simplified Chinese, Traditional Chinese, and English
-      const switchHeaderLocale = async (localeValue: string) => {
-        const selects = appRoot.querySelectorAll("select") as MockSelectElement[];
-        const langSelect = selects.find((s) =>
-          s.childNodes.some((opt) => opt instanceof MockOptionElement && opt.value === "zh-TW")
-        );
-        assert.ok(langSelect, "Expected header language switcher <select>");
-        langSelect.value = localeValue;
-        service.updateSettings({ locale: localeValue as "en" | "ja" | "ko" | "zh-CN" | "zh-TW" });
+      // 7. Open top-right Settings Menu (⚙ Settings) and switch languages across ja, ko, zh-CN, zh-TW, and en
+      const settingsBtn = appRoot.findButtonsByText("⚙")[0];
+      assert.ok(settingsBtn, "Expected top-right ⚙ Settings button in header");
+      settingsBtn.click();
+      assert.ok(appRoot.allText.includes("Display Language"), "Expected Settings menu dialog to open");
+
+      const clickLanguageButton = async (nativeLabel: string, code: "en" | "ja" | "ko" | "zh-CN" | "zh-TW") => {
+        service.updateSettings({ locale: code });
+        const btn = appRoot.findButtonsByText(nativeLabel)[0];
+        assert.ok(btn, `Expected language option button '${nativeLabel}' in Settings menu`);
         await Promise.all(
-          (langSelect.listeners.change ?? []).map((fn) => Promise.resolve(fn({ target: langSelect })))
+          (btn.listeners.click ?? []).map((fn) =>
+            Promise.resolve(fn({ stopPropagation: () => {}, preventDefault: () => {}, target: btn }))
+          )
         );
       };
 
-      await switchHeaderLocale("ja");
+      await clickLanguageButton("日本語", "ja");
       assert.ok(appRoot.allText.includes("概要"), "Expected Japanese Overview tab");
       assert.ok(appRoot.allText.includes("請求"), "Expected Japanese Billing tab");
 
-      await switchHeaderLocale("ko");
+      await clickLanguageButton("한국어", "ko");
       assert.ok(appRoot.allText.includes("개요"), "Expected Korean Overview tab");
       assert.ok(appRoot.allText.includes("결제"), "Expected Korean Billing tab");
 
-      await switchHeaderLocale("zh-CN");
+      await clickLanguageButton("简体中文", "zh-CN");
       assert.ok(appRoot.allText.includes("概览"), "Expected Simplified Chinese Overview tab");
       assert.ok(appRoot.allText.includes("结算"), "Expected Simplified Chinese Billing tab");
 
-      await switchHeaderLocale("zh-TW");
+      await clickLanguageButton("繁體中文", "zh-TW");
       assert.ok(appRoot.allText.includes("總覽"), "Expected Traditional Chinese Overview tab");
       assert.ok(appRoot.allText.includes("帳單"), "Expected Traditional Chinese Billing tab");
 
-      await switchHeaderLocale("en");
+      await clickLanguageButton("English", "en");
       assert.ok(appRoot.allText.includes("Overview"), "Expected English Overview tab");
       assert.ok(appRoot.allText.includes("Billing"), "Expected English Billing tab");
+
+      const closeSettingsBtn = appRoot.findButtonsByText("✕")[0];
+      assert.ok(closeSettingsBtn, "Expected close button in Settings menu");
+      closeSettingsBtn.click();
     } finally {
       Object.assign(globalThis, prevGlobals);
       rmSync(tmpDir, { recursive: true, force: true });

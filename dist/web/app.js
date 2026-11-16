@@ -61,6 +61,7 @@ const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
                               
                        
                             
+                            
  
 
 const state          = {
@@ -84,6 +85,7 @@ const state          = {
   enableTargetProject: "",
   enablingApi: false,
   signingInBrowser: false,
+  settingsMenuOpen: false,
 };
 
 function showToast(message        , kind                               = "info")       {
@@ -109,7 +111,9 @@ async function loadData(forceRefresh = false)                {
   try {
     const data = await fetchOverview(forceRefresh);
     state.overview = data;
-    setLocalePreference(data.preferences.locale);
+    if (data.preferences.locale) {
+      setLocalePreference(data.preferences.locale);
+    }
     if (!state.discoverHostProject && data.auth.activeProject) {
       state.discoverHostProject = data.auth.activeProject;
     }
@@ -312,43 +316,54 @@ function renderDeltaBadge(delta               )              {
   return h("span", { className: cls }, t("spend.vsPrevMtd", { delta: `${sign}${delta.toFixed(1)}` }));
 }
 
-function renderLanguageSelect(compact         )              {
+function renderLanguageGrid()              {
   const currentPref = getLocalePreference();
+  const options                                                                        = [
+    { code: "auto", label: t("locale.autoFull"), fullWidth: true },
+    ...SUPPORTED_LOCALES.map((loc) => ({ code: loc.code, label: loc.nativeName })),
+  ];
+
   return h(
-    "select",
-    {
-      className: compact ? "compact-select lang-select" : "compact-select full-width",
-      ariaLabel: t("header.languageAria"),
-      title: t("header.languageTitle"),
-      onChange: async (ev) => {
-        const nextPref = (ev.target                     ).value                    ;
-        setLocalePreference(nextPref);
-        renderApp();
-        try {
-          state.overview = await updateCompanionPreferences({ locale: nextPref });
-          setLocalePreference(state.overview.preferences.locale);
-          renderApp();
-          showToast(t("toast.languageUpdated"), "success");
-        } catch (err) {
-          showToast(
-            err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
-            "error"
-          );
-        }
-      },
-    },
-    h(
-      "option",
-      { value: "auto", selected: currentPref === "auto" },
-      compact ? t("locale.autoShort") : t("locale.autoFull")
-    ),
-    ...SUPPORTED_LOCALES.map((loc) =>
-      h(
-        "option",
-        { value: loc.code, selected: currentPref === loc.code },
-        compact ? loc.shortName : loc.nativeName
-      )
-    )
+    "div",
+    { className: "lang-grid", role: "radiogroup", ariaLabel: t("settings.languageLabel") },
+    ...options.map((opt) => {
+      const selected = currentPref === opt.code;
+      const cls = [
+        "lang-option-btn",
+        selected ? "lang-option-btn-active" : "",
+        opt.fullWidth ? "lang-option-full" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return h(
+        "button",
+        {
+          type: "button",
+          role: "radio",
+          className: cls,
+          onClick: async () => {
+            if (opt.code === currentPref) return;
+            setLocalePreference(opt.code);
+            renderApp();
+            try {
+              state.overview = await updateCompanionPreferences({ locale: opt.code });
+              if (state.overview.preferences.locale) {
+                setLocalePreference(state.overview.preferences.locale);
+              }
+              renderApp();
+              showToast(t("toast.languageUpdated"), "success");
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        },
+        h("span", { className: "lang-option-text" }, opt.label),
+        selected ? h("span", { className: "lang-option-check" }, "✓") : null
+      );
+    })
   );
 }
 
@@ -489,7 +504,6 @@ function renderHeader(overview                           )              {
           { className: "sync-age", title: overview.cache.fetchedAt || "" },
           formatRelativeAge(overview.cache.ageMs, overview.cache.stale)
         ),
-        renderLanguageSelect(true),
         h(
           "button",
           {
@@ -502,6 +516,20 @@ function renderHeader(overview                           )              {
             },
           },
           state.refreshing ? t("header.syncing") : t("header.refresh")
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: state.settingsMenuOpen ? "btn btn-sm btn-settings-open" : "btn btn-sm",
+            ariaExpanded: String(state.settingsMenuOpen),
+            title: t("header.settingsTitle"),
+            onClick: () => {
+              state.settingsMenuOpen = !state.settingsMenuOpen;
+              renderApp();
+            },
+          },
+          t("header.settingsBtn")
         )
       )
     ),
@@ -2382,122 +2410,203 @@ function renderBillingExportSetupCard(overview                           )      
   );
 }
 
-function renderSettingsDetails(overview                           )              {
+function renderSettingsBodyContent(overview                           )                {
   const currentHours = overview.preferences.cacheTtlHours;
+  const mask = overview.preferences.maskEmails;
   let quotaInputVal = overview.preferences.quotaProjectOverride || "";
   let gcloudPathVal = overview.preferences.gcloudPathOverride || "";
 
+  return [
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.languageLabel")),
+      renderLanguageGrid()
+    ),
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.cacheTtlLabel")),
+      h(
+        "div",
+        { className: "ttl-pill-grid" },
+        ...[1, 6, 12, 24].map((hr) => {
+          const active = Math.round(currentHours) === hr;
+          return h(
+            "button",
+            {
+              type: "button",
+              className: active ? "lang-option-btn lang-option-btn-active" : "lang-option-btn",
+              onClick: async () => {
+                if (active) return;
+                state.overview = await updateCompanionPreferences({ cacheTtlHours: hr });
+                renderApp();
+                showToast(t("toast.cacheTtlSet", { hours: hr }), "success");
+              },
+            },
+            `${hr}h`
+          );
+        })
+      )
+    ),
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.privacySection")),
+      h(
+        "label",
+        { className: "settings-toggle-row" },
+        h("span", null, t("settings.maskEmailToggle")),
+        h("input", {
+          type: "checkbox",
+          checked: mask,
+          onChange: async (ev) => {
+            const nextMask = (ev.target                    ).checked;
+            try {
+              state.overview = await updateCompanionPreferences({ maskEmails: nextMask });
+              renderApp();
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        })
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-sm full-width",
+          onClick: async () => {
+            const nextDemo = !overview.preferences.demoMode;
+            state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
+            renderApp();
+            showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
+          },
+        },
+        overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
+      )
+    ),
+    h(
+      "details",
+      { className: "settings-advanced-details" },
+      h("summary", { className: "settings-summary" }, t("settings.advancedSummary")),
+      h(
+        "div",
+        { className: "settings-body" },
+        h(
+          "label",
+          { className: "field-label" },
+          t("settings.quotaProjectLabel"),
+          h("input", {
+            type: "text",
+            className: "text-input full-width",
+            placeholder: t("settings.quotaProjectPlaceholder"),
+            value: quotaInputVal,
+            onInput: (ev) => {
+              quotaInputVal = (ev.target                    ).value;
+            },
+          })
+        ),
+        h(
+          "label",
+          { className: "field-label" },
+          t("settings.gcloudPathLabel"),
+          h("input", {
+            type: "text",
+            className: "text-input full-width",
+            placeholder: "/opt/homebrew/bin/gcloud",
+            value: gcloudPathVal,
+            onInput: (ev) => {
+              gcloudPathVal = (ev.target                    ).value;
+            },
+          })
+        ),
+        h(
+          "div",
+          { className: "action-row" },
+          h(
+            "button",
+            {
+              type: "button",
+              className: "btn btn-sm btn-primary",
+              onClick: async () => {
+                try {
+                  state.overview = await updateCompanionPreferences({
+                    quotaProjectOverride: quotaInputVal.trim() || null,
+                    gcloudPathOverride: gcloudPathVal.trim() || null,
+                  });
+                  renderApp();
+                  showToast(t("toast.savedSettings"), "success");
+                } catch (err) {
+                  showToast(
+                    err instanceof Error ? err.message : t("toast.invalidSettings"),
+                    "error"
+                  );
+                }
+              },
+            },
+            t("settings.applyBtn")
+          )
+        )
+      )
+    ),
+  ];
+}
+
+function renderSettingsMenuOverlay(overview                           )                     {
+  if (!state.settingsMenuOpen) return null;
+
+  return h(
+    "div",
+    {
+      className: "settings-backdrop",
+      onClick: (ev) => {
+        if (ev.target === ev.currentTarget) {
+          state.settingsMenuOpen = false;
+          renderApp();
+        }
+      },
+    },
+    h(
+      "section",
+      {
+        className: "settings-menu-panel",
+        role: "dialog",
+        ariaLabel: t("settings.menuTitle"),
+      },
+      h(
+        "div",
+        { className: "settings-menu-header" },
+        h("h3", { className: "settings-menu-title" }, `⚙ ${t("settings.menuTitle")}`),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "icon-btn",
+            ariaLabel: t("settings.closeBtnAria"),
+            title: t("settings.closeBtnAria"),
+            onClick: () => {
+              state.settingsMenuOpen = false;
+              renderApp();
+            },
+          },
+          "✕"
+        )
+      ),
+      ...renderSettingsBodyContent(overview)
+    )
+  );
+}
+
+function renderSettingsDetails(overview                           )              {
   return h(
     "details",
     { className: "card settings-details" },
     h("summary", { className: "settings-summary" }, t("settings.summary")),
-    h(
-      "div",
-      { className: "settings-body" },
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.languageLabel"),
-        renderLanguageSelect(false)
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.cacheTtlLabel"),
-        h(
-          "select",
-          {
-            className: "compact-select full-width",
-            onChange: async (ev) => {
-              const hrs = Number((ev.target                     ).value);
-              state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
-              renderApp();
-              showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
-            },
-          },
-          ...[1, 6, 12, 24].map((hr) =>
-            h(
-              "option",
-              { value: String(hr), selected: Math.round(currentHours) === hr },
-              hr === 6
-                ? t("settings.hoursRecommended")
-                : hr === 1
-                  ? t("settings.hourOne")
-                  : t("settings.hoursMany", { hours: hr })
-            )
-          )
-        )
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.quotaProjectLabel"),
-        h("input", {
-          type: "text",
-          className: "text-input full-width",
-          placeholder: t("settings.quotaProjectPlaceholder"),
-          value: quotaInputVal,
-          onInput: (ev) => {
-            quotaInputVal = (ev.target                    ).value;
-          },
-        })
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.gcloudPathLabel"),
-        h("input", {
-          type: "text",
-          className: "text-input full-width",
-          placeholder: "/opt/homebrew/bin/gcloud",
-          value: gcloudPathVal,
-          onInput: (ev) => {
-            gcloudPathVal = (ev.target                    ).value;
-          },
-        })
-      ),
-      h(
-        "div",
-        { className: "action-row" },
-        h(
-          "button",
-          {
-            type: "button",
-            className: "btn btn-sm",
-            onClick: async () => {
-              try {
-                state.overview = await updateCompanionPreferences({
-                  quotaProjectOverride: quotaInputVal.trim() || null,
-                  gcloudPathOverride: gcloudPathVal.trim() || null,
-                });
-                renderApp();
-                showToast(t("toast.savedSettings"), "success");
-              } catch (err) {
-                showToast(
-                  err instanceof Error ? err.message : t("toast.invalidSettings"),
-                  "error"
-                );
-              }
-            },
-          },
-          t("settings.applyBtn")
-        ),
-        h(
-          "button",
-          {
-            type: "button",
-            className: "btn btn-sm btn-ghost",
-            onClick: async () => {
-              const nextDemo = !overview.preferences.demoMode;
-              state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
-              renderApp();
-              showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
-            },
-          },
-          overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
-        )
-      )
-    )
+    h("div", { className: "settings-body" }, ...renderSettingsBodyContent(overview))
   );
 }
 
@@ -2606,6 +2715,10 @@ function renderApp()       {
 
   const overview = state.overview;
   root.appendChild(renderHeader(overview));
+  const settingsOverlay = renderSettingsMenuOverlay(overview);
+  if (settingsOverlay) {
+    root.appendChild(settingsOverlay);
+  }
 
   if (!overview.auth.authenticated && !overview.preferences.demoMode) {
     root.appendChild(h("main", { className: "main-body" }, renderUnauthenticatedView(overview)));
@@ -2626,6 +2739,15 @@ function renderApp()       {
 
   root.appendChild(h("main", { className: "main-body" }, activeContent));
   bindLogoSources(root);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("keydown", (ev               ) => {
+    if (ev.key === "Escape" && state.settingsMenuOpen) {
+      state.settingsMenuOpen = false;
+      renderApp();
+    }
+  });
 }
 
 void loadData(false);

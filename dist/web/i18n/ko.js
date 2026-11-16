@@ -31,6 +31,8 @@ export const KO_MESSAGES                     = {
   "header.refreshTitle": "Google Cloud 및 BigQuery에서 강제 새로고침",
   "header.syncing": "동기화 중…",
   "header.refresh": "↻ 새로고침",
+  "header.settingsBtn": "⚙ 설정",
+  "header.settingsTitle": "설정 및 언어 메뉴 열기",
   "header.account": "계정",
   "header.accountAria": "활성 Google Cloud 계정",
   "header.showEmailTitle": "전체 이메일 표시",
@@ -242,8 +244,13 @@ export const KO_MESSAGES                     = {
   "export.openBillingConsole": "GCP 결제 콘솔 열기 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "설정",
+  "settings.closeBtnAria": "설정 메뉴 닫기",
   "settings.summary": "Companion 환경설정 및 캐시 설정",
   "settings.languageLabel": "표시 언어",
+  "settings.privacySection": "개인정보 및 미리보기",
+  "settings.maskEmailToggle": "계정 이메일 주소 마스킹",
+  "settings.advancedSummary": "고급 CLI 및 할당량 설정",
   "settings.cacheTtlLabel": "로컬 캐시 유효 시간 (반복적인 BigQuery 스캔 방지)",
   "settings.hoursRecommended": "6시간 (권장)",
   "settings.hourOne": "1시간",

@@ -29,6 +29,8 @@ export const EN_MESSAGES = {
   "header.refreshTitle": "Force refresh from Google Cloud & BigQuery",
   "header.syncing": "Syncing…",
   "header.refresh": "↻ Refresh",
+  "header.settingsBtn": "⚙ Settings",
+  "header.settingsTitle": "Open settings & language menu",
   "header.account": "Account",
   "header.accountAria": "Active Google Cloud Account",
   "header.showEmailTitle": "Show full email",
@@ -240,8 +242,13 @@ export const EN_MESSAGES = {
   "export.openBillingConsole": "Open GCP Billing Console ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "Settings",
+  "settings.closeBtnAria": "Close settings menu",
   "settings.summary": "Companion Preferences & Cache Settings",
   "settings.languageLabel": "Display Language",
+  "settings.privacySection": "Privacy & Preview",
+  "settings.maskEmailToggle": "Mask account email addresses",
+  "settings.advancedSummary": "Advanced CLI & Quota Settings",
   "settings.cacheTtlLabel": "Local Cache TTL (avoids repeated BigQuery scans)",
   "settings.hoursRecommended": "6 hours (Recommended)",
   "settings.hourOne": "1 hour",

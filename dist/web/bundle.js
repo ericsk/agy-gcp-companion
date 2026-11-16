@@ -36,6 +36,8 @@ const EN_MESSAGES = {
   "header.refreshTitle": "Force refresh from Google Cloud & BigQuery",
   "header.syncing": "Syncing…",
   "header.refresh": "↻ Refresh",
+  "header.settingsBtn": "⚙ Settings",
+  "header.settingsTitle": "Open settings & language menu",
   "header.account": "Account",
   "header.accountAria": "Active Google Cloud Account",
   "header.showEmailTitle": "Show full email",
@@ -247,8 +249,13 @@ const EN_MESSAGES = {
   "export.openBillingConsole": "Open GCP Billing Console ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "Settings",
+  "settings.closeBtnAria": "Close settings menu",
   "settings.summary": "Companion Preferences & Cache Settings",
   "settings.languageLabel": "Display Language",
+  "settings.privacySection": "Privacy & Preview",
+  "settings.maskEmailToggle": "Mask account email addresses",
+  "settings.advancedSummary": "Advanced CLI & Quota Settings",
   "settings.cacheTtlLabel": "Local Cache TTL (avoids repeated BigQuery scans)",
   "settings.hoursRecommended": "6 hours (Recommended)",
   "settings.hourOne": "1 hour",
@@ -335,6 +342,8 @@ const JA_MESSAGES                     = {
   "header.refreshTitle": "Google Cloud と BigQuery から強制更新",
   "header.syncing": "同期中…",
   "header.refresh": "↻ 更新",
+  "header.settingsBtn": "⚙ 設定",
+  "header.settingsTitle": "設定と言語メニューを開く",
   "header.account": "アカウント",
   "header.accountAria": "有効な Google Cloud アカウント",
   "header.showEmailTitle": "メールアドレス全体を表示",
@@ -546,8 +555,13 @@ const JA_MESSAGES                     = {
   "export.openBillingConsole": "GCP 課金コンソールを開く ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "設定",
+  "settings.closeBtnAria": "設定メニューを閉じる",
   "settings.summary": "Companion 設定とキャッシュ管理",
   "settings.languageLabel": "表示言語",
+  "settings.privacySection": "プライバシーとプレビュー",
+  "settings.maskEmailToggle": "アカウントのメールアドレスをマスク",
+  "settings.advancedSummary": "CLI・割り当てプロジェクトの詳細設定",
   "settings.cacheTtlLabel": "ローカルキャッシュ有効期間（BigQuery の重複スキャンを防止）",
   "settings.hoursRecommended": "6時間（推奨）",
   "settings.hourOne": "1時間",
@@ -631,6 +645,8 @@ const KO_MESSAGES                     = {
   "header.refreshTitle": "Google Cloud 및 BigQuery에서 강제 새로고침",
   "header.syncing": "동기화 중…",
   "header.refresh": "↻ 새로고침",
+  "header.settingsBtn": "⚙ 설정",
+  "header.settingsTitle": "설정 및 언어 메뉴 열기",
   "header.account": "계정",
   "header.accountAria": "활성 Google Cloud 계정",
   "header.showEmailTitle": "전체 이메일 표시",
@@ -842,8 +858,13 @@ const KO_MESSAGES                     = {
   "export.openBillingConsole": "GCP 결제 콘솔 열기 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "설정",
+  "settings.closeBtnAria": "설정 메뉴 닫기",
   "settings.summary": "Companion 환경설정 및 캐시 설정",
   "settings.languageLabel": "표시 언어",
+  "settings.privacySection": "개인정보 및 미리보기",
+  "settings.maskEmailToggle": "계정 이메일 주소 마스킹",
+  "settings.advancedSummary": "고급 CLI 및 할당량 설정",
   "settings.cacheTtlLabel": "로컬 캐시 유효 시간 (반복적인 BigQuery 스캔 방지)",
   "settings.hoursRecommended": "6시간 (권장)",
   "settings.hourOne": "1시간",
@@ -927,6 +948,8 @@ const ZH_CN_MESSAGES                     = {
   "header.refreshTitle": "从 Google Cloud 与 BigQuery 强制刷新",
   "header.syncing": "同步中…",
   "header.refresh": "↻ 刷新",
+  "header.settingsBtn": "⚙ 设置",
+  "header.settingsTitle": "打开设置与语言菜单",
   "header.account": "账号",
   "header.accountAria": "当前 Google Cloud 账号",
   "header.showEmailTitle": "显示完整邮箱",
@@ -1133,8 +1156,13 @@ const ZH_CN_MESSAGES                     = {
   "export.openBillingConsole": "打开 GCP 结算控制台 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "设置",
+  "settings.closeBtnAria": "关闭设置菜单",
   "settings.summary": "Companion 偏好与缓存设置",
   "settings.languageLabel": "显示语言",
+  "settings.privacySection": "隐私与预览",
+  "settings.maskEmailToggle": "隐藏账号电子邮箱地址",
+  "settings.advancedSummary": "高级 CLI 与配额项目设置",
   "settings.cacheTtlLabel": "本地缓存有效期（避免重复扫描 BigQuery）",
   "settings.hoursRecommended": "6 小时（推荐）",
   "settings.hourOne": "1 小时",
@@ -1218,6 +1246,8 @@ const ZH_TW_MESSAGES                     = {
   "header.refreshTitle": "強制從 Google Cloud 與 BigQuery 重新整理",
   "header.syncing": "同步中…",
   "header.refresh": "↻ 重新整理",
+  "header.settingsBtn": "⚙ 設定",
+  "header.settingsTitle": "開啟設定與語系選單",
   "header.account": "帳號",
   "header.accountAria": "作用中的 Google Cloud 帳號",
   "header.showEmailTitle": "顯示完整電子郵件",
@@ -1425,8 +1455,13 @@ const ZH_TW_MESSAGES                     = {
   "export.openBillingConsole": "開啟 GCP 帳單控制台 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "設定",
+  "settings.closeBtnAria": "關閉設定選單",
   "settings.summary": "Companion 偏好設定與快取管理",
   "settings.languageLabel": "顯示語言",
+  "settings.privacySection": "隱私與預覽",
+  "settings.maskEmailToggle": "遮罩帳號電子郵件地址",
+  "settings.advancedSummary": "進階 CLI 與配額專案設定",
   "settings.cacheTtlLabel": "本機快取有效時間（避免重複掃描 BigQuery）",
   "settings.hoursRecommended": "6 小時（建議）",
   "settings.hourOne": "1 小時",
@@ -2241,6 +2276,7 @@ const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
                               
                        
                             
+                            
  
 
 const state          = {
@@ -2264,6 +2300,7 @@ const state          = {
   enableTargetProject: "",
   enablingApi: false,
   signingInBrowser: false,
+  settingsMenuOpen: false,
 };
 
 function showToast(message        , kind                               = "info")       {
@@ -2289,7 +2326,9 @@ async function loadData(forceRefresh = false)                {
   try {
     const data = await fetchOverview(forceRefresh);
     state.overview = data;
-    setLocalePreference(data.preferences.locale);
+    if (data.preferences.locale) {
+      setLocalePreference(data.preferences.locale);
+    }
     if (!state.discoverHostProject && data.auth.activeProject) {
       state.discoverHostProject = data.auth.activeProject;
     }
@@ -2492,43 +2531,54 @@ function renderDeltaBadge(delta               )              {
   return h("span", { className: cls }, t("spend.vsPrevMtd", { delta: `${sign}${delta.toFixed(1)}` }));
 }
 
-function renderLanguageSelect(compact         )              {
+function renderLanguageGrid()              {
   const currentPref = getLocalePreference();
+  const options                                                                        = [
+    { code: "auto", label: t("locale.autoFull"), fullWidth: true },
+    ...SUPPORTED_LOCALES.map((loc) => ({ code: loc.code, label: loc.nativeName })),
+  ];
+
   return h(
-    "select",
-    {
-      className: compact ? "compact-select lang-select" : "compact-select full-width",
-      ariaLabel: t("header.languageAria"),
-      title: t("header.languageTitle"),
-      onChange: async (ev) => {
-        const nextPref = (ev.target                     ).value                    ;
-        setLocalePreference(nextPref);
-        renderApp();
-        try {
-          state.overview = await updateCompanionPreferences({ locale: nextPref });
-          setLocalePreference(state.overview.preferences.locale);
-          renderApp();
-          showToast(t("toast.languageUpdated"), "success");
-        } catch (err) {
-          showToast(
-            err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
-            "error"
-          );
-        }
-      },
-    },
-    h(
-      "option",
-      { value: "auto", selected: currentPref === "auto" },
-      compact ? t("locale.autoShort") : t("locale.autoFull")
-    ),
-    ...SUPPORTED_LOCALES.map((loc) =>
-      h(
-        "option",
-        { value: loc.code, selected: currentPref === loc.code },
-        compact ? loc.shortName : loc.nativeName
-      )
-    )
+    "div",
+    { className: "lang-grid", role: "radiogroup", ariaLabel: t("settings.languageLabel") },
+    ...options.map((opt) => {
+      const selected = currentPref === opt.code;
+      const cls = [
+        "lang-option-btn",
+        selected ? "lang-option-btn-active" : "",
+        opt.fullWidth ? "lang-option-full" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return h(
+        "button",
+        {
+          type: "button",
+          role: "radio",
+          className: cls,
+          onClick: async () => {
+            if (opt.code === currentPref) return;
+            setLocalePreference(opt.code);
+            renderApp();
+            try {
+              state.overview = await updateCompanionPreferences({ locale: opt.code });
+              if (state.overview.preferences.locale) {
+                setLocalePreference(state.overview.preferences.locale);
+              }
+              renderApp();
+              showToast(t("toast.languageUpdated"), "success");
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        },
+        h("span", { className: "lang-option-text" }, opt.label),
+        selected ? h("span", { className: "lang-option-check" }, "✓") : null
+      );
+    })
   );
 }
 
@@ -2669,7 +2719,6 @@ function renderHeader(overview                           )              {
           { className: "sync-age", title: overview.cache.fetchedAt || "" },
           formatRelativeAge(overview.cache.ageMs, overview.cache.stale)
         ),
-        renderLanguageSelect(true),
         h(
           "button",
           {
@@ -2682,6 +2731,20 @@ function renderHeader(overview                           )              {
             },
           },
           state.refreshing ? t("header.syncing") : t("header.refresh")
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: state.settingsMenuOpen ? "btn btn-sm btn-settings-open" : "btn btn-sm",
+            ariaExpanded: String(state.settingsMenuOpen),
+            title: t("header.settingsTitle"),
+            onClick: () => {
+              state.settingsMenuOpen = !state.settingsMenuOpen;
+              renderApp();
+            },
+          },
+          t("header.settingsBtn")
         )
       )
     ),
@@ -4562,122 +4625,203 @@ function renderBillingExportSetupCard(overview                           )      
   );
 }
 
-function renderSettingsDetails(overview                           )              {
+function renderSettingsBodyContent(overview                           )                {
   const currentHours = overview.preferences.cacheTtlHours;
+  const mask = overview.preferences.maskEmails;
   let quotaInputVal = overview.preferences.quotaProjectOverride || "";
   let gcloudPathVal = overview.preferences.gcloudPathOverride || "";
 
+  return [
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.languageLabel")),
+      renderLanguageGrid()
+    ),
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.cacheTtlLabel")),
+      h(
+        "div",
+        { className: "ttl-pill-grid" },
+        ...[1, 6, 12, 24].map((hr) => {
+          const active = Math.round(currentHours) === hr;
+          return h(
+            "button",
+            {
+              type: "button",
+              className: active ? "lang-option-btn lang-option-btn-active" : "lang-option-btn",
+              onClick: async () => {
+                if (active) return;
+                state.overview = await updateCompanionPreferences({ cacheTtlHours: hr });
+                renderApp();
+                showToast(t("toast.cacheTtlSet", { hours: hr }), "success");
+              },
+            },
+            `${hr}h`
+          );
+        })
+      )
+    ),
+    h(
+      "div",
+      { className: "settings-section" },
+      h("div", { className: "eyebrow" }, t("settings.privacySection")),
+      h(
+        "label",
+        { className: "settings-toggle-row" },
+        h("span", null, t("settings.maskEmailToggle")),
+        h("input", {
+          type: "checkbox",
+          checked: mask,
+          onChange: async (ev) => {
+            const nextMask = (ev.target                    ).checked;
+            try {
+              state.overview = await updateCompanionPreferences({ maskEmails: nextMask });
+              renderApp();
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        })
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-sm full-width",
+          onClick: async () => {
+            const nextDemo = !overview.preferences.demoMode;
+            state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
+            renderApp();
+            showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
+          },
+        },
+        overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
+      )
+    ),
+    h(
+      "details",
+      { className: "settings-advanced-details" },
+      h("summary", { className: "settings-summary" }, t("settings.advancedSummary")),
+      h(
+        "div",
+        { className: "settings-body" },
+        h(
+          "label",
+          { className: "field-label" },
+          t("settings.quotaProjectLabel"),
+          h("input", {
+            type: "text",
+            className: "text-input full-width",
+            placeholder: t("settings.quotaProjectPlaceholder"),
+            value: quotaInputVal,
+            onInput: (ev) => {
+              quotaInputVal = (ev.target                    ).value;
+            },
+          })
+        ),
+        h(
+          "label",
+          { className: "field-label" },
+          t("settings.gcloudPathLabel"),
+          h("input", {
+            type: "text",
+            className: "text-input full-width",
+            placeholder: "/opt/homebrew/bin/gcloud",
+            value: gcloudPathVal,
+            onInput: (ev) => {
+              gcloudPathVal = (ev.target                    ).value;
+            },
+          })
+        ),
+        h(
+          "div",
+          { className: "action-row" },
+          h(
+            "button",
+            {
+              type: "button",
+              className: "btn btn-sm btn-primary",
+              onClick: async () => {
+                try {
+                  state.overview = await updateCompanionPreferences({
+                    quotaProjectOverride: quotaInputVal.trim() || null,
+                    gcloudPathOverride: gcloudPathVal.trim() || null,
+                  });
+                  renderApp();
+                  showToast(t("toast.savedSettings"), "success");
+                } catch (err) {
+                  showToast(
+                    err instanceof Error ? err.message : t("toast.invalidSettings"),
+                    "error"
+                  );
+                }
+              },
+            },
+            t("settings.applyBtn")
+          )
+        )
+      )
+    ),
+  ];
+}
+
+function renderSettingsMenuOverlay(overview                           )                     {
+  if (!state.settingsMenuOpen) return null;
+
+  return h(
+    "div",
+    {
+      className: "settings-backdrop",
+      onClick: (ev) => {
+        if (ev.target === ev.currentTarget) {
+          state.settingsMenuOpen = false;
+          renderApp();
+        }
+      },
+    },
+    h(
+      "section",
+      {
+        className: "settings-menu-panel",
+        role: "dialog",
+        ariaLabel: t("settings.menuTitle"),
+      },
+      h(
+        "div",
+        { className: "settings-menu-header" },
+        h("h3", { className: "settings-menu-title" }, `⚙ ${t("settings.menuTitle")}`),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "icon-btn",
+            ariaLabel: t("settings.closeBtnAria"),
+            title: t("settings.closeBtnAria"),
+            onClick: () => {
+              state.settingsMenuOpen = false;
+              renderApp();
+            },
+          },
+          "✕"
+        )
+      ),
+      ...renderSettingsBodyContent(overview)
+    )
+  );
+}
+
+function renderSettingsDetails(overview                           )              {
   return h(
     "details",
     { className: "card settings-details" },
     h("summary", { className: "settings-summary" }, t("settings.summary")),
-    h(
-      "div",
-      { className: "settings-body" },
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.languageLabel"),
-        renderLanguageSelect(false)
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.cacheTtlLabel"),
-        h(
-          "select",
-          {
-            className: "compact-select full-width",
-            onChange: async (ev) => {
-              const hrs = Number((ev.target                     ).value);
-              state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
-              renderApp();
-              showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
-            },
-          },
-          ...[1, 6, 12, 24].map((hr) =>
-            h(
-              "option",
-              { value: String(hr), selected: Math.round(currentHours) === hr },
-              hr === 6
-                ? t("settings.hoursRecommended")
-                : hr === 1
-                  ? t("settings.hourOne")
-                  : t("settings.hoursMany", { hours: hr })
-            )
-          )
-        )
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.quotaProjectLabel"),
-        h("input", {
-          type: "text",
-          className: "text-input full-width",
-          placeholder: t("settings.quotaProjectPlaceholder"),
-          value: quotaInputVal,
-          onInput: (ev) => {
-            quotaInputVal = (ev.target                    ).value;
-          },
-        })
-      ),
-      h(
-        "label",
-        { className: "field-label" },
-        t("settings.gcloudPathLabel"),
-        h("input", {
-          type: "text",
-          className: "text-input full-width",
-          placeholder: "/opt/homebrew/bin/gcloud",
-          value: gcloudPathVal,
-          onInput: (ev) => {
-            gcloudPathVal = (ev.target                    ).value;
-          },
-        })
-      ),
-      h(
-        "div",
-        { className: "action-row" },
-        h(
-          "button",
-          {
-            type: "button",
-            className: "btn btn-sm",
-            onClick: async () => {
-              try {
-                state.overview = await updateCompanionPreferences({
-                  quotaProjectOverride: quotaInputVal.trim() || null,
-                  gcloudPathOverride: gcloudPathVal.trim() || null,
-                });
-                renderApp();
-                showToast(t("toast.savedSettings"), "success");
-              } catch (err) {
-                showToast(
-                  err instanceof Error ? err.message : t("toast.invalidSettings"),
-                  "error"
-                );
-              }
-            },
-          },
-          t("settings.applyBtn")
-        ),
-        h(
-          "button",
-          {
-            type: "button",
-            className: "btn btn-sm btn-ghost",
-            onClick: async () => {
-              const nextDemo = !overview.preferences.demoMode;
-              state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
-              renderApp();
-              showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
-            },
-          },
-          overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
-        )
-      )
-    )
+    h("div", { className: "settings-body" }, ...renderSettingsBodyContent(overview))
   );
 }
 
@@ -4786,6 +4930,10 @@ function renderApp()       {
 
   const overview = state.overview;
   root.appendChild(renderHeader(overview));
+  const settingsOverlay = renderSettingsMenuOverlay(overview);
+  if (settingsOverlay) {
+    root.appendChild(settingsOverlay);
+  }
 
   if (!overview.auth.authenticated && !overview.preferences.demoMode) {
     root.appendChild(h("main", { className: "main-body" }, renderUnauthenticatedView(overview)));
@@ -4806,6 +4954,15 @@ function renderApp()       {
 
   root.appendChild(h("main", { className: "main-body" }, activeContent));
   bindLogoSources(root);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("keydown", (ev               ) => {
+    if (ev.key === "Escape" && state.settingsMenuOpen) {
+      state.settingsMenuOpen = false;
+      renderApp();
+    }
+  });
 }
 
 void loadData(false);

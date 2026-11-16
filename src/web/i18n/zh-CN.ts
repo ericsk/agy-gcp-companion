@@ -31,6 +31,8 @@ export const ZH_CN_MESSAGES: TranslationCatalog = {
   "header.refreshTitle": "从 Google Cloud 与 BigQuery 强制刷新",
   "header.syncing": "同步中…",
   "header.refresh": "↻ 刷新",
+  "header.settingsBtn": "⚙ 设置",
+  "header.settingsTitle": "打开设置与语言菜单",
   "header.account": "账号",
   "header.accountAria": "当前 Google Cloud 账号",
   "header.showEmailTitle": "显示完整邮箱",
@@ -237,8 +239,13 @@ export const ZH_CN_MESSAGES: TranslationCatalog = {
   "export.openBillingConsole": "打开 GCP 结算控制台 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "设置",
+  "settings.closeBtnAria": "关闭设置菜单",
   "settings.summary": "Companion 偏好与缓存设置",
   "settings.languageLabel": "显示语言",
+  "settings.privacySection": "隐私与预览",
+  "settings.maskEmailToggle": "隐藏账号电子邮箱地址",
+  "settings.advancedSummary": "高级 CLI 与配额项目设置",
   "settings.cacheTtlLabel": "本地缓存有效期（避免重复扫描 BigQuery）",
   "settings.hoursRecommended": "6 小时（推荐）",
   "settings.hourOne": "1 小时",

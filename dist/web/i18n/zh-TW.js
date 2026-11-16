@@ -31,6 +31,8 @@ export const ZH_TW_MESSAGES                     = {
   "header.refreshTitle": "強制從 Google Cloud 與 BigQuery 重新整理",
   "header.syncing": "同步中…",
   "header.refresh": "↻ 重新整理",
+  "header.settingsBtn": "⚙ 設定",
+  "header.settingsTitle": "開啟設定與語系選單",
   "header.account": "帳號",
   "header.accountAria": "作用中的 Google Cloud 帳號",
   "header.showEmailTitle": "顯示完整電子郵件",
@@ -238,8 +240,13 @@ export const ZH_TW_MESSAGES                     = {
   "export.openBillingConsole": "開啟 GCP 帳單控制台 ↗",
 
   // Preferences & Settings
+  "settings.menuTitle": "設定",
+  "settings.closeBtnAria": "關閉設定選單",
   "settings.summary": "Companion 偏好設定與快取管理",
   "settings.languageLabel": "顯示語言",
+  "settings.privacySection": "隱私與預覽",
+  "settings.maskEmailToggle": "遮罩帳號電子郵件地址",
+  "settings.advancedSummary": "進階 CLI 與配額專案設定",
   "settings.cacheTtlLabel": "本機快取有效時間（避免重複掃描 BigQuery）",
   "settings.hoursRecommended": "6 小時（建議）",
   "settings.hourOne": "1 小時",
