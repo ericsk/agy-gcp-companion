@@ -387,6 +387,8 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
               : undefined,
           demoMode: typeof body.demoMode === "boolean" ? body.demoMode : undefined,
           locale: typeof body.locale === "string" ? (body.locale as LocalePreference) : undefined,
+          autoUpdatePlugin:
+            typeof body.autoUpdatePlugin === "boolean" ? body.autoUpdatePlugin : undefined,
         });
         const overview = await service.getOverview({ forceRefresh: false });
         sendJson(res, 200, { overview });
@@ -425,6 +427,20 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
       if (method === "POST" && pathname.endsWith("/api/auth-login")) {
         await readJsonBody(req);
         const overview = await service.startInteractiveLogin();
+        sendJson(res, 200, { overview });
+        return;
+      }
+
+      if (method === "POST" && pathname.endsWith("/api/plugin-update/check")) {
+        await readJsonBody(req);
+        const overview = await service.checkPluginUpdate(true);
+        sendJson(res, 200, { overview });
+        return;
+      }
+
+      if (method === "POST" && pathname.endsWith("/api/plugin-update/apply")) {
+        await readJsonBody(req);
+        const overview = await service.applyPluginUpdate();
         sendJson(res, 200, { overview });
         return;
       }

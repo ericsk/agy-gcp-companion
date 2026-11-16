@@ -1,7 +1,8 @@
 {
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "agy-gcp-companion",
   "displayName": "GCP Companion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Monitor Google Cloud projects, billing accounts, budgets, and BigQuery month-to-date spend from the Antigravity side panel and chat agent.",
   "logo": "assets/logo.svg",
   "suggestedPrompts": [

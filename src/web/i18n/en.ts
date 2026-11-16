@@ -297,6 +297,27 @@ export const EN_MESSAGES = {
   "toast.invalidSettings": "Invalid settings input",
   "toast.demoOn": "Demo Mode ON",
   "toast.demoOff": "Demo Mode OFF (Live gcloud)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Plugin update v{version} is available — click to update",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Updated to v{version} — reload Antigravity to restart background sidecar",
+  "update.sectionTitle": "Plugin Version & Updates",
+  "update.currentVersionLabel": "Current v{version}",
+  "update.statusUpToDate": "Up to date",
+  "update.statusAvailable": "v{version} available on GitHub",
+  "update.statusUpdatedRestart": "Updated to v{version} (reload to apply)",
+  "update.autoUpdateToggle": "Automatically install plugin updates from GitHub",
+  "update.checkBtn": "↻ Check for Updates",
+  "update.checkingBtn": "Checking GitHub…",
+  "update.installBtn": "⬆ Update to v{version}",
+  "update.installingBtn": "Updating plugin…",
+  "toast.upToDate": "GCP Companion is up to date (v{version})",
+  "toast.updateAvailable": "New version v{version} is available!",
+  "toast.updateInstalled": "Updated GCP Companion to v{version}! Reload Antigravity to complete.",
+  "toast.updateFailed": "Plugin update failed",
 } as const;
 
 export type TranslationKey = keyof typeof EN_MESSAGES;

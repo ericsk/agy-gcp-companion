@@ -43,6 +43,7 @@ export const DEFAULT_PREFERENCES: CompanionPreferences = {
   quotaProjectOverride: null,
   demoMode: false,
   locale: "auto",
+  autoUpdatePlugin: true,
 };
 
 export class CompanionStore {
@@ -105,6 +106,7 @@ export class CompanionStore {
             : null,
         demoMode: Boolean(raw.demoMode),
         locale: normalizeLocalePreference(raw.locale),
+        autoUpdatePlugin: raw.autoUpdatePlugin !== undefined ? Boolean(raw.autoUpdatePlugin) : true,
       };
     } catch {
       return { ...DEFAULT_PREFERENCES, billingExportTables: {}, pinnedProjects: [] };
@@ -122,6 +124,8 @@ export class CompanionStore {
       lastWorkingQuotaProject: prefs.lastWorkingQuotaProject?.trim() || null,
       demoMode: Boolean(prefs.demoMode),
       locale: normalizeLocalePreference(prefs.locale),
+      autoUpdatePlugin:
+        prefs.autoUpdatePlugin !== undefined ? Boolean(prefs.autoUpdatePlugin) : true,
     };
     this.writeJsonAtomic("preferences.json", normalized);
     return normalized;

@@ -167,6 +167,7 @@ export async function updateCompanionPreferences(prefs: {
   quotaProjectOverride?: string | null;
   demoMode?: boolean;
   locale?: LocalePreference;
+  autoUpdatePlugin?: boolean;
 }): Promise<CompanionOverviewResponse> {
   const data = await apiPost<{ overview: CompanionOverviewResponse }>("./api/preferences", prefs);
   return data.overview;
@@ -239,6 +240,26 @@ export async function startBrowserLoginApi(): Promise<CompanionOverviewResponse>
     {},
     false,
     125_000
+  );
+  return data.overview;
+}
+
+export async function checkPluginUpdateApi(): Promise<CompanionOverviewResponse> {
+  const data = await apiPost<{ overview: CompanionOverviewResponse }>(
+    "./api/plugin-update/check",
+    {},
+    false,
+    20_000
+  );
+  return data.overview;
+}
+
+export async function applyPluginUpdateApi(): Promise<CompanionOverviewResponse> {
+  const data = await apiPost<{ overview: CompanionOverviewResponse }>(
+    "./api/plugin-update/apply",
+    {},
+    false,
+    75_000
   );
   return data.overview;
 }

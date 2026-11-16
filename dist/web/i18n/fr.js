@@ -300,4 +300,26 @@ export const FR_MESSAGES                     = {
   "toast.invalidSettings": "Saisie de paramètres non valide",
   "toast.demoOn": "Mode démo ACTIVÉ",
   "toast.demoOff": "Mode démo DÉSACTIVÉ (gcloud réel)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Mise à jour v{version} disponible — cliquer pour mettre à jour",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Mis à jour vers v{version} — rechargez Antigravity pour redémarrer le sidecar",
+  "update.sectionTitle": "Version et mises à jour du plugin",
+  "update.currentVersionLabel": "Actuelle v{version}",
+  "update.statusUpToDate": "À jour",
+  "update.statusAvailable": "v{version} disponible sur GitHub",
+  "update.statusUpdatedRestart": "Mis à jour vers v{version} (recharger pour appliquer)",
+  "update.autoUpdateToggle": "Installer automatiquement les mises à jour depuis GitHub",
+  "update.checkBtn": "↻ Vérifier les mises à jour",
+  "update.checkingBtn": "Vérification sur GitHub…",
+  "update.installBtn": "⬆ Mettre à jour vers v{version}",
+  "update.installingBtn": "Mise à jour en cours…",
+  "toast.upToDate": "GCP Companion est à jour (v{version})",
+  "toast.updateAvailable": "Nouvelle version v{version} disponible !",
+  "toast.updateInstalled":
+    "GCP Companion mis à jour vers v{version} ! Rechargez Antigravity pour terminer.",
+  "toast.updateFailed": "Échec de la mise à jour du plugin",
 };

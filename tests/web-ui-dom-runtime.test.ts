@@ -299,6 +299,50 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           }
           return new Response(JSON.stringify(overview), { status: 200 });
         }
+        if (url.includes("/api/plugin-update/check")) {
+          const overview = await service.getOverview();
+          return new Response(
+            JSON.stringify({
+              overview: {
+                ...overview,
+                pluginUpdate: {
+                  currentVersion: "1.1.0",
+                  latestVersion: "1.2.0",
+                  updateAvailable: true,
+                  updatedToVersion: null,
+                  restartRequired: false,
+                  autoUpdate: true,
+                  lastCheckedAt: new Date().toISOString(),
+                  releaseUrl: "https://github.com/ericsk/agy-gcp-companion",
+                  error: null,
+                },
+              },
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes("/api/plugin-update/apply")) {
+          const overview = await service.getOverview();
+          return new Response(
+            JSON.stringify({
+              overview: {
+                ...overview,
+                pluginUpdate: {
+                  currentVersion: "1.1.0",
+                  latestVersion: "1.2.0",
+                  updateAvailable: false,
+                  updatedToVersion: "1.2.0",
+                  restartRequired: true,
+                  autoUpdate: true,
+                  lastCheckedAt: new Date().toISOString(),
+                  releaseUrl: "https://github.com/ericsk/agy-gcp-companion",
+                  error: null,
+                },
+              },
+            }),
+            { status: 200 }
+          );
+        }
         if (url.includes("/api/preferences")) {
           const overview = await service.getOverview();
           return new Response(JSON.stringify({ overview }), { status: 200 });
@@ -484,6 +528,25 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       await switchSettingsLanguageDropdown("en");
       assert.ok(appRoot.allText.includes("Overview"), "Expected English Overview tab");
       assert.ok(appRoot.allText.includes("Billing"), "Expected English Billing tab");
+
+      // 8. Check for Plugin Updates & 1-Click Update inside Settings Menu
+      const checkUpdateBtn = appRoot.findButtonsByText("Check for Updates")[0];
+      assert.ok(checkUpdateBtn, "Expected Check for Updates button in Settings menu");
+      await Promise.all(
+        (checkUpdateBtn.listeners.click ?? []).map((fn) =>
+          Promise.resolve(fn({ stopPropagation: () => {}, preventDefault: () => {}, target: checkUpdateBtn }))
+        )
+      );
+      assert.ok(appRoot.allText.includes("1.2.0"), "Expected v1.2.0 update availability to render");
+
+      const installUpdateBtn = appRoot.findButtonsByText("Update to v1.2.0")[0];
+      assert.ok(installUpdateBtn, "Expected 1-click Update to v1.2.0 button");
+      await Promise.all(
+        (installUpdateBtn.listeners.click ?? []).map((fn) =>
+          Promise.resolve(fn({ stopPropagation: () => {}, preventDefault: () => {}, target: installUpdateBtn }))
+        )
+      );
+      assert.ok(appRoot.allText.includes("✓ v1.2.0"), "Expected Updated header badge after install");
 
       const closeSettingsBtn = appRoot.findButtonsByText("✕")[0];
       assert.ok(closeSettingsBtn, "Expected close button in Settings menu");

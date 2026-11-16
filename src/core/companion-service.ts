@@ -15,6 +15,7 @@ import {
   validateProjectId,
 } from "./security.ts";
 import { CompanionStore, VALID_LOCALE_PREFERENCES, normalizeLocalePreference } from "./store.ts";
+import { PluginUpdater } from "./updater.ts";
 import type {
   BillingAccount,
   BillingExportMapping,
@@ -30,6 +31,7 @@ import type {
 export interface CompanionServiceOptions {
   store?: CompanionStore;
   gcloud?: GcloudClient;
+  updater?: PluginUpdater;
   fetchFn?: FetchLike;
   nowFn?: () => Date;
 }
@@ -37,6 +39,7 @@ export interface CompanionServiceOptions {
 export class CompanionService {
   readonly store: CompanionStore;
   readonly gcloud: GcloudClient;
+  readonly updater: PluginUpdater;
   private readonly fetchFn: FetchLike;
   private readonly nowFn: () => Date;
   private demoActiveProject: string | null = null;
@@ -46,14 +49,28 @@ export class CompanionService {
     this.gcloud = options.gcloud ?? new GcloudClient({ fetchFn: options.fetchFn });
     this.fetchFn = options.fetchFn ?? globalThis.fetch;
     this.nowFn = options.nowFn ?? (() => new Date());
+    this.updater =
+      options.updater ??
+      new PluginUpdater({
+        fetchFn: this.fetchFn,
+        nowFn: this.nowFn,
+      });
   }
 
   async getOverview(options: { forceRefresh?: boolean } = {}): Promise<CompanionOverviewResponse> {
     const prefs = this.store.loadPreferences();
     const now = this.nowFn();
+    const autoUpdate = prefs.autoUpdatePlugin !== false;
+
+    if (this.fetchFn === globalThis.fetch && this.updater.isCheckStale()) {
+      void this.updater.checkForUpdates({ force: false, autoUpdate }).catch(() => {});
+    }
 
     if (prefs.demoMode) {
-      return buildDemoOverview(prefs, now, this.demoActiveProject);
+      return {
+        ...buildDemoOverview(prefs, now, this.demoActiveProject),
+        pluginUpdate: this.updater.getStatus(autoUpdate),
+      };
     }
 
     const auth = await this.gcloud.getAuthStatus(
@@ -192,6 +209,7 @@ export class CompanionService {
     return {
       auth,
       preferences: this.formatPublicPreferences(prefs),
+      pluginUpdate: this.updater.getStatus(prefs.autoUpdatePlugin !== false),
       cache: {
         hit: false,
         stale: false,
@@ -225,6 +243,7 @@ export class CompanionService {
       quotaProjectOverride: prefs.quotaProjectOverride,
       demoMode: prefs.demoMode,
       locale: normalizeLocalePreference(prefs.locale),
+      autoUpdatePlugin: prefs.autoUpdatePlugin !== false,
     };
   }
 
@@ -295,6 +314,7 @@ export class CompanionService {
     return {
       auth,
       preferences: this.formatPublicPreferences(prefs),
+      pluginUpdate: this.updater.getStatus(prefs.autoUpdatePlugin !== false),
       cache: {
         hit: cacheMeta.hit,
         stale: cacheMeta.stale,
@@ -369,6 +389,7 @@ export class CompanionService {
     quotaProjectOverride?: string | null;
     demoMode?: boolean;
     locale?: LocalePreference;
+    autoUpdatePlugin?: boolean;
   }): CompanionPreferences {
     let validQuotaProj: string | null | undefined = undefined;
     if (input.quotaProjectOverride !== undefined) {
@@ -405,6 +426,10 @@ export class CompanionService {
         validQuotaProj !== undefined ? validQuotaProj : curr.quotaProjectOverride,
       demoMode: input.demoMode !== undefined ? Boolean(input.demoMode) : curr.demoMode,
       locale: input.locale !== undefined ? input.locale : normalizeLocalePreference(curr.locale),
+      autoUpdatePlugin:
+        input.autoUpdatePlugin !== undefined
+          ? Boolean(input.autoUpdatePlugin)
+          : curr.autoUpdatePlugin !== false,
     }));
   }
 
@@ -568,5 +593,20 @@ export class CompanionService {
       this.store.clearSnapshot(newAuth.activeAccount);
     }
     return this.getOverview({ forceRefresh: true });
+  }
+
+  async checkPluginUpdate(force = true): Promise<CompanionOverviewResponse> {
+    const prefs = this.store.loadPreferences();
+    await this.updater.checkForUpdates({
+      force,
+      autoUpdate: prefs.autoUpdatePlugin !== false,
+    });
+    return this.getOverview({ forceRefresh: false });
+  }
+
+  async applyPluginUpdate(): Promise<CompanionOverviewResponse> {
+    const prefs = this.store.loadPreferences();
+    await this.updater.applyUpdate(prefs.autoUpdatePlugin !== false, false);
+    return this.getOverview({ forceRefresh: false });
   }
 }

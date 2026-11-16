@@ -299,4 +299,26 @@ export const KO_MESSAGES: TranslationCatalog = {
   "toast.invalidSettings": "잘못된 설정 입력입니다",
   "toast.demoOn": "데모 모드 켜짐",
   "toast.demoOff": "데모 모드 꺼짐 (실제 gcloud)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "플러그인 업데이트 v{version} 사용 가능 — 클릭하여 업데이트",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "v{version}(으)로 업데이트됨 — Antigravity를 새로고침하면 적용됩니다",
+  "update.sectionTitle": "플러그인 버전 및 자동 업데이트",
+  "update.currentVersionLabel": "현재 v{version}",
+  "update.statusUpToDate": "최신 버전",
+  "update.statusAvailable": "GitHub에 새 버전 v{version} 있음",
+  "update.statusUpdatedRestart": "v{version} 업데이트 완료 (새로고침 필요)",
+  "update.autoUpdateToggle": "GitHub에서 플러그인 자동 업데이트 설치",
+  "update.checkBtn": "↻ 업데이트 확인",
+  "update.checkingBtn": "GitHub 확인 중…",
+  "update.installBtn": "⬆ v{version}(으)로 업데이트",
+  "update.installingBtn": "플러그인 업데이트 중…",
+  "toast.upToDate": "GCP Companion이 최신 버전입니다 (v{version})",
+  "toast.updateAvailable": "새 버전 v{version}을(를) 사용할 수 있습니다!",
+  "toast.updateInstalled":
+    "GCP Companion이 v{version}(으)로 업데이트되었습니다! Antigravity를 새로고침하세요.",
+  "toast.updateFailed": "플러그인 업데이트 실패",
 };

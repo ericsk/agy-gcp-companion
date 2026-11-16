@@ -325,6 +325,7 @@ export function buildDemoOverview(
       quotaProjectOverride: prefs.quotaProjectOverride,
       demoMode: true,
       locale: prefs.locale ?? "auto",
+      autoUpdatePlugin: prefs.autoUpdatePlugin !== false,
     },
     cache: {
       hit: false,

@@ -299,4 +299,26 @@ export const JA_MESSAGES                     = {
   "toast.invalidSettings": "設定の入力内容が無効です",
   "toast.demoOn": "デモモード ON",
   "toast.demoOff": "デモモード OFF（実際の gcloud）",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "アップデート v{version} が利用可能です — クリックして更新",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "v{version} に更新済み — Antigravity を再読み込みすると反映されます",
+  "update.sectionTitle": "プラグインのバージョンと自動更新",
+  "update.currentVersionLabel": "現在 v{version}",
+  "update.statusUpToDate": "最新です",
+  "update.statusAvailable": "GitHub に新バージョン v{version} があります",
+  "update.statusUpdatedRestart": "v{version} に更新済み（再読み込みで反映）",
+  "update.autoUpdateToggle": "GitHub からプラグインを自動的に更新する",
+  "update.checkBtn": "↻ アップデートを確認",
+  "update.checkingBtn": "GitHub を確認中…",
+  "update.installBtn": "⬆ v{version} に今すぐ更新",
+  "update.installingBtn": "プラグインを更新中…",
+  "toast.upToDate": "GCP Companion は最新バージョンです (v{version})",
+  "toast.updateAvailable": "新しいバージョン v{version} が利用可能です！",
+  "toast.updateInstalled":
+    "GCP Companion を v{version} に更新しました！Antigravity を再読み込みしてください。",
+  "toast.updateFailed": "プラグインの更新に失敗しました",
 };

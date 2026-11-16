@@ -1,6 +1,6 @@
 {
   "name": "agy-gcp-companion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Google Cloud Projects, Billing Accounts & BigQuery Spend Companion Plugin for Antigravity",
   "type": "module",
   "license": "Apache-2.0",

@@ -145,6 +145,18 @@ export interface SpendReport {
 export type LocaleCode = "en" | "es" | "fr" | "ja" | "ko" | "zh-CN" | "zh-TW";
 export type LocalePreference = "auto" | LocaleCode;
 
+export interface PluginUpdateStatus {
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  updatedToVersion: string | null;
+  restartRequired: boolean;
+  autoUpdate: boolean;
+  lastCheckedAt: string | null;
+  releaseUrl: string;
+  error: string | null;
+}
+
 export interface CompanionPreferences {
   pinnedProjects: string[];
   billingExportTables: Record<string, BillingExportMapping>;
@@ -155,6 +167,7 @@ export interface CompanionPreferences {
   lastWorkingQuotaProject?: string | null;
   demoMode: boolean;
   locale?: LocalePreference;
+  autoUpdatePlugin?: boolean;
 }
 
 export interface CachedCloudSnapshot {
@@ -196,7 +209,9 @@ export interface CompanionOverviewResponse {
     quotaProjectOverride: string | null;
     demoMode: boolean;
     locale: LocalePreference;
+    autoUpdatePlugin: boolean;
   };
+  pluginUpdate?: PluginUpdateStatus;
   cache: {
     hit: boolean;
     stale: boolean;

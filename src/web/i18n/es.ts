@@ -300,4 +300,26 @@ export const ES_MESSAGES: TranslationCatalog = {
   "toast.invalidSettings": "Entrada de ajustes no válida",
   "toast.demoOn": "Modo demo ACTIVADO",
   "toast.demoOff": "Modo demo DESACTIVADO (gcloud en vivo)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Actualización v{version} disponible — haz clic para actualizar",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Actualizado a v{version} — recarga Antigravity para reiniciar el sidecar",
+  "update.sectionTitle": "Versión y actualizaciones del plugin",
+  "update.currentVersionLabel": "Actual v{version}",
+  "update.statusUpToDate": "Actualizado",
+  "update.statusAvailable": "v{version} disponible en GitHub",
+  "update.statusUpdatedRestart": "Actualizado a v{version} (recarga para aplicar)",
+  "update.autoUpdateToggle": "Instalar automáticamente actualizaciones desde GitHub",
+  "update.checkBtn": "↻ Buscar actualizaciones",
+  "update.checkingBtn": "Consultando GitHub…",
+  "update.installBtn": "⬆ Actualizar a v{version}",
+  "update.installingBtn": "Actualizando plugin…",
+  "toast.upToDate": "GCP Companion está actualizado (v{version})",
+  "toast.updateAvailable": "¡Nueva versión v{version} disponible!",
+  "toast.updateInstalled":
+    "¡GCP Companion actualizado a v{version}! Recarga Antigravity para completar.",
+  "toast.updateFailed": "Error al actualizar el plugin",
 };

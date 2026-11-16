@@ -6,6 +6,8 @@
                    
                           
 import {
+  applyPluginUpdateApi,
+  checkPluginUpdateApi,
   configureExportTableApi,
   discoverExportTablesApi,
   enableGcpServiceApi,
@@ -62,6 +64,8 @@ const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
                        
                             
                             
+                                
+                                
  
 
 const state          = {
@@ -86,6 +90,8 @@ const state          = {
   enablingApi: false,
   signingInBrowser: false,
   settingsMenuOpen: false,
+  checkingPluginUpdate: false,
+  applyingPluginUpdate: false,
 };
 
 function showToast(message        , kind                               = "info")       {
@@ -351,6 +357,84 @@ function renderLanguageSelect()              {
   );
 }
 
+async function handleInstallPluginUpdate()                {
+  if (state.applyingPluginUpdate) return;
+  try {
+    state.applyingPluginUpdate = true;
+    renderApp();
+    state.overview = await applyPluginUpdateApi();
+    const newVer =
+      state.overview.pluginUpdate?.updatedToVersion ||
+      state.overview.pluginUpdate?.latestVersion ||
+      state.overview.pluginUpdate?.currentVersion ||
+      "latest";
+    showToast(t("toast.updateInstalled", { version: newVer }), "success");
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : t("toast.updateFailed"), "error");
+  } finally {
+    state.applyingPluginUpdate = false;
+    renderApp();
+  }
+}
+
+async function handleCheckPluginUpdate()                {
+  if (state.checkingPluginUpdate) return;
+  try {
+    state.checkingPluginUpdate = true;
+    renderApp();
+    state.overview = await checkPluginUpdateApi();
+    const upd = state.overview.pluginUpdate;
+    if (upd?.error) {
+      showToast(upd.error, "error");
+    } else if (upd?.restartRequired && upd.updatedToVersion) {
+      showToast(t("toast.updateInstalled", { version: upd.updatedToVersion }), "success");
+    } else if (upd?.updateAvailable && upd.latestVersion) {
+      showToast(t("toast.updateAvailable", { version: upd.latestVersion }), "info");
+    } else if (upd) {
+      showToast(t("toast.upToDate", { version: upd.currentVersion }), "success");
+    }
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : t("toast.updateFailed"), "error");
+  } finally {
+    state.checkingPluginUpdate = false;
+    renderApp();
+  }
+}
+
+function renderHeaderUpdateBadge(overview                           )                     {
+  const upd = overview.pluginUpdate;
+  if (!upd) return null;
+
+  if (upd.restartRequired && upd.updatedToVersion) {
+    return h(
+      "span",
+      {
+        className: "badge badge-good",
+        title: t("update.headerUpdatedTitle", { version: upd.updatedToVersion }),
+      },
+      t("update.headerUpdatedBadge", { version: upd.updatedToVersion })
+    );
+  }
+
+  if (upd.updateAvailable && upd.latestVersion) {
+    return h(
+      "button",
+      {
+        type: "button",
+        className: "badge badge-update",
+        disabled: state.applyingPluginUpdate,
+        title: t("update.headerBadgeTitle", { version: upd.latestVersion }),
+        onClick: () => handleInstallPluginUpdate(),
+      },
+      state.applyingPluginUpdate
+        ? t("update.installingBtn")
+        : t("update.headerBadgeAvailable", { version: upd.latestVersion })
+    );
+  }
+
+  return null;
+}
+
 function renderHeader(overview                           )              {
   const mask = overview.preferences.maskEmails;
   const accountOptions = overview.auth.accounts.map((acct) =>
@@ -463,6 +547,7 @@ function renderHeader(overview                           )              {
         { className: "brand-left" },
         h("img", { className: "brand-logo" }),
         h("span", { className: "brand-title" }, "GCP Companion"),
+        renderHeaderUpdateBadge(overview),
         overview.preferences.demoMode
           ? h(
               "button",
@@ -2402,6 +2487,96 @@ function renderBillingExportSetupCard(overview                           )      
   );
 }
 
+function renderPluginUpdateSection(overview                           )              {
+  const upd = overview.pluginUpdate;
+  const currentVersion = upd?.currentVersion || "1.1.0";
+  const autoUpdate = overview.preferences.autoUpdatePlugin !== false;
+
+  const statusBadge =
+    upd?.restartRequired && upd.updatedToVersion
+      ? h(
+          "span",
+          { className: "badge badge-good" },
+          t("update.statusUpdatedRestart", { version: upd.updatedToVersion })
+        )
+      : upd?.updateAvailable && upd.latestVersion
+        ? h(
+            "span",
+            { className: "badge badge-warn" },
+            t("update.statusAvailable", { version: upd.latestVersion })
+          )
+        : h("span", { className: "badge badge-neutral" }, t("update.statusUpToDate"));
+
+  return h(
+    "div",
+    { className: "settings-section" },
+    h("div", { className: "eyebrow" }, t("update.sectionTitle")),
+    h(
+      "div",
+      { className: "update-status-box" },
+      h(
+        "div",
+        { className: "update-status-row" },
+        h(
+          "span",
+          { className: "row-mono" },
+          t("update.currentVersionLabel", { version: currentVersion })
+        ),
+        statusBadge
+      ),
+      h(
+        "label",
+        { className: "settings-toggle-row" },
+        h("span", null, t("update.autoUpdateToggle")),
+        h("input", {
+          type: "checkbox",
+          checked: autoUpdate,
+          onChange: async (ev) => {
+            const nextAuto = (ev.target                    ).checked;
+            try {
+              state.overview = await updateCompanionPreferences({ autoUpdatePlugin: nextAuto });
+              renderApp();
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        })
+      ),
+      h(
+        "div",
+        { className: "action-row" },
+        upd?.updateAvailable && upd.latestVersion && !upd.restartRequired
+          ? h(
+              "button",
+              {
+                type: "button",
+                className: "btn btn-xs btn-primary",
+                disabled: state.applyingPluginUpdate,
+                onClick: () => handleInstallPluginUpdate(),
+              },
+              state.applyingPluginUpdate
+                ? t("update.installingBtn")
+                : t("update.installBtn", { version: upd.latestVersion })
+            )
+          : null,
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs",
+            disabled: state.checkingPluginUpdate || state.applyingPluginUpdate,
+            onClick: () => handleCheckPluginUpdate(),
+          },
+          state.checkingPluginUpdate ? t("update.checkingBtn") : t("update.checkBtn")
+        )
+      )
+    )
+  );
+}
+
 function renderSettingsBodyContent(overview                           )                {
   const currentHours = overview.preferences.cacheTtlHours;
   const mask = overview.preferences.maskEmails;
@@ -2483,6 +2658,7 @@ function renderSettingsBodyContent(overview                           )         
         overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
       )
     ),
+    renderPluginUpdateSection(overview),
     h(
       "details",
       { className: "settings-advanced-details" },

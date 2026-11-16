@@ -1190,6 +1190,36 @@ body {
   }
 }
 
+.badge-update {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.badge-update:hover:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.update-status-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.update-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .btn-settings-open {
   border-color: var(--accent);
   background: var(--accent-soft);

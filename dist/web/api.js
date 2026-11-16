@@ -167,6 +167,7 @@ export async function updateCompanionPreferences(prefs
                                        
                      
                             
+                             
  )                                     {
   const data = await apiPost                                         ("./api/preferences", prefs);
   return data.overview;
@@ -239,6 +240,26 @@ export async function startBrowserLoginApi()                                    
     {},
     false,
     125_000
+  );
+  return data.overview;
+}
+
+export async function checkPluginUpdateApi()                                     {
+  const data = await apiPost                                         (
+    "./api/plugin-update/check",
+    {},
+    false,
+    20_000
+  );
+  return data.overview;
+}
+
+export async function applyPluginUpdateApi()                                     {
+  const data = await apiPost                                         (
+    "./api/plugin-update/apply",
+    {},
+    false,
+    75_000
   );
   return data.overview;
 }

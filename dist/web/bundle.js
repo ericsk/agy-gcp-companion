@@ -304,6 +304,27 @@ const EN_MESSAGES = {
   "toast.invalidSettings": "Invalid settings input",
   "toast.demoOn": "Demo Mode ON",
   "toast.demoOff": "Demo Mode OFF (Live gcloud)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Plugin update v{version} is available — click to update",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Updated to v{version} — reload Antigravity to restart background sidecar",
+  "update.sectionTitle": "Plugin Version & Updates",
+  "update.currentVersionLabel": "Current v{version}",
+  "update.statusUpToDate": "Up to date",
+  "update.statusAvailable": "v{version} available on GitHub",
+  "update.statusUpdatedRestart": "Updated to v{version} (reload to apply)",
+  "update.autoUpdateToggle": "Automatically install plugin updates from GitHub",
+  "update.checkBtn": "↻ Check for Updates",
+  "update.checkingBtn": "Checking GitHub…",
+  "update.installBtn": "⬆ Update to v{version}",
+  "update.installingBtn": "Updating plugin…",
+  "toast.upToDate": "GCP Companion is up to date (v{version})",
+  "toast.updateAvailable": "New version v{version} is available!",
+  "toast.updateInstalled": "Updated GCP Companion to v{version}! Reload Antigravity to complete.",
+  "toast.updateFailed": "Plugin update failed",
 }         ;
 
                                                       
@@ -611,6 +632,28 @@ const ES_MESSAGES                     = {
   "toast.invalidSettings": "Entrada de ajustes no válida",
   "toast.demoOn": "Modo demo ACTIVADO",
   "toast.demoOff": "Modo demo DESACTIVADO (gcloud en vivo)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Actualización v{version} disponible — haz clic para actualizar",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Actualizado a v{version} — recarga Antigravity para reiniciar el sidecar",
+  "update.sectionTitle": "Versión y actualizaciones del plugin",
+  "update.currentVersionLabel": "Actual v{version}",
+  "update.statusUpToDate": "Actualizado",
+  "update.statusAvailable": "v{version} disponible en GitHub",
+  "update.statusUpdatedRestart": "Actualizado a v{version} (recarga para aplicar)",
+  "update.autoUpdateToggle": "Instalar automáticamente actualizaciones desde GitHub",
+  "update.checkBtn": "↻ Buscar actualizaciones",
+  "update.checkingBtn": "Consultando GitHub…",
+  "update.installBtn": "⬆ Actualizar a v{version}",
+  "update.installingBtn": "Actualizando plugin…",
+  "toast.upToDate": "GCP Companion está actualizado (v{version})",
+  "toast.updateAvailable": "¡Nueva versión v{version} disponible!",
+  "toast.updateInstalled":
+    "¡GCP Companion actualizado a v{version}! Recarga Antigravity para completar.",
+  "toast.updateFailed": "Error al actualizar el plugin",
 };
 
 
@@ -915,6 +958,28 @@ const FR_MESSAGES                     = {
   "toast.invalidSettings": "Saisie de paramètres non valide",
   "toast.demoOn": "Mode démo ACTIVÉ",
   "toast.demoOff": "Mode démo DÉSACTIVÉ (gcloud réel)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "Mise à jour v{version} disponible — cliquer pour mettre à jour",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "Mis à jour vers v{version} — rechargez Antigravity pour redémarrer le sidecar",
+  "update.sectionTitle": "Version et mises à jour du plugin",
+  "update.currentVersionLabel": "Actuelle v{version}",
+  "update.statusUpToDate": "À jour",
+  "update.statusAvailable": "v{version} disponible sur GitHub",
+  "update.statusUpdatedRestart": "Mis à jour vers v{version} (recharger pour appliquer)",
+  "update.autoUpdateToggle": "Installer automatiquement les mises à jour depuis GitHub",
+  "update.checkBtn": "↻ Vérifier les mises à jour",
+  "update.checkingBtn": "Vérification sur GitHub…",
+  "update.installBtn": "⬆ Mettre à jour vers v{version}",
+  "update.installingBtn": "Mise à jour en cours…",
+  "toast.upToDate": "GCP Companion est à jour (v{version})",
+  "toast.updateAvailable": "Nouvelle version v{version} disponible !",
+  "toast.updateInstalled":
+    "GCP Companion mis à jour vers v{version} ! Rechargez Antigravity pour terminer.",
+  "toast.updateFailed": "Échec de la mise à jour du plugin",
 };
 
 
@@ -1218,6 +1283,28 @@ const JA_MESSAGES                     = {
   "toast.invalidSettings": "設定の入力内容が無効です",
   "toast.demoOn": "デモモード ON",
   "toast.demoOff": "デモモード OFF（実際の gcloud）",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "アップデート v{version} が利用可能です — クリックして更新",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "v{version} に更新済み — Antigravity を再読み込みすると反映されます",
+  "update.sectionTitle": "プラグインのバージョンと自動更新",
+  "update.currentVersionLabel": "現在 v{version}",
+  "update.statusUpToDate": "最新です",
+  "update.statusAvailable": "GitHub に新バージョン v{version} があります",
+  "update.statusUpdatedRestart": "v{version} に更新済み（再読み込みで反映）",
+  "update.autoUpdateToggle": "GitHub からプラグインを自動的に更新する",
+  "update.checkBtn": "↻ アップデートを確認",
+  "update.checkingBtn": "GitHub を確認中…",
+  "update.installBtn": "⬆ v{version} に今すぐ更新",
+  "update.installingBtn": "プラグインを更新中…",
+  "toast.upToDate": "GCP Companion は最新バージョンです (v{version})",
+  "toast.updateAvailable": "新しいバージョン v{version} が利用可能です！",
+  "toast.updateInstalled":
+    "GCP Companion を v{version} に更新しました！Antigravity を再読み込みしてください。",
+  "toast.updateFailed": "プラグインの更新に失敗しました",
 };
 
 
@@ -1521,6 +1608,28 @@ const KO_MESSAGES                     = {
   "toast.invalidSettings": "잘못된 설정 입력입니다",
   "toast.demoOn": "데모 모드 켜짐",
   "toast.demoOff": "데모 모드 꺼짐 (실제 gcloud)",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "플러그인 업데이트 v{version} 사용 가능 — 클릭하여 업데이트",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle":
+    "v{version}(으)로 업데이트됨 — Antigravity를 새로고침하면 적용됩니다",
+  "update.sectionTitle": "플러그인 버전 및 자동 업데이트",
+  "update.currentVersionLabel": "현재 v{version}",
+  "update.statusUpToDate": "최신 버전",
+  "update.statusAvailable": "GitHub에 새 버전 v{version} 있음",
+  "update.statusUpdatedRestart": "v{version} 업데이트 완료 (새로고침 필요)",
+  "update.autoUpdateToggle": "GitHub에서 플러그인 자동 업데이트 설치",
+  "update.checkBtn": "↻ 업데이트 확인",
+  "update.checkingBtn": "GitHub 확인 중…",
+  "update.installBtn": "⬆ v{version}(으)로 업데이트",
+  "update.installingBtn": "플러그인 업데이트 중…",
+  "toast.upToDate": "GCP Companion이 최신 버전입니다 (v{version})",
+  "toast.updateAvailable": "새 버전 v{version}을(를) 사용할 수 있습니다!",
+  "toast.updateInstalled":
+    "GCP Companion이 v{version}(으)로 업데이트되었습니다! Antigravity를 새로고침하세요.",
+  "toast.updateFailed": "플러그인 업데이트 실패",
 };
 
 
@@ -1819,6 +1928,26 @@ const ZH_CN_MESSAGES                     = {
   "toast.invalidSettings": "设置输入无效",
   "toast.demoOn": "演示模式已开启",
   "toast.demoOff": "演示模式已关闭（实时 gcloud）",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "发现新版本 v{version} — 点击立即更新",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle": "已更新至 v{version} — 重新加载 Antigravity 后完全生效",
+  "update.sectionTitle": "插件版本与自动更新",
+  "update.currentVersionLabel": "当前版本 v{version}",
+  "update.statusUpToDate": "已是最新版本",
+  "update.statusAvailable": "GitHub 有新版本 v{version} 可用",
+  "update.statusUpdatedRestart": "已更新至 v{version}（重新加载后生效）",
+  "update.autoUpdateToggle": "自动从 GitHub 下载并安装插件更新",
+  "update.checkBtn": "↻ 检查更新",
+  "update.checkingBtn": "正在检查 GitHub…",
+  "update.installBtn": "⬆ 立即更新至 v{version}",
+  "update.installingBtn": "正在更新插件…",
+  "toast.upToDate": "GCP Companion 已是最新版本 (v{version})",
+  "toast.updateAvailable": "发现新版本 v{version}！",
+  "toast.updateInstalled": "已更新至 v{version}！请重新加载 Antigravity 以完成生效。",
+  "toast.updateFailed": "插件更新失败",
 };
 
 
@@ -2118,6 +2247,26 @@ const ZH_TW_MESSAGES                     = {
   "toast.invalidSettings": "設定輸入無效",
   "toast.demoOn": "展示模式已開啟",
   "toast.demoOff": "展示模式已關閉（即時 gcloud）",
+
+  // Plugin Updater
+  "update.headerBadgeAvailable": "⬆ v{version}",
+  "update.headerBadgeTitle": "有新版本 v{version} 可更新 — 點擊立即更新",
+  "update.headerUpdatedBadge": "✓ v{version}",
+  "update.headerUpdatedTitle": "已更新至 v{version} — 重新載入 Antigravity 後完全生效",
+  "update.sectionTitle": "外掛版本與自動更新",
+  "update.currentVersionLabel": "目前版本 v{version}",
+  "update.statusUpToDate": "已是最新版本",
+  "update.statusAvailable": "GitHub 有新版本 v{version} 可供更新",
+  "update.statusUpdatedRestart": "已更新至 v{version}（重新載入後生效）",
+  "update.autoUpdateToggle": "自動從 GitHub 下載並安裝外掛更新",
+  "update.checkBtn": "↻ 檢查更新",
+  "update.checkingBtn": "正在檢查 GitHub…",
+  "update.installBtn": "⬆ 立即更新至 v{version}",
+  "update.installingBtn": "正在更新外掛…",
+  "toast.upToDate": "GCP Companion 已是最新版本 (v{version})",
+  "toast.updateAvailable": "發現新版本 v{version}！",
+  "toast.updateInstalled": "已更新至 v{version}！請重新載入 Antigravity 以完成生效。",
+  "toast.updateFailed": "外掛更新失敗",
 };
 
 
@@ -2790,6 +2939,7 @@ async function updateCompanionPreferences(prefs
                                        
                      
                             
+                             
  )                                     {
   const data = await apiPost                                         ("./api/preferences", prefs);
   return data.overview;
@@ -2860,6 +3010,24 @@ async function startBrowserLoginApi()                                     {
   );
   return data.overview;
 }
+async function checkPluginUpdateApi()                                     {
+  const data = await apiPost                                         (
+    "./api/plugin-update/check",
+    {},
+    false,
+    20_000
+  );
+  return data.overview;
+}
+async function applyPluginUpdateApi()                                     {
+  const data = await apiPost                                         (
+    "./api/plugin-update/apply",
+    {},
+    false,
+    75_000
+  );
+  return data.overview;
+}
 
 
 // --- app.js ---
@@ -2897,6 +3065,8 @@ const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
                        
                             
                             
+                                
+                                
  
 
 const state          = {
@@ -2921,6 +3091,8 @@ const state          = {
   enablingApi: false,
   signingInBrowser: false,
   settingsMenuOpen: false,
+  checkingPluginUpdate: false,
+  applyingPluginUpdate: false,
 };
 
 function showToast(message        , kind                               = "info")       {
@@ -3186,6 +3358,84 @@ function renderLanguageSelect()              {
   );
 }
 
+async function handleInstallPluginUpdate()                {
+  if (state.applyingPluginUpdate) return;
+  try {
+    state.applyingPluginUpdate = true;
+    renderApp();
+    state.overview = await applyPluginUpdateApi();
+    const newVer =
+      state.overview.pluginUpdate?.updatedToVersion ||
+      state.overview.pluginUpdate?.latestVersion ||
+      state.overview.pluginUpdate?.currentVersion ||
+      "latest";
+    showToast(t("toast.updateInstalled", { version: newVer }), "success");
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : t("toast.updateFailed"), "error");
+  } finally {
+    state.applyingPluginUpdate = false;
+    renderApp();
+  }
+}
+
+async function handleCheckPluginUpdate()                {
+  if (state.checkingPluginUpdate) return;
+  try {
+    state.checkingPluginUpdate = true;
+    renderApp();
+    state.overview = await checkPluginUpdateApi();
+    const upd = state.overview.pluginUpdate;
+    if (upd?.error) {
+      showToast(upd.error, "error");
+    } else if (upd?.restartRequired && upd.updatedToVersion) {
+      showToast(t("toast.updateInstalled", { version: upd.updatedToVersion }), "success");
+    } else if (upd?.updateAvailable && upd.latestVersion) {
+      showToast(t("toast.updateAvailable", { version: upd.latestVersion }), "info");
+    } else if (upd) {
+      showToast(t("toast.upToDate", { version: upd.currentVersion }), "success");
+    }
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : t("toast.updateFailed"), "error");
+  } finally {
+    state.checkingPluginUpdate = false;
+    renderApp();
+  }
+}
+
+function renderHeaderUpdateBadge(overview                           )                     {
+  const upd = overview.pluginUpdate;
+  if (!upd) return null;
+
+  if (upd.restartRequired && upd.updatedToVersion) {
+    return h(
+      "span",
+      {
+        className: "badge badge-good",
+        title: t("update.headerUpdatedTitle", { version: upd.updatedToVersion }),
+      },
+      t("update.headerUpdatedBadge", { version: upd.updatedToVersion })
+    );
+  }
+
+  if (upd.updateAvailable && upd.latestVersion) {
+    return h(
+      "button",
+      {
+        type: "button",
+        className: "badge badge-update",
+        disabled: state.applyingPluginUpdate,
+        title: t("update.headerBadgeTitle", { version: upd.latestVersion }),
+        onClick: () => handleInstallPluginUpdate(),
+      },
+      state.applyingPluginUpdate
+        ? t("update.installingBtn")
+        : t("update.headerBadgeAvailable", { version: upd.latestVersion })
+    );
+  }
+
+  return null;
+}
+
 function renderHeader(overview                           )              {
   const mask = overview.preferences.maskEmails;
   const accountOptions = overview.auth.accounts.map((acct) =>
@@ -3298,6 +3548,7 @@ function renderHeader(overview                           )              {
         { className: "brand-left" },
         h("img", { className: "brand-logo" }),
         h("span", { className: "brand-title" }, "GCP Companion"),
+        renderHeaderUpdateBadge(overview),
         overview.preferences.demoMode
           ? h(
               "button",
@@ -5237,6 +5488,96 @@ function renderBillingExportSetupCard(overview                           )      
   );
 }
 
+function renderPluginUpdateSection(overview                           )              {
+  const upd = overview.pluginUpdate;
+  const currentVersion = upd?.currentVersion || "1.1.0";
+  const autoUpdate = overview.preferences.autoUpdatePlugin !== false;
+
+  const statusBadge =
+    upd?.restartRequired && upd.updatedToVersion
+      ? h(
+          "span",
+          { className: "badge badge-good" },
+          t("update.statusUpdatedRestart", { version: upd.updatedToVersion })
+        )
+      : upd?.updateAvailable && upd.latestVersion
+        ? h(
+            "span",
+            { className: "badge badge-warn" },
+            t("update.statusAvailable", { version: upd.latestVersion })
+          )
+        : h("span", { className: "badge badge-neutral" }, t("update.statusUpToDate"));
+
+  return h(
+    "div",
+    { className: "settings-section" },
+    h("div", { className: "eyebrow" }, t("update.sectionTitle")),
+    h(
+      "div",
+      { className: "update-status-box" },
+      h(
+        "div",
+        { className: "update-status-row" },
+        h(
+          "span",
+          { className: "row-mono" },
+          t("update.currentVersionLabel", { version: currentVersion })
+        ),
+        statusBadge
+      ),
+      h(
+        "label",
+        { className: "settings-toggle-row" },
+        h("span", null, t("update.autoUpdateToggle")),
+        h("input", {
+          type: "checkbox",
+          checked: autoUpdate,
+          onChange: async (ev) => {
+            const nextAuto = (ev.target                    ).checked;
+            try {
+              state.overview = await updateCompanionPreferences({ autoUpdatePlugin: nextAuto });
+              renderApp();
+            } catch (err) {
+              showToast(
+                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+                "error"
+              );
+            }
+          },
+        })
+      ),
+      h(
+        "div",
+        { className: "action-row" },
+        upd?.updateAvailable && upd.latestVersion && !upd.restartRequired
+          ? h(
+              "button",
+              {
+                type: "button",
+                className: "btn btn-xs btn-primary",
+                disabled: state.applyingPluginUpdate,
+                onClick: () => handleInstallPluginUpdate(),
+              },
+              state.applyingPluginUpdate
+                ? t("update.installingBtn")
+                : t("update.installBtn", { version: upd.latestVersion })
+            )
+          : null,
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs",
+            disabled: state.checkingPluginUpdate || state.applyingPluginUpdate,
+            onClick: () => handleCheckPluginUpdate(),
+          },
+          state.checkingPluginUpdate ? t("update.checkingBtn") : t("update.checkBtn")
+        )
+      )
+    )
+  );
+}
+
 function renderSettingsBodyContent(overview                           )                {
   const currentHours = overview.preferences.cacheTtlHours;
   const mask = overview.preferences.maskEmails;
@@ -5318,6 +5659,7 @@ function renderSettingsBodyContent(overview                           )         
         overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
       )
     ),
+    renderPluginUpdateSection(overview),
     h(
       "details",
       { className: "settings-advanced-details" },
