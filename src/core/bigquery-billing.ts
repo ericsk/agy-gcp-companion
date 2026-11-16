@@ -139,11 +139,44 @@ export interface DateWindowContext {
   dayOfMonthCutoff: number; // 1..31 for fair Month-to-Date vs Prev-Month-Same-Day comparison
 }
 
+export function getDaysInInvoiceMonth(yyyymm: string): number {
+  const year = Number(yyyymm.slice(0, 4));
+  const monthIndex = Number(yyyymm.slice(4, 6)) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return 30;
+  }
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
 function shiftInvoiceMonth(yyyymm: string, deltaMonths: number): string {
   const year = Number(yyyymm.slice(0, 4));
   const monthIndex = Number(yyyymm.slice(4, 6)) - 1;
   const shifted = new Date(Date.UTC(year, monthIndex + deltaMonths, 1));
   return `${shifted.getUTCFullYear()}${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function isHistoricalMonthSettled(
+  targetMonth: string,
+  currentInvoiceMonth: string,
+  hasRows: boolean,
+  coveredDays: number,
+  sameMonthMaxDay: number,
+  laterMonthCoveredDays: number
+): boolean {
+  if (targetMonth >= currentInvoiceMonth || !hasRows) {
+    return false;
+  }
+  if (coveredDays < 25 && sameMonthMaxDay < 28) {
+    return false;
+  }
+  if (laterMonthCoveredDays < 1) {
+    return false;
+  }
+  const immediatePrevMonth = shiftInvoiceMonth(currentInvoiceMonth, -1);
+  if (targetMonth === immediatePrevMonth && laterMonthCoveredDays < 2) {
+    return false;
+  }
+  return true;
 }
 
 export function computeBillingDateWindow(referenceDate: Date = new Date()): DateWindowContext {
@@ -578,9 +611,13 @@ function aggregateSingleMonthSnapshot(
 
   const sameMonthPrefix = `${targetMonth.slice(0, 4)}-${targetMonth.slice(4, 6)}-`;
   const distinctUsageDates = new Set<string>();
+  const laterMonthDates = new Set<string>();
   let sameMonthMaxDay = 0;
   let rowCount = 0;
   for (const row of rows) {
+    if (row.invoiceMonth > targetMonth && row.usageDate) {
+      laterMonthDates.add(row.usageDate);
+    }
     const isCurrent = row.invoiceMonth === targetMonth;
     const isPrev = row.invoiceMonth === prevMonth;
     if (!isCurrent && !isPrev) continue;
@@ -676,7 +713,14 @@ function aggregateSingleMonthSnapshot(
 
   const coveredDays = distinctUsageDates.size;
   const hasRows = rowCount > 0;
-  const settled = targetMonth < currentInvoiceMonth && hasRows && (coveredDays >= 25 || sameMonthMaxDay >= 28);
+  const settled = isHistoricalMonthSettled(
+    targetMonth,
+    currentInvoiceMonth,
+    hasRows,
+    coveredDays,
+    sameMonthMaxDay,
+    laterMonthDates.size
+  );
 
   return {
     invoiceMonth: targetMonth,
@@ -1021,6 +1065,54 @@ export async function queryBillingExportSpend(
   const mergedAvailableMonths = fullWindowCtx.recentInvoiceMonths.filter(
     (m) => m === fullWindowCtx.currentInvoiceMonth || Boolean(mergedByMonth[m]?.hasRows)
   );
+
+  // Re-evaluate sequential backfill guard across merged fresh + frozen months
+  if (warnings.length === 0) {
+    for (const m of mergedAvailableMonths) {
+      if (frozenMonths.has(m) || m >= fullWindowCtx.currentInvoiceMonth) continue;
+      const snap = mergedByMonth[m];
+      if (!snap || !snap.hasRows) continue;
+      const prefix = `${m.slice(0, 4)}-${m.slice(4, 6)}-`;
+      let snapMaxDay = 0;
+      for (const curr of snap.totalsByCurrency) {
+        for (const pt of curr.dailySeries) {
+          if (pt.date.startsWith(prefix)) {
+            const d = Number(pt.date.slice(8, 10)) || 0;
+            if (d > snapMaxDay) snapMaxDay = d;
+          }
+        }
+      }
+      const laterDates = new Set<string>();
+      let fallbackLaterDays = 0;
+      for (const [laterM, laterSnap] of Object.entries(mergedByMonth)) {
+        if (laterM <= m || !laterSnap?.hasRows) continue;
+        let hasSeriesDates = false;
+        for (const curr of laterSnap.totalsByCurrency) {
+          for (const pt of curr.dailySeries) {
+            if (pt.date) {
+              laterDates.add(pt.date);
+              hasSeriesDates = true;
+            }
+          }
+        }
+        if (!hasSeriesDates && laterSnap.coveredDays) {
+          fallbackLaterDays += laterSnap.coveredDays;
+        }
+      }
+      const laterCovered = Math.max(laterDates.size, fallbackLaterDays);
+      mergedByMonth[m] = {
+        ...snap,
+        settled: isHistoricalMonthSettled(
+          m,
+          fullWindowCtx.currentInvoiceMonth,
+          snap.hasRows,
+          snap.coveredDays ?? 0,
+          snapMaxDay,
+          laterCovered
+        ),
+      };
+    }
+  }
 
   // Inherit previous-month comparison baselines when a frozen previous month was skipped in SQL
   for (const m of [...mergedAvailableMonths].reverse()) {

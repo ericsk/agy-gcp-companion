@@ -8,6 +8,7 @@ import {
   buildBillingExportSql,
   computeBillingDateWindow,
   computeDeltaPercent,
+  getDaysInInvoiceMonth,
   inferBillingAccountFromTableName,
   queryBillingExportSpend,
 } from "../src/core/bigquery-billing.ts";
@@ -505,6 +506,93 @@ describe("CompanionStore & BigQuery Aggregation", () => {
     assert.equal(octMerged.totalsByCurrency[0].prevMonthCredits, -164.8986);
     assert.equal(octMerged.totalsByCurrency[0].deltaPercentVsPrevSameDay, null);
     assert.equal(octMerged.byProject["proj-legacy"]?.prevMonthGrossCost, 10);
+  });
+
+  it("enforces sequential backfill guard before settling immediate previous month", () => {
+    assert.equal(getDaysInInvoiceMonth("202402"), 29);
+    assert.equal(getDaysInInvoiceMonth("202602"), 28);
+    assert.equal(getDaysInInvoiceMonth("202610"), 31);
+    assert.equal(getDaysInInvoiceMonth("202611"), 30);
+
+    const refDate = new Date("2026-11-16T08:00:00Z");
+    const windowCtx = computeBillingDateWindow(refDate);
+    const fullOctRows = Array.from({ length: 31 }, (_, i) => ({
+      invoiceMonth: "202610",
+      billingAccountId: "01A8F2-94C110-77EB31",
+      projectId: "proj-gde",
+      serviceName: "Compute Engine",
+      usageDate: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      currency: "TWD",
+      grossCost: 100,
+      creditsAmount: 0,
+      netCost: 100,
+    }));
+
+    // Case 1: 202610 has all 31 days, 202611 has 0 rows -> 202610 MUST stay unsettled
+    const nov0Report = aggregateSpendRows(
+      fullOctRows,
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov0Report.byMonth?.["202610"]?.coveredDays, 31);
+    assert.equal(nov0Report.byMonth?.["202610"]?.settled, false);
+
+    // Case 2: 202610 has 31 days, 202611 has only 1 day (11-01) -> still unsettled
+    const nov1Report = aggregateSpendRows(
+      [
+        ...fullOctRows,
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-01",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov1Report.byMonth?.["202610"]?.settled, false);
+
+    // Case 3: 202611 reaches 2 distinct days (11-01, 11-02) -> 202610 settles to true
+    const nov2Report = aggregateSpendRows(
+      [
+        ...fullOctRows,
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-01",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-02",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov2Report.byMonth?.["202610"]?.settled, true);
+    assert.equal(nov2Report.byMonth?.["202611"]?.settled, false);
   });
 
   it("bumps snapshot schema version to 7 and invalidates stale v6 cache snapshots", () => {
