@@ -2697,7 +2697,7 @@ function renderApp(): void {
             type: "button",
             className: "btn btn-primary",
             onClick: () => {
-              void loadData(true);
+              void loadData(false);
             },
           },
           t("boot.retry")

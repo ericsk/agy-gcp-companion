@@ -67,12 +67,16 @@ async function gcpGetJson   (
     }
 
     // If the quota project was deleted or lacks service enablement, retry once without x-goog-user-project
+    // (skip retrying null for Cloud Billing / Budgets APIs on SERVICE_DISABLED because user OAuth credentials
+    // always require an enabled quota project on those endpoints).
+    const requiresQuotaProject =
+      url.startsWith("https://cloudbilling.googleapis.com/") ||
+      url.startsWith("https://billingbudgets.googleapis.com/");
     if (
       quotaProject &&
       (res.status === 403 || res.status === 400) &&
-      /has been deleted|USER_PROJECT_DENIED|has not been used in project|SERVICE_DISABLED/i.test(
-        detail
-      )
+      (/has been deleted|USER_PROJECT_DENIED/i.test(detail) ||
+        (!requiresQuotaProject && /has not been used in project|SERVICE_DISABLED/i.test(detail)))
     ) {
       const retryRes = await doFetch(null);
       if (retryRes.ok) {
@@ -173,10 +177,18 @@ export async function fetchBillingAccountsAndProjectLinks(
   // Billing Accounts), and finally `null` (no header). Any diagnostic error strictly reports `targetQuotaProject`.
   const targetQuotaProject = quotaProject || projects[0]?.projectId || null;
   let resolvedQuotaProj                            = undefined;
+  let resolvedQuotaConfirmed = false;
+  let billingApiDisabledOnAllCandidates = false;
+  const isQuotaOrApiDisabledMessage = (msg        )          =>
+    /requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED|permission to use project/i.test(
+      msg
+    );
 
   const billingGetJson = async    (url        )             => {
     if (resolvedQuotaProj !== undefined) {
-      return gcpGetJson   (url, accessToken, resolvedQuotaProj, fetchFn);
+      const res = await gcpGetJson   (url, accessToken, resolvedQuotaProj, fetchFn);
+      resolvedQuotaConfirmed = true;
+      return res;
     }
 
     const candidates                       = [];
@@ -192,39 +204,50 @@ export async function fetchBillingAccountsAndProjectLinks(
     ) {
       pushUnique(verifiedFallbackQuotaProject);
     }
-    // Also include remaining user projects as silent quota fallbacks so if ANY project in the account
-    // already has Cloud Billing API enabled (e.g. `sk-dev-backyard`), Billing Accounts work regardless of Active Project.
-    for (const p of projects.slice(0, 15)) {
-      pushUnique(p.projectId);
+    // Probe at most 2 additional fallback projects so discovery does not stall on accounts with many projects
+    let extraFallbackCount = 0;
+    for (const p of projects) {
+      if (extraFallbackCount >= 2) break;
+      if (!candidates.includes(p.projectId)) {
+        candidates.push(p.projectId);
+        extraFallbackCount++;
+      }
     }
     pushUnique(null);
 
     let preferredErr          = null;
+    let allCandidatesQuotaOrDisabled = true;
 
     for (const candidate of candidates) {
       try {
         const res = await gcpGetJson   (url, accessToken, candidate, fetchFn);
         resolvedQuotaProj = candidate;
+        resolvedQuotaConfirmed = true;
         return res;
       } catch (err) {
         if (candidate === targetQuotaProject || !preferredErr) {
           preferredErr = err;
         }
         const msg = err instanceof Error ? err.message : String(err);
+        const isQuotaOrDisabled = isQuotaOrApiDisabledMessage(msg);
+        if (!isQuotaOrDisabled) {
+          allCandidatesQuotaOrDisabled = false;
+        }
         // If this was `targetQuotaProject` and failed due to user lacking `billing.accounts.list` IAM permission
-        // (not a quota/service-disabled issue), stop immediately rather than repeating the same call 15 times.
-        if (
-          candidate === targetQuotaProject &&
-          !/requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED|permission to use project/i.test(
-            msg
-          )
-        ) {
+        // (not a quota/service-disabled issue), cache `targetQuotaProject` so fallback `billingInfo` calls reuse it
+        // directly instead of repeating the candidate probe.
+        if (candidate === targetQuotaProject && !isQuotaOrDisabled) {
+          resolvedQuotaProj = targetQuotaProject;
           throw preferredErr;
         }
         // For any fallback candidate failure (including IAM/permission denials on shared projects), silently continue
         continue;
       }
     }
+    // Only skip the project/*/billingInfo fallback loop when every candidate failed with a quota/disabled error
+    // (avoiding skipping fallback on transient 5xx or network timeouts).
+    billingApiDisabledOnAllCandidates = allCandidatesQuotaOrDisabled;
+    resolvedQuotaProj = allCandidatesQuotaOrDisabled ? null : targetQuotaProject;
     throw preferredErr ?? new Error("Unable to query Cloud Billing API.");
   };
 
@@ -320,7 +343,8 @@ export async function fetchBillingAccountsAndProjectLinks(
   });
 
   // Fallback path: if user lacks org-level billingAccounts.list permission, check project-level billingInfo
-  if (rawAccounts.length === 0 && projects.length > 0) {
+  // Skip when Cloud Billing API failed across all quota project candidates, as project/*/billingInfo hits the same disabled API.
+  if (rawAccounts.length === 0 && projects.length > 0 && !billingApiDisabledOnAllCandidates) {
     const discoveredAccountMap = new Map                           ();
     const sampleProjects = projects.slice(0, 25);
     await runWithConcurrency(sampleProjects, 5, async (proj) => {
@@ -409,6 +433,6 @@ export async function fetchBillingAccountsAndProjectLinks(
   return {
     billingAccounts: rawAccounts,
     warnings,
-    usedQuotaProject: resolvedQuotaProj ?? null,
+    usedQuotaProject: resolvedQuotaConfirmed ? (resolvedQuotaProj ?? null) : null,
   };
 }

@@ -40,6 +40,8 @@ export class CompanionService {
                    fetchFn           ;
                    nowFn            ;
           demoActiveProject                = null;
+          inFlightOverview                                            = null;
+          inFlightForcedOverview                                            = null;
 
   constructor(options                          = {}) {
     this.store = options.store ?? new CompanionStore();
@@ -48,7 +50,46 @@ export class CompanionService {
     this.nowFn = options.nowFn ?? (() => new Date());
   }
 
-  async getOverview(options                             = {})                                     {
+          invalidateInFlightOverview()       {
+    this.inFlightOverview = null;
+    this.inFlightForcedOverview = null;
+  }
+
+  getOverview(options                             = {})                                     {
+    const forced = Boolean(options.forceRefresh);
+    if (forced) {
+      if (this.inFlightForcedOverview) {
+        return this.inFlightForcedOverview;
+      }
+      const pending = this.loadOverviewInternal(options).finally(() => {
+        if (this.inFlightForcedOverview === pending) {
+          this.inFlightForcedOverview = null;
+        }
+      });
+      this.inFlightForcedOverview = pending;
+      return pending;
+    }
+
+    // Unforced callers can safely share an already-running forced refresh,
+    // while forced callers never reuse an unforced promise.
+    if (this.inFlightForcedOverview) {
+      return this.inFlightForcedOverview;
+    }
+    if (this.inFlightOverview) {
+      return this.inFlightOverview;
+    }
+    const pending = this.loadOverviewInternal(options).finally(() => {
+      if (this.inFlightOverview === pending) {
+        this.inFlightOverview = null;
+      }
+    });
+    this.inFlightOverview = pending;
+    return pending;
+  }
+
+          async loadOverviewInternal(
+    options                             = {}
+  )                                     {
     const prefs = this.store.loadPreferences();
     const now = this.nowFn();
 
@@ -334,6 +375,7 @@ export class CompanionService {
         }
       }
     }
+    this.invalidateInFlightOverview();
     return { activeProject: validId };
   }
 
@@ -343,12 +385,13 @@ export class CompanionService {
     if (!prefs.demoMode) {
       await this.gcloud.setActiveAccount(validAccount, prefs.gcloudPathOverride);
     }
+    this.invalidateInFlightOverview();
     return { activeAccount: validAccount };
   }
 
   setPinnedProject(projectId        , pinned         )                       {
     const validId = validateProjectId(projectId);
-    return this.store.updatePreferences((curr) => {
+    const updated = this.store.updatePreferences((curr) => {
       const next = new Set(curr.pinnedProjects);
       if (pinned) {
         next.add(validId);
@@ -360,6 +403,8 @@ export class CompanionService {
         pinnedProjects: Array.from(next),
       };
     });
+    this.invalidateInFlightOverview();
+    return updated;
   }
 
   updateSettings(input   
@@ -390,7 +435,7 @@ export class CompanionService {
       throw new Error("Unsupported locale preference.");
     }
 
-    return this.store.updatePreferences((curr) => ({
+    const updated = this.store.updatePreferences((curr) => ({
       ...curr,
       maskEmails: input.maskEmails !== undefined ? Boolean(input.maskEmails) : curr.maskEmails,
       cacheTtlMs:
@@ -406,6 +451,8 @@ export class CompanionService {
       demoMode: input.demoMode !== undefined ? Boolean(input.demoMode) : curr.demoMode,
       locale: input.locale !== undefined ? input.locale : normalizeLocalePreference(curr.locale),
     }));
+    this.invalidateInFlightOverview();
+    return updated;
   }
 
   async discoverExportTables(hostProjectId        )                                    {
@@ -456,6 +503,7 @@ export class CompanionService {
         delete nextTables[key];
         return { ...curr, billingExportTables: nextTables };
       });
+      this.invalidateInFlightOverview();
       return this.getOverview({ forceRefresh: true });
     }
 
@@ -484,6 +532,7 @@ export class CompanionService {
       },
     }));
 
+    this.invalidateInFlightOverview();
     return this.getOverview({ forceRefresh: true });
   }
 
@@ -555,6 +604,7 @@ export class CompanionService {
       await new Promise((r) => setTimeout(r, 2_500));
     }
 
+    this.invalidateInFlightOverview();
     return this.getOverview({ forceRefresh: true });
   }
 
@@ -567,6 +617,7 @@ export class CompanionService {
     if (newAuth.activeAccount) {
       this.store.clearSnapshot(newAuth.activeAccount);
     }
+    this.invalidateInFlightOverview();
     return this.getOverview({ forceRefresh: true });
   }
 }

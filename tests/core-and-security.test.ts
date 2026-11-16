@@ -640,4 +640,209 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("deduplicates concurrent getOverview calls without letting forceRefresh reuse an unforced promise", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-singleflight-"));
+    const fakeGcloudDir = join(tmpDir, "gcloud-cfg");
+    mkdirSync(join(fakeGcloudDir, "configurations"), { recursive: true });
+    mkdirSync(join(fakeGcloudDir, "legacy_credentials", "tester@example.com"), {
+      recursive: true,
+    });
+    writeFileSync(join(fakeGcloudDir, "active_config"), "default");
+    writeFileSync(
+      join(fakeGcloudDir, "configurations", "config_default"),
+      "[core]\naccount = tester@example.com\nproject = app-prod\n"
+    );
+    writeFileSync(
+      join(fakeGcloudDir, "legacy_credentials", "tester@example.com", "adc.json"),
+      JSON.stringify({
+        type: "authorized_user",
+        client_id: "cid",
+        client_secret: "csecret",
+        refresh_token: "1//fake",
+      })
+    );
+
+    const gates: Array<() => void> = [];
+    let projectsFetchCount = 0;
+    let shouldFailProjects = false;
+
+    const mockFetch: typeof globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: "ya29.mock" }), { status: 200 });
+      }
+      if (url.startsWith("https://cloudresourcemanager.googleapis.com/v1/projects")) {
+        projectsFetchCount++;
+        await new Promise<void>((resolveGate) => {
+          gates.push(resolveGate);
+        });
+        if (shouldFailProjects) {
+          return new Response(JSON.stringify({ error: { message: "Internal error" } }), {
+            status: 500,
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            projects: [
+              {
+                projectId: "app-prod",
+                projectNumber: "1001",
+                name: "App Prod",
+                lifecycleState: "ACTIVE",
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.startsWith("https://cloudbilling.googleapis.com/v1/billingAccounts")) {
+        return new Response(JSON.stringify({ billingAccounts: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    };
+
+    try {
+      const store = new CompanionStore(join(tmpDir, "store"));
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no gcloud");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({ store, gcloud, fetchFn: mockFetch });
+
+      // 0. Rejection clears the in-flight slot so the next call retries cleanly
+      shouldFailProjects = true;
+      const initialFailPromise = service.getOverview({ forceRefresh: true });
+      for (let i = 0; i < 20 && gates.length < 1; i++) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      gates.shift()?.();
+      await assert.rejects(initialFailPromise, /Failed to fetch Google Cloud data/);
+      assert.equal(projectsFetchCount, 1);
+
+      // 1. Start unforced live fetch and wait until it reaches upstream projects fetch
+      shouldFailProjects = false;
+      const unforcedPromise = service.getOverview({ forceRefresh: false });
+      for (let i = 0; i < 20 && projectsFetchCount < 2; i++) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      assert.equal(projectsFetchCount, 2);
+
+      // 2. Calling forceRefresh: true while unforced is in flight must NOT reuse unforcedPromise
+      const forcedPromise = service.getOverview({ forceRefresh: true });
+      assert.notEqual(forcedPromise, unforcedPromise);
+      for (let i = 0; i < 20 && projectsFetchCount < 3; i++) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      assert.equal(projectsFetchCount, 3);
+
+      // 3. Unforced caller arriving while forced is in flight shares the forced promise
+      const unforcedJoiningForced = service.getOverview({ forceRefresh: false });
+      assert.equal(unforcedJoiningForced, forcedPromise);
+      assert.equal(projectsFetchCount, 3);
+
+      // Release both gates
+      while (gates.length > 0) {
+        gates.shift()?.();
+      }
+      const [r1, r2, r3] = await Promise.all([
+        unforcedPromise,
+        forcedPromise,
+        unforcedJoiningForced,
+      ]);
+      assert.equal(r1.summary.totalProjects, 1);
+      assert.equal(r2.summary.totalProjects, 1);
+      assert.equal(r3, r2);
+
+      // 4. Subsequent forced refresh triggers a fresh upstream fetch after in-flight slot clears
+      const followUpPromise = service.getOverview({ forceRefresh: true });
+      for (let i = 0; i < 20 && gates.length < 1; i++) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      gates.shift()?.();
+      const recovered = await followUpPromise;
+      assert.equal(recovered.cache.stale, false);
+      assert.equal(projectsFetchCount, 4);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("caps quota-project probing on SERVICE_DISABLED and skips billingInfo storm while preserving 5xx fallback", async () => {
+    const projects = Array.from({ length: 10 }, (_, idx) => ({
+      projectId: `proj-${idx + 1}`,
+      projectNumber: String(idx + 1),
+      name: `Project ${idx + 1}`,
+      lifecycleState: "ACTIVE",
+      billingAccountId: null,
+      billingEnabled: false,
+    }));
+
+    // Case A: All candidates fail with SERVICE_DISABLED / requires a quota project
+    let disabledFetchCount = 0;
+    let disabledBillingInfoHits = 0;
+    const disabledFetch: typeof globalThis.fetch = async (input) => {
+      disabledFetchCount++;
+      const url = String(input);
+      if (url.includes("/billingInfo")) {
+        disabledBillingInfoHits++;
+      }
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Cloud Billing API has not been used in project before or it is disabled.",
+          },
+        }),
+        { status: 403 }
+      );
+    };
+
+    const disabledRes = await fetchBillingAccountsAndProjectLinks(
+      "ya29.mock",
+      projects,
+      "proj-1",
+      disabledFetch
+    );
+    assert.equal(disabledRes.billingAccounts.length, 0);
+    assert.equal(disabledRes.usedQuotaProject, null);
+    assert.equal(disabledBillingInfoHits, 0);
+    // target (1) + 2 extra fallbacks + null (1) = 4 requests total (no per-candidate null retry, no billingInfo loop)
+    assert.equal(disabledFetchCount, 4);
+
+    // Case B: Transient 503 on billingAccounts.list preserves project-level billingInfo fallback
+    let transientBillingInfoHits = 0;
+    const transientFetch: typeof globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/billingAccounts?")) {
+        return new Response(JSON.stringify({ error: { message: "Backend Error" } }), {
+          status: 503,
+        });
+      }
+      if (url.includes("/projects/proj-1/billingInfo")) {
+        transientBillingInfoHits++;
+        return new Response(
+          JSON.stringify({
+            billingAccountName: "billingAccounts/01AAAA-BBBBBB-CCCCCC",
+            billingEnabled: true,
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    };
+
+    const transientRes = await fetchBillingAccountsAndProjectLinks(
+      "ya29.mock",
+      projects.slice(0, 1),
+      "proj-1",
+      transientFetch
+    );
+    assert.equal(transientBillingInfoHits, 1);
+    assert.equal(transientRes.billingAccounts.length, 1);
+    assert.equal(transientRes.billingAccounts[0].id, "01AAAA-BBBBBB-CCCCCC");
+  });
+
 });
