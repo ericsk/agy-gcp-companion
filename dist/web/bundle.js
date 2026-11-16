@@ -2287,7 +2287,7 @@ const state          = {
   activeTab: "overview",
   overviewMode: "projects",
   projectSearch: "",
-  projectFilter: "focus",
+  projectFilter: "all",
   projectSort: "smart",
   projectPageLimit: PROJECT_PAGE_SIZE,
   expandedProjectIds: new Set        (),
@@ -3582,14 +3582,19 @@ function renderProjectsTab(overview                           )              {
   const focusCount = overview.projects.filter((p) => p.isActiveProject || p.pinned).length;
 
   const filterChips                                        = [
-    { key: "focus", label: t("projects.filterFocus", { count: focusCount }) },
     { key: "all", label: t("projects.filterAll", { count: overview.projects.length }) },
     { key: "unbilled", label: t("projects.filterUnbilled", { count: overview.summary.unbilledProjects }) },
-    ...overview.billingAccounts.map((ba) => ({
-      key: `ba:${ba.id}`,
-      label: `${ba.displayName} (${ba.linkedProjectCount})`,
-    })),
+    { key: "focus", label: t("projects.filterFocus", { count: focusCount }) },
   ];
+
+  if (state.projectFilter.startsWith("ba:")) {
+    const baId = state.projectFilter.slice(3);
+    const matchedBa = overview.billingAccounts.find((b) => b.id === baId);
+    const baLabel = matchedBa
+      ? `${matchedBa.displayName} (${matchedBa.linkedProjectCount}) ×`
+      : `${baId} ×`;
+    filterChips.push({ key: state.projectFilter, label: baLabel });
+  }
 
   return h(
     "div",
@@ -3642,7 +3647,11 @@ function renderProjectsTab(overview                           )              {
               className:
                 state.projectFilter === chip.key ? "filter-chip filter-chip-active" : "filter-chip",
               onClick: () => {
-                state.projectFilter = chip.key;
+                if (state.projectFilter === chip.key && chip.key.startsWith("ba:")) {
+                  state.projectFilter = "all";
+                } else {
+                  state.projectFilter = chip.key;
+                }
                 state.projectPageLimit = PROJECT_PAGE_SIZE;
                 renderApp();
               },
@@ -3734,7 +3743,7 @@ function buildProjectResultsNodes(overview                           )          
         )
       )
     );
-  } else if (remainingInFilter > 0 || (state.projectFilter === "all" && totalProjects > 0)) {
+  } else if (remainingInFilter > 0 || state.projectPageLimit > PROJECT_PAGE_SIZE) {
     const actionButtons                = [];
     if (remainingInFilter > 0) {
       actionButtons.push(
@@ -3752,7 +3761,7 @@ function buildProjectResultsNodes(overview                           )          
         )
       );
     }
-    if (state.projectFilter === "all" && !state.projectSearch.trim()) {
+    if (state.projectPageLimit > PROJECT_PAGE_SIZE) {
       actionButtons.push(
         h(
           "button",
@@ -3760,9 +3769,8 @@ function buildProjectResultsNodes(overview                           )          
             type: "button",
             className: "btn btn-xs btn-ghost",
             onClick: () => {
-              state.projectFilter = "focus";
               state.projectPageLimit = PROJECT_PAGE_SIZE;
-              renderApp();
+              renderProjectsListOnly();
             },
           },
           t("projects.collapseListBtn")

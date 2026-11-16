@@ -326,17 +326,22 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       byServiceBtn.click();
       assert.ok(appRoot.allText.includes("Vertex AI"));
 
-      // 2. Switch to Projects Tab: verify compact default (only Active/Pinned shown, not all projects)
+      // 2. Switch to Projects Tab: verify ONLY the 3 filter chips (All, Unbilled, Active & Pinned) are rendered (no Billing Account chip spam)
       const projectsTabBtn = appRoot.findButtonsByText("Projects")[0];
       assert.ok(projectsTabBtn);
       projectsTabBtn.click();
-      assert.ok(appRoot.allText.includes("Acme AI Assistant (Prod)"));
-      assert.ok(
-        !appRoot.allText.includes("Legacy Hackathon Prototype"),
-        "Expected unpinned projects to stay hidden by default so panel stays compact"
+      const chipButtons = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
+        b.className.includes("filter-chip")
       );
+      assert.equal(chipButtons.length, 3, "Expected strictly 3 filter chips (All, Unbilled, Active & Pinned)");
+      assert.ok(appRoot.allText.includes("Legacy Hackathon Prototype"));
 
-      // Typing in search box searches across ALL projects immediately without needing to switch filter chips
+      // Clicking "Active & Pinned ★" filters down to active/pinned projects, while typing in search searches across all
+      const focusChipBtn = appRoot.findButtonsByText("Active & Pinned")[0];
+      assert.ok(focusChipBtn);
+      focusChipBtn.click();
+      assert.ok(!appRoot.allText.includes("Legacy Hackathon Prototype"));
+
       const searchInputs = (appRoot.querySelectorAll("input") as MockInputElement[]).filter(
         (inp) => inp.type === "search"
       );
