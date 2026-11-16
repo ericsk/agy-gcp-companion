@@ -1,5 +1,7 @@
                                                                         
 import { EN_MESSAGES,                                              } from "./en.js";
+import { ES_MESSAGES } from "./es.js";
+import { FR_MESSAGES } from "./fr.js";
 import { JA_MESSAGES } from "./ja.js";
 import { KO_MESSAGES } from "./ko.js";
 import { ZH_CN_MESSAGES } from "./zh-CN.js";
@@ -13,6 +15,8 @@ import { ZH_TW_MESSAGES } from "./zh-TW.js";
 
 export const SUPPORTED_LOCALES                              = [
   { code: "en", nativeName: "English", shortName: "🌐 EN" },
+  { code: "es", nativeName: "Español", shortName: "🌐 ES" },
+  { code: "fr", nativeName: "Français", shortName: "🌐 FR" },
   { code: "ja", nativeName: "日本語", shortName: "🌐 日本語" },
   { code: "ko", nativeName: "한국어", shortName: "🌐 한국어" },
   { code: "zh-CN", nativeName: "简体中文", shortName: "🌐 简体" },
@@ -21,6 +25,8 @@ export const SUPPORTED_LOCALES                              = [
 
 export const TRANSLATION_CATALOGS                                         = {
   en: EN_MESSAGES,
+  es: ES_MESSAGES,
+  fr: FR_MESSAGES,
   ja: JA_MESSAGES,
   ko: KO_MESSAGES,
   "zh-CN": ZH_CN_MESSAGES,
@@ -32,6 +38,8 @@ let currentLocalePreference                   = "auto";
 export function isSupportedLocaleCode(value        )                      {
   return (
     value === "en" ||
+    value === "es" ||
+    value === "fr" ||
     value === "ja" ||
     value === "ko" ||
     value === "zh-CN" ||
@@ -60,6 +68,12 @@ export function matchLanguageTagToLocale(rawTag        )                    {
     tag.startsWith("zh-")
   ) {
     return "zh-CN";
+  }
+  if (tag === "es" || tag.startsWith("es-")) {
+    return "es";
+  }
+  if (tag === "fr" || tag.startsWith("fr-")) {
+    return "fr";
   }
   if (tag === "ja" || tag.startsWith("ja-")) {
     return "ja";

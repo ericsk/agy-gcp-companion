@@ -39,6 +39,8 @@ function stripModuleSyntaxForIife(jsSource) {
 function buildWebBundle(distWebDir) {
   const orderedModules = [
     "i18n/en.js",
+    "i18n/es.js",
+    "i18n/fr.js",
     "i18n/ja.js",
     "i18n/ko.js",
     "i18n/zh-CN.js",

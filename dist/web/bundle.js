@@ -310,6 +310,614 @@ const EN_MESSAGES = {
                                                                 
 
 
+// --- i18n/es.js ---
+const ES_MESSAGES                     = {
+  // Locale switcher
+  "locale.autoShort": "🌐 Auto",
+  "locale.autoFull": "Automático (sistema / navegador)",
+  "header.languageAria": "Idioma de visualización",
+  "header.languageTitle": "Cambiar idioma de visualización",
+
+  // Boot & Fatal Error
+  "boot.connecting": "Conectando con Google Cloud Companion…",
+  "boot.errorTitle": "No se pudo cargar GCP Companion",
+  "boot.unknownError": "Error de conexión desconocido.",
+  "boot.retry": "Reintentar",
+
+  // Relative sync age
+  "age.notSynced": "Sin sincronizar",
+  "age.offlineCacheSuffix": " (caché sin conexión)",
+  "age.justNow": "Justo ahora{suffix}",
+  "age.secondsAgo": "hace {n} s{suffix}",
+  "age.minutesAgo": "hace {n} min{suffix}",
+  "age.hoursMinutesAgo": "hace {h} h {m} min{suffix}",
+
+  // Common controls
+  "common.copy": "Copiar",
+  "common.checking": "Comprobando…",
+
+  // Header
+  "header.demoBadge": "DEMO ×",
+  "header.demoExitTitle": "Haz clic para salir del modo demo y volver a los datos reales de gcloud",
+  "header.refreshTitle": "Forzar actualización desde Google Cloud y BigQuery",
+  "header.syncing": "Sincronizando…",
+  "header.refresh": "↻ Actualizar",
+  "header.settingsBtn": "⚙ Ajustes",
+  "header.settingsTitle": "Abrir menú de ajustes e idioma",
+  "header.account": "Cuenta",
+  "header.accountAria": "Cuenta activa de Google Cloud",
+  "header.showEmailTitle": "Mostrar correo completo",
+  "header.maskEmailTitle": "Ocultar correo (protección de privacidad)",
+  "header.showEmailAria": "Mostrar correo completo",
+  "header.maskEmailAria": "Ocultar correo",
+  "header.activeProject": "Proyecto activo",
+  "header.copyProjectTitle": "Haz clic para copiar el ID del proyecto activo de gcloud",
+  "header.unset": "(sin definir)",
+
+  // Navigation Tabs
+  "tabs.ariaLabel": "Secciones de GCP Companion",
+  "tabs.overview": "Resumen",
+  "tabs.projects": "Proyectos",
+  "tabs.billing": "Facturación",
+
+  // Onboarding — Step 1 (Install gcloud CLI)
+  "onboard.step1Badge": "PASO 1 DE 2 · SE REQUIERE CLI",
+  "onboard.step1Title": "Instalar Google Cloud CLI (gcloud)",
+  "onboard.step1Desc":
+    "No se detectó Google Cloud CLI (`gcloud`) en tu equipo. Instálalo primero e inicia sesión para consultar tus proyectos de GCP y cuentas de facturación.",
+  "onboard.step1Check1Title": "Instalar Google Cloud CLI (`gcloud`)",
+  "onboard.step1Check1Desc":
+    "No se encontró en PATH ni en las carpetas estándar del SDK. Instálalo mediante el instalador oficial o Homebrew.",
+  "onboard.step1Check2Title": "Iniciar sesión en Google Cloud",
+  "onboard.step1Check2Desc": "Ejecuta `gcloud auth login` después de la instalación.",
+  "onboard.downloadInstallBtn": "Descargar e instalar gcloud CLI ↗",
+  "onboard.homebrewLabel": "Instalación rápida en macOS (Homebrew)",
+  "onboard.signInAfterInstallLabel": "Paso 2 — Iniciar sesión tras instalar",
+  "onboard.recheckCliBtn": "↻ Volver a comprobar gcloud",
+  "onboard.previewDemoBtn": "Ver panel de demostración",
+
+  // Onboarding — Step 2 (Sign in with Google Account)
+  "onboard.step2Badge": "PASO 2 DE 2 · INICIO DE SESIÓN REQUERIDO",
+  "onboard.step2Title": "Inicia sesión en tu cuenta de Google Cloud",
+  "onboard.step2Desc":
+    "Google Cloud CLI (`gcloud`) está instalado en tu equipo, pero aún no hay ninguna cuenta de Google autenticada. Inicia sesión para ver tus proyectos y facturación.",
+  "onboard.cliDetectedTitle": "Google Cloud CLI detectado",
+  "onboard.authAccountTitle": "Autenticar cuenta de Google",
+  "onboard.authAccountDesc":
+    "Haz clic abajo para abrir el inicio de sesión de Google en tu navegador o ejecuta `gcloud auth login` en una terminal.",
+  "onboard.waitingBrowserBtn": "Esperando inicio de sesión en el navegador…",
+  "onboard.signInBrowserBtn": "🔑 Iniciar sesión con el navegador (gcloud auth login)",
+  "onboard.orRunInTerminal": "O ejecutar en tu terminal",
+  "onboard.signedInRefreshBtn": "↻ Ya inicié sesión — Actualizar",
+
+  // Known backend setup hints
+  "hint.installCli": "Instala Google Cloud SDK (`gcloud`) y ejecuta `gcloud auth login`.",
+  "hint.runAuthLogin": "Ejecuta `gcloud auth login` en tu terminal y luego haz clic en Actualizar.",
+  "hint.sessionExpired":
+    "Tu sesión de Google Cloud ha caducado o fue revocada. Vuelve a iniciar sesión con `gcloud auth login`.",
+  "hint.demoActive":
+    "El modo de vista previa demo está activo. Desactívalo en Ajustes para usar datos reales de gcloud.",
+
+  // Enable Cloud Billing API prompt
+  "billingApi.badge": "ACCIÓN REQUERIDA",
+  "billingApi.title": "Habilitar Cloud Billing API",
+  "billingApi.desc":
+    "Para mostrar tus cuentas de facturación de Cloud y el estado de facturación de los proyectos, Google Cloud requiere habilitar la API gratuita Cloud Billing API (cloudbilling.googleapis.com) en un proyecto de cuota.",
+  "billingApi.quotaProjectLabel": "Proyecto de cuota donde habilitar la API",
+  "billingApi.enablingBtn": "Habilitando Cloud Billing API (~10 s)…",
+  "billingApi.enableBtn": "⚡ Habilitar Cloud Billing API en {project}",
+  "billingApi.openConsoleProject": "Abrir consola de GCP ({project}) ↗",
+  "billingApi.openConsole": "Abrir consola de GCP ↗",
+
+  // Spend & Charts
+  "spend.noBaseline": "Sin referencia del mes anterior",
+  "spend.vsPrevMtd": "{delta}% vs. mes ant.",
+  "spend.gross": "Bruto: {amount}",
+  "spend.credits": "Créditos: {amount}",
+  "spend.lastMonthTotal": "Total mes ant.: {amount}",
+  "spend.lastMonthShort": "Mes ant.: {amount}",
+  "chart.noDailyUsage": "Aún no hay registros de uso diario este mes",
+  "chart.dailyTrendAria": "Tendencia de gasto neto diario ({days} días)",
+  "chart.peakPerDay": "Máx. {amount}/día",
+  "chart.noBillableServices": "No se registró uso de servicios facturables este mes.",
+  "chart.grossCreditsHint": "Bruto {gross}, Créditos {credits}",
+
+  // Overview Tab
+  "overview.cliRecommendedBadge": "CLI RECOMENDADO",
+  "overview.cliNotFoundTitle": "No se encontró Google Cloud CLI (`gcloud`)",
+  "overview.cliNotFoundDesc":
+    "Conectado mediante credenciales predeterminadas de aplicación (ADC), pero no se encontró `gcloud` en tu equipo. Instala `gcloud` para cambiar de cuenta y sincronizar proyectos.",
+  "overview.installCliBtn": "Instalar gcloud CLI ↗",
+  "overview.mtdNetSpend": "Gasto neto del mes hasta la fecha ({month})",
+  "overview.spendBreakdownTitle": "Desglose del gasto actual",
+  "overview.byProject": "Por proyecto",
+  "overview.byAccount": "Por cuenta",
+  "overview.byService": "Por servicio",
+  "overview.topService": "Principal: {service}",
+  "overview.noProjectCosts": "No se registraron costos por proyecto este mes.",
+  "overview.noBqRows": "Sin filas BQ",
+  "overview.kpiActiveProjects": "Proyectos activos",
+  "overview.kpiBillingApiOff": "API de facturación inactiva",
+  "overview.kpiOpenBillingAccts": "Cuentas de facturación abiertas",
+  "overview.kpiEnableApiBelow": "Habilita la API abajo",
+  "overview.kpiUnbilledSandbox": "Sin facturación / Sandbox",
+  "overview.bqWaitingTitle": "BigQuery conectado — Esperando datos de uso",
+  "overview.unlockSpendTitle": "Activa el seguimiento de gastos del mes",
+  "overview.bqWaitingDesc":
+    "Se consultó {tables}, que aún no tiene filas para {currentMonth} / {prevMonth}.",
+  "overview.unlockSpendDesc":
+    "La API REST de GCP muestra proyectos, cuentas de facturación y presupuestos al instante. Conecta una tabla de exportación de facturación en BigQuery para ver el gasto neto exacto, créditos y costos por servicio.",
+  "overview.manageExportBtn": "Gestionar tablas de exportación →",
+  "overview.connectBqBtn": "Conectar exportación de BigQuery →",
+  "overview.previewSampleBtn": "Ver gasto de ejemplo",
+  "overview.pinnedAndActiveTitle": "Proyectos fijados y activo",
+  "overview.viewAllProjects": "Ver todos ({count}) →",
+  "overview.pinEmptyHint":
+    "Marca con ★ tus proyectos favoritos en la pestaña Proyectos para fijarlos aquí y cambiar con un clic.",
+  "overview.diagnosticsTitle": "Diagnóstico y notas",
+  "warnings.openIamConsole": "Abrir permisos de IAM en la consola de GCP ↗",
+  "warnings.enableApiConsole": "Habilitar API en la consola de GCP ↗",
+
+  // Projects Tab & Cards
+  "projects.filterFocus": "Activo y fijados ★ ({count})",
+  "projects.filterAll": "Todos ({count})",
+  "projects.filterPinned": "Fijados ★ ({count})",
+  "projects.filterUnbilled": "Sin facturación ({count})",
+  "projects.searchPlaceholder": "Buscar por nombre, ID, número o etiqueta…",
+  "projects.searchAria": "Buscar proyectos de GCP",
+  "projects.sortAria": "Ordenar proyectos",
+  "projects.sortSmart": "Orden: Inteligente",
+  "projects.sortSpend": "Orden: Gasto ↓",
+  "projects.sortName": "Orden: Nombre A–Z",
+  "projects.emptyFilter": "Ningún proyecto de GCP coincide con el filtro actual.",
+  "projects.focusEmptyPrompt":
+    "Escribe en el cuadro de búsqueda para encontrar cualquiera de tus {total} proyectos o explora la lista.",
+  "projects.hiddenCompactHint":
+    "Mostrando {shown} de {total} proyectos — escribe arriba para buscar en todos o",
+  "projects.browseAllBtn": "Explorar proyectos ({total}) ▾",
+  "projects.showMoreBtn": "Mostrar más ({remaining} restantes) ▾",
+  "projects.collapseListBtn": "Contraer lista ▴",
+  "project.activeBadge": "Activo",
+  "project.unbilledTag": "Sin facturación",
+  "project.noBillingTag": "Sin facturación",
+  "project.setActiveBtn": "Activar",
+  "project.setActiveCmdTitle": "Ejecutar gcloud config set project {project}",
+  "project.openConsoleTitle": "Abrir en la consola de Google Cloud",
+  "project.unpinTitle": "Desfijar proyecto",
+  "project.pinTitle": "Fijar proyecto en Resumen",
+  "project.unpinAria": "Desfijar {project}",
+  "project.pinAria": "Fijar {project}",
+  "project.copyIdTitle": "Copiar ID del proyecto",
+  "project.hideBtn": "Ocultar ▴",
+  "project.detailsBtn": "Detalles ▾",
+  "project.projectNumber": "Proyecto n.º {number}",
+  "project.billingId": "ID de facturación: {id}",
+  "project.noBqCostThisMonth":
+    "No hay costos registrados en BigQuery para este proyecto en el mes actual.",
+  "project.connectBqForCosts":
+    "Conecta la exportación de facturación de BigQuery en la pestaña Facturación para ver costos por servicio.",
+  "project.linkDashboard": "Panel ↗",
+  "project.linkBillingReport": "Informe de facturación ↗",
+  "project.linkCloudRun": "Cloud Run ↗",
+  "project.linkBigQuery": "BigQuery ↗",
+  "project.linkLogs": "Registros ↗",
+
+  // Billing Tab & Account Cards
+  "billing.statusOpen": "ABIERTA",
+  "billing.statusClosed": "CERRADA",
+  "billing.activeUpperBadge": "ACTIVO",
+  "billing.projectCountOne": "1 proyecto",
+  "billing.projectCountMany": "{count} proyectos",
+  "billing.copyIdTitle": "Copiar ID de cuenta de facturación",
+  "billing.consoleReportBtn": "Informe en consola ↗",
+  "billing.noLinkedProjects": "No hay proyectos activos vinculados a esta cuenta de facturación.",
+  "billing.setActiveTitle": "Definir {project} como proyecto activo de gcloud",
+  "billing.openProjectConsoleTitle": "Abrir {project} en la consola de Google Cloud",
+  "billing.linkedProjectsHeader": "Proyectos vinculados ({count})",
+  "billing.filterInProjectsBtn": "Filtrar en Proyectos →",
+  "billing.showAllLinkedBtn": "Mostrar los {count} proyectos vinculados ▾",
+  "billing.mtdNetLabel": "Gasto neto del mes",
+  "billing.boundNoRows": "Vinculado a {table} (sin filas para el mes actual aún).",
+  "billing.linkExportHint":
+    "Vincula una tabla de exportación de BigQuery abajo para mostrar el gasto de esta cuenta.",
+  "billing.configuredBudgets": "Presupuestos configurados ({count})",
+  "billing.budgetLastPeriod": "100% del período anterior",
+  "billing.budgetCustomTarget": "Objetivo personalizado",
+  "billing.budgetNoThresholds": "Sin reglas de umbral",
+  "billing.diagnosticsTitle": "Diagnóstico de Billing API",
+  "billing.closedAccountsSummary": "Cuentas de facturación cerradas / inactivas ({count})",
+  "billing.noAccountsVisible":
+    "No hay cuentas de facturación de Cloud visibles para la cuenta activa (requiere `billing.accounts.get` o `billing.accounts.list`).",
+
+  // BigQuery Export Connection Wizard
+  "export.title": "Conexión de exportación de facturación en BigQuery",
+  "export.desc":
+    "Las consultas se almacenan en caché local (TTL de 6 h por defecto) y se filtran por `_PARTITIONTIME` para escanear solo el mes actual y el anterior.",
+  "export.sharedMapping": "Exportación compartida (*)",
+  "export.accountMapping": "Cuenta de facturación {id}",
+  "export.unlinkBtn": "Desvincular",
+  "export.autoDetectLabel": "Detectar tablas de exportación en el proyecto",
+  "export.hostProjectPlaceholder": "Selecciona o escribe el ID del proyecto host…",
+  "export.hostProjectAria": "ID del proyecto host de exportación de facturación",
+  "export.scanningBtn": "Escaneando…",
+  "export.scanDatasetsBtn": "Escanear datasets",
+  "export.matchesBillingId": "Coincide con ID de facturación: {id}",
+  "export.sharedCustomExport": "Exportación compartida / personalizada",
+  "export.linkAndQueryBtn": "Vincular y consultar",
+  "export.manualBindLabel": "O vincular ID de tabla manualmente",
+  "export.targetAccountAria": "Cuenta de facturación de destino",
+  "export.allAccountsOption": "Todas las cuentas de facturación (* exportación compartida)",
+  "export.saveBtn": "Guardar",
+  "export.helpSummary": "¿Cómo habilito la exportación de facturación a BigQuery en GCP?",
+  "export.helpStep1": "Abre Google Cloud Console → Facturación → Exportación de facturación.",
+  "export.helpStep2": "Elige un proyecto y un dataset de BigQuery para guardar los registros.",
+  "export.helpStep3": "Habilita la exportación de 'Costo de uso estándar' (recomendado).",
+  "export.helpStep4": "Vuelve aquí y haz clic en 'Escanear datasets' en ese proyecto.",
+  "export.openBillingConsole": "Abrir consola de facturación de GCP ↗",
+
+  // Preferences & Settings
+  "settings.menuTitle": "Ajustes",
+  "settings.closeBtnAria": "Cerrar menú de ajustes",
+  "settings.summary": "Preferencias y caché de Companion",
+  "settings.languageLabel": "Idioma de visualización",
+  "settings.privacySection": "Privacidad y vista previa",
+  "settings.maskEmailToggle": "Ocultar direcciones de correo de las cuentas",
+  "settings.advancedSummary": "Ajustes avanzados de CLI y cuota",
+  "settings.cacheTtlLabel": "TTL de caché local (evita escaneos repetidos en BigQuery)",
+  "settings.hoursRecommended": "6 horas (recomendado)",
+  "settings.hourOne": "1 hora",
+  "settings.hoursMany": "{hours} horas",
+  "settings.quotaProjectLabel": "Proyecto de cuota personalizado (x-goog-user-project)",
+  "settings.quotaProjectPlaceholder": "Por defecto usa el proyecto activo de gcloud",
+  "settings.gcloudPathLabel": "Ruta personalizada del binario gcloud (opcional)",
+  "settings.applyBtn": "Aplicar ajustes",
+  "settings.switchToLiveBtn": "Cambiar a datos reales de gcloud",
+  "settings.enableDemoBtn": "Activar modo de vista previa demo",
+
+  // Toast Notifications
+  "toast.refreshed": "Datos de Google Cloud actualizados",
+  "toast.loadFailed": "Error al cargar los datos",
+  "toast.enablingBillingApi": "Habilitando Cloud Billing API en {project}…",
+  "toast.enabledBillingApi": "¡Cloud Billing API habilitada! Cuentas de facturación actualizadas.",
+  "toast.enableBillingApiFailed": "No se pudo habilitar Cloud Billing API",
+  "toast.switchedAccount": "Cuenta activa de gcloud cambiada",
+  "toast.switchAccountFailed": "Error al cambiar de cuenta",
+  "toast.prefUpdateFailed": "Error al actualizar la preferencia",
+  "toast.copied": "Copiado: {value}",
+  "toast.exitedDemo": "Saliste del modo demo",
+  "toast.demoEnabled": "Modo de vista previa demo activado",
+  "toast.openingBrowserSignIn": "Abriendo el inicio de sesión de Google en tu navegador…",
+  "toast.signedInSuccess": "¡Sesión iniciada en Google Cloud!",
+  "toast.signInIncomplete": "El inicio de sesión en el navegador no se completó",
+  "toast.showingSampleSpend": "Mostrando datos de gasto de ejemplo",
+  "toast.activeProjectSet": "Proyecto activo definido en {project}",
+  "toast.switchedProject": "Proyecto activo cambiado a {project}",
+  "toast.switchProjectFailed": "Error al cambiar de proyecto",
+  "toast.pinUpdateFailed": "Error al actualizar fijación",
+  "toast.removedExportMapping": "Vinculación de tabla de exportación eliminada",
+  "toast.removeExportFailed": "Error al eliminar la vinculación",
+  "toast.enterHostProject": "Selecciona o escribe primero un ID de proyecto host",
+  "toast.noExportTablesFound": "No se encontraron tablas gcp_billing_export_* en {project}",
+  "toast.foundExportTables": "Se encontraron {count} tabla(s) de exportación de facturación",
+  "toast.discoveryFailed": "Error al buscar tablas",
+  "toast.connectedExport": "¡Exportación de facturación de BigQuery conectada!",
+  "toast.connectExportFailed": "Error al conectar la tabla",
+  "toast.enterTableId": "Escribe primero project.dataset.table",
+  "toast.savedExportTable": "Tabla de BigQuery guardada y gasto cargado",
+  "toast.invalidTableRef": "Referencia de tabla no válida",
+  "toast.languageUpdated": "Idioma de visualización actualizado",
+  "toast.cacheTtlSet": "TTL de caché definido en {hours} h",
+  "toast.savedSettings": "Ajustes de Companion guardados",
+  "toast.invalidSettings": "Entrada de ajustes no válida",
+  "toast.demoOn": "Modo demo ACTIVADO",
+  "toast.demoOff": "Modo demo DESACTIVADO (gcloud en vivo)",
+};
+
+
+// --- i18n/fr.js ---
+const FR_MESSAGES                     = {
+  // Locale switcher
+  "locale.autoShort": "🌐 Auto",
+  "locale.autoFull": "Automatique (système / navigateur)",
+  "header.languageAria": "Langue d'affichage",
+  "header.languageTitle": "Changer la langue d'affichage",
+
+  // Boot & Fatal Error
+  "boot.connecting": "Connexion à Google Cloud Companion…",
+  "boot.errorTitle": "Impossible de charger GCP Companion",
+  "boot.unknownError": "Erreur de connexion inconnue.",
+  "boot.retry": "Réessayer",
+
+  // Relative sync age
+  "age.notSynced": "Non synchronisé",
+  "age.offlineCacheSuffix": " (cache hors ligne)",
+  "age.justNow": "À l'instant{suffix}",
+  "age.secondsAgo": "il y a {n} s{suffix}",
+  "age.minutesAgo": "il y a {n} min{suffix}",
+  "age.hoursMinutesAgo": "il y a {h} h {m} min{suffix}",
+
+  // Common controls
+  "common.copy": "Copier",
+  "common.checking": "Vérification…",
+
+  // Header
+  "header.demoBadge": "DÉMO ×",
+  "header.demoExitTitle": "Cliquer pour quitter le mode démo et revenir aux données gcloud réelles",
+  "header.refreshTitle": "Forcer l'actualisation depuis Google Cloud et BigQuery",
+  "header.syncing": "Synchronisation…",
+  "header.refresh": "↻ Actualiser",
+  "header.settingsBtn": "⚙ Paramètres",
+  "header.settingsTitle": "Ouvrir le menu des paramètres et de la langue",
+  "header.account": "Compte",
+  "header.accountAria": "Compte Google Cloud actif",
+  "header.showEmailTitle": "Afficher l'adresse e-mail complète",
+  "header.maskEmailTitle": "Masquer l'e-mail (protection des données)",
+  "header.showEmailAria": "Afficher l'adresse e-mail complète",
+  "header.maskEmailAria": "Masquer l'e-mail",
+  "header.activeProject": "Projet actif",
+  "header.copyProjectTitle": "Cliquer pour copier l'ID du projet gcloud actif",
+  "header.unset": "(non défini)",
+
+  // Navigation Tabs
+  "tabs.ariaLabel": "Sections GCP Companion",
+  "tabs.overview": "Aperçu",
+  "tabs.projects": "Projets",
+  "tabs.billing": "Facturation",
+
+  // Onboarding — Step 1 (Install gcloud CLI)
+  "onboard.step1Badge": "ÉTAPE 1 SUR 2 · CLI REQUISE",
+  "onboard.step1Title": "Installer Google Cloud CLI (gcloud)",
+  "onboard.step1Desc":
+    "Google Cloud CLI (`gcloud`) n'a pas été détectée sur votre ordinateur. Installez-la d'abord, puis connectez-vous pour consulter vos projets GCP et comptes de facturation.",
+  "onboard.step1Check1Title": "Installer Google Cloud CLI (`gcloud`)",
+  "onboard.step1Check1Desc":
+    "Introuvable dans le PATH ou les dossiers SDK standards. Installez-la via l'installateur officiel ou Homebrew.",
+  "onboard.step1Check2Title": "Se connecter à Google Cloud",
+  "onboard.step1Check2Desc": "Exécutez `gcloud auth login` après l'installation.",
+  "onboard.downloadInstallBtn": "Télécharger et installer gcloud CLI ↗",
+  "onboard.homebrewLabel": "Installation rapide macOS (Homebrew)",
+  "onboard.signInAfterInstallLabel": "Étape 2 — Se connecter après l'installation",
+  "onboard.recheckCliBtn": "↻ Revérifier l'installation de gcloud",
+  "onboard.previewDemoBtn": "Aperçu du tableau de bord démo",
+
+  // Onboarding — Step 2 (Sign in with Google Account)
+  "onboard.step2Badge": "ÉTAPE 2 SUR 2 · CONNEXION REQUISE",
+  "onboard.step2Title": "Connectez-vous à votre compte Google Cloud",
+  "onboard.step2Desc":
+    "Google Cloud CLI (`gcloud`) est installée sur votre ordinateur, mais aucun compte Google authentifié n'est actif. Connectez-vous pour voir vos projets et votre facturation.",
+  "onboard.cliDetectedTitle": "Google Cloud CLI détectée",
+  "onboard.authAccountTitle": "Authentifier un compte Google",
+  "onboard.authAccountDesc":
+    "Cliquez ci-dessous pour lancer la connexion Google dans votre navigateur, ou exécutez `gcloud auth login` dans un terminal.",
+  "onboard.waitingBrowserBtn": "En attente de connexion dans le navigateur…",
+  "onboard.signInBrowserBtn": "🔑 Se connecter via le navigateur (gcloud auth login)",
+  "onboard.orRunInTerminal": "Ou exécuter dans votre terminal",
+  "onboard.signedInRefreshBtn": "↻ Je suis connecté — Actualiser",
+
+  // Known backend setup hints
+  "hint.installCli": "Installez Google Cloud SDK (`gcloud`) et exécutez `gcloud auth login`.",
+  "hint.runAuthLogin": "Exécutez `gcloud auth login` dans votre terminal, puis cliquez sur Actualiser.",
+  "hint.sessionExpired":
+    "Votre session Google Cloud a expiré ou a été révoquée. Veuillez vous reconnecter avec `gcloud auth login`.",
+  "hint.demoActive":
+    "Le mode aperçu démo est actif. Désactivez-le dans Paramètres pour utiliser les données gcloud réelles.",
+
+  // Enable Cloud Billing API prompt
+  "billingApi.badge": "ACTION REQUISE",
+  "billingApi.title": "Activer l'API Cloud Billing",
+  "billingApi.desc":
+    "Pour afficher vos comptes de facturation Cloud et l'état de facturation des projets, Google Cloud requiert l'activation de l'API gratuite Cloud Billing (cloudbilling.googleapis.com) sur un projet de quota.",
+  "billingApi.quotaProjectLabel": "Projet de quota sur lequel activer l'API",
+  "billingApi.enablingBtn": "Activation de l'API Cloud Billing (~10 s)…",
+  "billingApi.enableBtn": "⚡ Activer l'API Cloud Billing sur {project}",
+  "billingApi.openConsoleProject": "Ouvrir la console GCP ({project}) ↗",
+  "billingApi.openConsole": "Ouvrir la console GCP ↗",
+
+  // Spend & Charts
+  "spend.noBaseline": "Aucune référence mois préc.",
+  "spend.vsPrevMtd": "{delta}% vs mois préc.",
+  "spend.gross": "Brut : {amount}",
+  "spend.credits": "Crédits : {amount}",
+  "spend.lastMonthTotal": "Total mois dern. : {amount}",
+  "spend.lastMonthShort": "Mois dern. : {amount}",
+  "chart.noDailyUsage": "Aucune donnée d'utilisation quotidienne ce mois-ci",
+  "chart.dailyTrendAria": "Tendance des dépenses nettes quotidiennes ({days} jours)",
+  "chart.peakPerDay": "Pic {amount}/j",
+  "chart.noBillableServices": "Aucune utilisation de service facturable enregistrée ce mois-ci.",
+  "chart.grossCreditsHint": "Brut {gross}, Crédits {credits}",
+
+  // Overview Tab
+  "overview.cliRecommendedBadge": "CLI RECOMMANDÉE",
+  "overview.cliNotFoundTitle": "Google Cloud CLI (`gcloud`) introuvable",
+  "overview.cliNotFoundDesc":
+    "Connecté via les identifiants par défaut de l'application (ADC), mais `gcloud` est introuvable sur votre ordinateur. Installez `gcloud` pour changer de compte et synchroniser les projets.",
+  "overview.installCliBtn": "Installer gcloud CLI ↗",
+  "overview.mtdNetSpend": "Dépenses nettes du mois en cours ({month})",
+  "overview.spendBreakdownTitle": "Répartition des dépenses actuelles",
+  "overview.byProject": "Par projet",
+  "overview.byAccount": "Par compte",
+  "overview.byService": "Par service",
+  "overview.topService": "Principal : {service}",
+  "overview.noProjectCosts": "Aucun coût par projet enregistré ce mois-ci.",
+  "overview.noBqRows": "Aucune ligne BQ",
+  "overview.kpiActiveProjects": "Projets actifs",
+  "overview.kpiBillingApiOff": "API Facturation désactivée",
+  "overview.kpiOpenBillingAccts": "Comptes de facturation ouverts",
+  "overview.kpiEnableApiBelow": "Activer l'API ci-dessous",
+  "overview.kpiUnbilledSandbox": "Sans facturation / Bac à sable",
+  "overview.bqWaitingTitle": "BigQuery connecté — En attente de données",
+  "overview.unlockSpendTitle": "Activer le suivi des dépenses du mois",
+  "overview.bqWaitingDesc":
+    "Requête effectuée sur {tables}, qui ne contient pas encore de lignes pour {currentMonth} / {prevMonth}.",
+  "overview.unlockSpendDesc":
+    "L'API REST de GCP liste immédiatement les projets, comptes de facturation et budgets. Connectez une table d'exportation de facturation BigQuery pour voir les dépenses nettes exactes, les crédits et le détail par service.",
+  "overview.manageExportBtn": "Gérer les tables d'exportation →",
+  "overview.connectBqBtn": "Connecter l'exportation BigQuery →",
+  "overview.previewSampleBtn": "Voir un exemple de dépenses",
+  "overview.pinnedAndActiveTitle": "Projets épinglés et actif",
+  "overview.viewAllProjects": "Tout voir ({count}) →",
+  "overview.pinEmptyHint":
+    "Ajoutez une étoile ★ à vos projets favoris dans l'onglet Projets pour les épingler ici et basculer en un clic.",
+  "overview.diagnosticsTitle": "Diagnostics et remarques",
+  "warnings.openIamConsole": "Ouvrir les autorisations IAM dans la console GCP ↗",
+  "warnings.enableApiConsole": "Activer l'API dans la console GCP ↗",
+
+  // Projects Tab & Cards
+  "projects.filterFocus": "Actif et épinglés ★ ({count})",
+  "projects.filterAll": "Tous ({count})",
+  "projects.filterPinned": "Épinglés ★ ({count})",
+  "projects.filterUnbilled": "Non facturés ({count})",
+  "projects.searchPlaceholder": "Rechercher par nom, ID, numéro, libellé…",
+  "projects.searchAria": "Rechercher des projets GCP",
+  "projects.sortAria": "Trier les projets",
+  "projects.sortSmart": "Tri : Intelligent",
+  "projects.sortSpend": "Tri : Dépenses ↓",
+  "projects.sortName": "Tri : Nom A–Z",
+  "projects.emptyFilter": "Aucun projet GCP ne correspond au filtre actuel.",
+  "projects.focusEmptyPrompt":
+    "Saisissez un terme ci-dessus pour rechercher parmi vos {total} projets ou parcourez la liste.",
+  "projects.hiddenCompactHint":
+    "Affichage de {shown} projets sur {total} — recherchez ci-dessus ou",
+  "projects.browseAllBtn": "Parcourir les projets ({total}) ▾",
+  "projects.showMoreBtn": "Afficher plus ({remaining} restants) ▾",
+  "projects.collapseListBtn": "Réduire la liste ▴",
+  "project.activeBadge": "Actif",
+  "project.unbilledTag": "Non facturé",
+  "project.noBillingTag": "Sans facturation",
+  "project.setActiveBtn": "Définir actif",
+  "project.setActiveCmdTitle": "Exécuter gcloud config set project {project}",
+  "project.openConsoleTitle": "Ouvrir dans la console Google Cloud",
+  "project.unpinTitle": "Désépingler le projet",
+  "project.pinTitle": "Épingler le projet dans l'Aperçu",
+  "project.unpinAria": "Désépingler {project}",
+  "project.pinAria": "Épingler {project}",
+  "project.copyIdTitle": "Copier l'ID du projet",
+  "project.hideBtn": "Masquer ▴",
+  "project.detailsBtn": "Détails ▾",
+  "project.projectNumber": "Projet n° {number}",
+  "project.billingId": "ID de facturation : {id}",
+  "project.noBqCostThisMonth":
+    "Aucune entrée de coût BigQuery enregistrée pour ce projet ce mois-ci.",
+  "project.connectBqForCosts":
+    "Connectez l'exportation de facturation BigQuery dans l'onglet Facturation pour voir les coûts par service.",
+  "project.linkDashboard": "Tableau de bord ↗",
+  "project.linkBillingReport": "Rapport de facturation ↗",
+  "project.linkCloudRun": "Cloud Run ↗",
+  "project.linkBigQuery": "BigQuery ↗",
+  "project.linkLogs": "Journaux ↗",
+
+  // Billing Tab & Account Cards
+  "billing.statusOpen": "OUVERT",
+  "billing.statusClosed": "FERMÉ",
+  "billing.activeUpperBadge": "ACTIF",
+  "billing.projectCountOne": "1 projet",
+  "billing.projectCountMany": "{count} projets",
+  "billing.copyIdTitle": "Copier l'ID du compte de facturation",
+  "billing.consoleReportBtn": "Rapport console ↗",
+  "billing.noLinkedProjects": "Aucun projet actif associé à ce compte de facturation.",
+  "billing.setActiveTitle": "Définir {project} comme projet gcloud actif",
+  "billing.openProjectConsoleTitle": "Ouvrir {project} dans la console Google Cloud",
+  "billing.linkedProjectsHeader": "Projets associés ({count})",
+  "billing.filterInProjectsBtn": "Filtrer dans Projets →",
+  "billing.showAllLinkedBtn": "Afficher les {count} projets associés ▾",
+  "billing.mtdNetLabel": "Dépenses nettes du mois",
+  "billing.boundNoRows": "Associé à {table} (aucune ligne pour le mois en cours).",
+  "billing.linkExportHint":
+    "Associez une table d'exportation BigQuery ci-dessous pour afficher les dépenses de ce compte.",
+  "billing.configuredBudgets": "Budgets configurés ({count})",
+  "billing.budgetLastPeriod": "100 % de la période précédente",
+  "billing.budgetCustomTarget": "Cible personnalisée",
+  "billing.budgetNoThresholds": "Aucune règle de seuil",
+  "billing.diagnosticsTitle": "Diagnostics de l'API Billing",
+  "billing.closedAccountsSummary": "Comptes de facturation fermés / inactifs ({count})",
+  "billing.noAccountsVisible":
+    "Aucun compte de facturation Cloud visible pour le compte actif (autorisation `billing.accounts.get` ou `billing.accounts.list` requise).",
+
+  // BigQuery Export Connection Wizard
+  "export.title": "Connexion à l'exportation de facturation BigQuery",
+  "export.desc":
+    "Les requêtes sont mises en cache localement (TTL de 6 h par défaut) et filtrées par `_PARTITIONTIME` afin de n'analyser que le mois en cours et le mois précédent.",
+  "export.sharedMapping": "Exportation partagée (*)",
+  "export.accountMapping": "Compte de facturation {id}",
+  "export.unlinkBtn": "Dissocier",
+  "export.autoDetectLabel": "Détecter automatiquement les tables d'exportation",
+  "export.hostProjectPlaceholder": "Sélectionnez ou saisissez l'ID du projet hôte…",
+  "export.hostProjectAria": "ID du projet hôte d'exportation de facturation",
+  "export.scanningBtn": "Analyse…",
+  "export.scanDatasetsBtn": "Analyser les datasets",
+  "export.matchesBillingId": "Correspond à l'ID de facturation : {id}",
+  "export.sharedCustomExport": "Exportation partagée / personnalisée",
+  "export.linkAndQueryBtn": "Associer et interroger",
+  "export.manualBindLabel": "Ou associer manuellement un ID de table",
+  "export.targetAccountAria": "Compte de facturation cible",
+  "export.allAccountsOption": "Tous les comptes de facturation (* exportation partagée)",
+  "export.saveBtn": "Enregistrer",
+  "export.helpSummary": "Comment activer l'exportation de facturation BigQuery dans GCP ?",
+  "export.helpStep1": "Ouvrez Google Cloud Console → Facturation → Exportation de la facturation.",
+  "export.helpStep2": "Choisissez un projet et un ensemble de données BigQuery pour stocker les relevés.",
+  "export.helpStep3": "Activez l'exportation « Coût d'utilisation standard » (recommandé, léger).",
+  "export.helpStep4": "Revenez ici et cliquez sur « Analyser les datasets » sur ce projet.",
+  "export.openBillingConsole": "Ouvrir la console de facturation GCP ↗",
+
+  // Preferences & Settings
+  "settings.menuTitle": "Paramètres",
+  "settings.closeBtnAria": "Fermer le menu des paramètres",
+  "settings.summary": "Préférences Companion et paramètres du cache",
+  "settings.languageLabel": "Langue d'affichage",
+  "settings.privacySection": "Confidentialité et aperçu",
+  "settings.maskEmailToggle": "Masquer les adresses e-mail des comptes",
+  "settings.advancedSummary": "Paramètres avancés CLI et projet de quota",
+  "settings.cacheTtlLabel": "Durée du cache local (évite les analyses BigQuery répétées)",
+  "settings.hoursRecommended": "6 heures (recommandé)",
+  "settings.hourOne": "1 heure",
+  "settings.hoursMany": "{hours} heures",
+  "settings.quotaProjectLabel": "Remplacement du projet de quota (x-goog-user-project)",
+  "settings.quotaProjectPlaceholder": "Utilise par défaut le projet gcloud actif",
+  "settings.gcloudPathLabel": "Chemin personnalisé du binaire gcloud (facultatif)",
+  "settings.applyBtn": "Appliquer les paramètres",
+  "settings.switchToLiveBtn": "Passer aux données gcloud réelles",
+  "settings.enableDemoBtn": "Activer le mode aperçu démo",
+
+  // Toast Notifications
+  "toast.refreshed": "Données Google Cloud actualisées",
+  "toast.loadFailed": "Échec du chargement des données",
+  "toast.enablingBillingApi": "Activation de l'API Cloud Billing sur {project}…",
+  "toast.enabledBillingApi": "API Cloud Billing activée ! Comptes de facturation actualisés.",
+  "toast.enableBillingApiFailed": "Échec de l'activation de l'API Cloud Billing",
+  "toast.switchedAccount": "Compte gcloud actif modifié",
+  "toast.switchAccountFailed": "Échec du changement de compte",
+  "toast.prefUpdateFailed": "Échec de la mise à jour des préférences",
+  "toast.copied": "{value} copié",
+  "toast.exitedDemo": "Mode démo quitté",
+  "toast.demoEnabled": "Mode aperçu démo activé",
+  "toast.openingBrowserSignIn": "Ouverture de la connexion Google dans votre navigateur…",
+  "toast.signedInSuccess": "Connecté à Google Cloud !",
+  "toast.signInIncomplete": "La connexion dans le navigateur n'a pas abouti",
+  "toast.showingSampleSpend": "Affichage des exemples de dépenses",
+  "toast.activeProjectSet": "Projet actif défini sur {project}",
+  "toast.switchedProject": "Projet actif basculé vers {project}",
+  "toast.switchProjectFailed": "Échec du changement de projet",
+  "toast.pinUpdateFailed": "Échec de la mise à jour de l'épingle",
+  "toast.removedExportMapping": "Association de table d'exportation supprimée",
+  "toast.removeExportFailed": "Échec de la suppression de l'association",
+  "toast.enterHostProject": "Sélectionnez ou saisissez d'abord un ID de projet hôte",
+  "toast.noExportTablesFound": "Aucune table gcp_billing_export_* trouvée dans {project}",
+  "toast.foundExportTables": "{count} table(s) d'exportation de facturation trouvée(s)",
+  "toast.discoveryFailed": "Échec de la détection",
+  "toast.connectedExport": "Exportation de facturation BigQuery connectée !",
+  "toast.connectExportFailed": "Échec de la connexion à la table",
+  "toast.enterTableId": "Saisissez d'abord project.dataset.table",
+  "toast.savedExportTable": "Table BigQuery enregistrée et dépenses chargées",
+  "toast.invalidTableRef": "Référence de table non valide",
+  "toast.languageUpdated": "Langue d'affichage mise à jour",
+  "toast.cacheTtlSet": "Cache TTL défini sur {hours} h",
+  "toast.savedSettings": "Paramètres Companion enregistrés",
+  "toast.invalidSettings": "Saisie de paramètres non valide",
+  "toast.demoOn": "Mode démo ACTIVÉ",
+  "toast.demoOff": "Mode démo DÉSACTIVÉ (gcloud réel)",
+};
+
+
 // --- i18n/ja.js ---
 const JA_MESSAGES                     = {
   // Locale switcher
@@ -1516,6 +2124,8 @@ const ZH_TW_MESSAGES                     = {
 // --- i18n/index.js ---
 const SUPPORTED_LOCALES                              = [
   { code: "en", nativeName: "English", shortName: "🌐 EN" },
+  { code: "es", nativeName: "Español", shortName: "🌐 ES" },
+  { code: "fr", nativeName: "Français", shortName: "🌐 FR" },
   { code: "ja", nativeName: "日本語", shortName: "🌐 日本語" },
   { code: "ko", nativeName: "한국어", shortName: "🌐 한국어" },
   { code: "zh-CN", nativeName: "简体中文", shortName: "🌐 简体" },
@@ -1523,6 +2133,8 @@ const SUPPORTED_LOCALES                              = [
 ];
 const TRANSLATION_CATALOGS                                         = {
   en: EN_MESSAGES,
+  es: ES_MESSAGES,
+  fr: FR_MESSAGES,
   ja: JA_MESSAGES,
   ko: KO_MESSAGES,
   "zh-CN": ZH_CN_MESSAGES,
@@ -1533,6 +2145,8 @@ let currentLocalePreference                   = "auto";
 function isSupportedLocaleCode(value        )                      {
   return (
     value === "en" ||
+    value === "es" ||
+    value === "fr" ||
     value === "ja" ||
     value === "ko" ||
     value === "zh-CN" ||
@@ -1560,6 +2174,12 @@ function matchLanguageTagToLocale(rawTag        )                    {
     tag.startsWith("zh-")
   ) {
     return "zh-CN";
+  }
+  if (tag === "es" || tag.startsWith("es-")) {
+    return "es";
+  }
+  if (tag === "fr" || tag.startsWith("fr-")) {
+    return "fr";
   }
   if (tag === "ja" || tag.startsWith("ja-")) {
     return "ja";
@@ -2531,54 +3151,38 @@ function renderDeltaBadge(delta               )              {
   return h("span", { className: cls }, t("spend.vsPrevMtd", { delta: `${sign}${delta.toFixed(1)}` }));
 }
 
-function renderLanguageGrid()              {
+function renderLanguageSelect()              {
   const currentPref = getLocalePreference();
-  const options                                                                        = [
-    { code: "auto", label: t("locale.autoFull"), fullWidth: true },
-    ...SUPPORTED_LOCALES.map((loc) => ({ code: loc.code, label: loc.nativeName })),
-  ];
-
   return h(
-    "div",
-    { className: "lang-grid", role: "radiogroup", ariaLabel: t("settings.languageLabel") },
-    ...options.map((opt) => {
-      const selected = currentPref === opt.code;
-      const cls = [
-        "lang-option-btn",
-        selected ? "lang-option-btn-active" : "",
-        opt.fullWidth ? "lang-option-full" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      return h(
-        "button",
-        {
-          type: "button",
-          role: "radio",
-          className: cls,
-          onClick: async () => {
-            if (opt.code === currentPref) return;
-            setLocalePreference(opt.code);
-            renderApp();
-            try {
-              state.overview = await updateCompanionPreferences({ locale: opt.code });
-              if (state.overview.preferences.locale) {
-                setLocalePreference(state.overview.preferences.locale);
-              }
-              renderApp();
-              showToast(t("toast.languageUpdated"), "success");
-            } catch (err) {
-              showToast(
-                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
-                "error"
-              );
-            }
-          },
-        },
-        h("span", { className: "lang-option-text" }, opt.label),
-        selected ? h("span", { className: "lang-option-check" }, "✓") : null
-      );
-    })
+    "select",
+    {
+      className: "compact-select full-width",
+      ariaLabel: t("settings.languageLabel"),
+      title: t("header.languageTitle"),
+      onChange: async (ev) => {
+        const nextPref = (ev.target                     ).value                    ;
+        if (nextPref === currentPref) return;
+        setLocalePreference(nextPref);
+        renderApp();
+        try {
+          state.overview = await updateCompanionPreferences({ locale: nextPref });
+          if (state.overview.preferences.locale) {
+            setLocalePreference(state.overview.preferences.locale);
+          }
+          renderApp();
+          showToast(t("toast.languageUpdated"), "success");
+        } catch (err) {
+          showToast(
+            err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+            "error"
+          );
+        }
+      },
+    },
+    h("option", { value: "auto", selected: currentPref === "auto" }, t("locale.autoFull")),
+    ...SUPPORTED_LOCALES.map((loc) =>
+      h("option", { value: loc.code, selected: currentPref === loc.code }, loc.nativeName)
+    )
   );
 }
 
@@ -4641,35 +5245,37 @@ function renderSettingsBodyContent(overview                           )         
 
   return [
     h(
-      "div",
-      { className: "settings-section" },
-      h("div", { className: "eyebrow" }, t("settings.languageLabel")),
-      renderLanguageGrid()
+      "label",
+      { className: "field-label" },
+      t("settings.languageLabel"),
+      renderLanguageSelect()
     ),
     h(
-      "div",
-      { className: "settings-section" },
-      h("div", { className: "eyebrow" }, t("settings.cacheTtlLabel")),
+      "label",
+      { className: "field-label" },
+      t("settings.cacheTtlLabel"),
       h(
-        "div",
-        { className: "ttl-pill-grid" },
-        ...[1, 6, 12, 24].map((hr) => {
-          const active = Math.round(currentHours) === hr;
-          return h(
-            "button",
-            {
-              type: "button",
-              className: active ? "lang-option-btn lang-option-btn-active" : "lang-option-btn",
-              onClick: async () => {
-                if (active) return;
-                state.overview = await updateCompanionPreferences({ cacheTtlHours: hr });
-                renderApp();
-                showToast(t("toast.cacheTtlSet", { hours: hr }), "success");
-              },
-            },
-            `${hr}h`
-          );
-        })
+        "select",
+        {
+          className: "compact-select full-width",
+          onChange: async (ev) => {
+            const hrs = Number((ev.target                     ).value);
+            state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
+            renderApp();
+            showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
+          },
+        },
+        ...[1, 6, 12, 24].map((hr) =>
+          h(
+            "option",
+            { value: String(hr), selected: Math.round(currentHours) === hr },
+            hr === 6
+              ? t("settings.hoursRecommended")
+              : hr === 1
+                ? t("settings.hourOne")
+                : t("settings.hoursMany", { hours: hr })
+          )
+        )
       )
     ),
     h(

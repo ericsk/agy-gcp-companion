@@ -142,7 +142,7 @@ export interface SpendReport {
   byProject: Record<string, ProjectSpendSummary>;
 }
 
-export type LocaleCode = "en" | "ja" | "ko" | "zh-CN" | "zh-TW";
+export type LocaleCode = "en" | "es" | "fr" | "ja" | "ko" | "zh-CN" | "zh-TW";
 export type LocalePreference = "auto" | LocaleCode;
 
 export interface CompanionPreferences {

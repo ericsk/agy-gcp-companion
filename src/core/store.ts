@@ -12,6 +12,8 @@ const SNAPSHOT_SCHEMA_VERSION = 5;
 export const VALID_LOCALE_PREFERENCES: ReadonlySet<LocalePreference> = new Set<LocalePreference>([
   "auto",
   "en",
+  "es",
+  "fr",
   "ja",
   "ko",
   "zh-CN",

@@ -316,54 +316,38 @@ function renderDeltaBadge(delta: number | null): HTMLElement {
   return h("span", { className: cls }, t("spend.vsPrevMtd", { delta: `${sign}${delta.toFixed(1)}` }));
 }
 
-function renderLanguageGrid(): HTMLElement {
+function renderLanguageSelect(): HTMLElement {
   const currentPref = getLocalePreference();
-  const options: Array<{ code: LocalePreference; label: string; fullWidth?: boolean }> = [
-    { code: "auto", label: t("locale.autoFull"), fullWidth: true },
-    ...SUPPORTED_LOCALES.map((loc) => ({ code: loc.code, label: loc.nativeName })),
-  ];
-
   return h(
-    "div",
-    { className: "lang-grid", role: "radiogroup", ariaLabel: t("settings.languageLabel") },
-    ...options.map((opt) => {
-      const selected = currentPref === opt.code;
-      const cls = [
-        "lang-option-btn",
-        selected ? "lang-option-btn-active" : "",
-        opt.fullWidth ? "lang-option-full" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      return h(
-        "button",
-        {
-          type: "button",
-          role: "radio",
-          className: cls,
-          onClick: async () => {
-            if (opt.code === currentPref) return;
-            setLocalePreference(opt.code);
-            renderApp();
-            try {
-              state.overview = await updateCompanionPreferences({ locale: opt.code });
-              if (state.overview.preferences.locale) {
-                setLocalePreference(state.overview.preferences.locale);
-              }
-              renderApp();
-              showToast(t("toast.languageUpdated"), "success");
-            } catch (err) {
-              showToast(
-                err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
-                "error"
-              );
-            }
-          },
-        },
-        h("span", { className: "lang-option-text" }, opt.label),
-        selected ? h("span", { className: "lang-option-check" }, "✓") : null
-      );
-    })
+    "select",
+    {
+      className: "compact-select full-width",
+      ariaLabel: t("settings.languageLabel"),
+      title: t("header.languageTitle"),
+      onChange: async (ev) => {
+        const nextPref = (ev.target as HTMLSelectElement).value as LocalePreference;
+        if (nextPref === currentPref) return;
+        setLocalePreference(nextPref);
+        renderApp();
+        try {
+          state.overview = await updateCompanionPreferences({ locale: nextPref });
+          if (state.overview.preferences.locale) {
+            setLocalePreference(state.overview.preferences.locale);
+          }
+          renderApp();
+          showToast(t("toast.languageUpdated"), "success");
+        } catch (err) {
+          showToast(
+            err instanceof Error ? err.message : t("toast.prefUpdateFailed"),
+            "error"
+          );
+        }
+      },
+    },
+    h("option", { value: "auto", selected: currentPref === "auto" }, t("locale.autoFull")),
+    ...SUPPORTED_LOCALES.map((loc) =>
+      h("option", { value: loc.code, selected: currentPref === loc.code }, loc.nativeName)
+    )
   );
 }
 
@@ -2426,35 +2410,37 @@ function renderSettingsBodyContent(overview: CompanionOverviewResponse): HTMLEle
 
   return [
     h(
-      "div",
-      { className: "settings-section" },
-      h("div", { className: "eyebrow" }, t("settings.languageLabel")),
-      renderLanguageGrid()
+      "label",
+      { className: "field-label" },
+      t("settings.languageLabel"),
+      renderLanguageSelect()
     ),
     h(
-      "div",
-      { className: "settings-section" },
-      h("div", { className: "eyebrow" }, t("settings.cacheTtlLabel")),
+      "label",
+      { className: "field-label" },
+      t("settings.cacheTtlLabel"),
       h(
-        "div",
-        { className: "ttl-pill-grid" },
-        ...[1, 6, 12, 24].map((hr) => {
-          const active = Math.round(currentHours) === hr;
-          return h(
-            "button",
-            {
-              type: "button",
-              className: active ? "lang-option-btn lang-option-btn-active" : "lang-option-btn",
-              onClick: async () => {
-                if (active) return;
-                state.overview = await updateCompanionPreferences({ cacheTtlHours: hr });
-                renderApp();
-                showToast(t("toast.cacheTtlSet", { hours: hr }), "success");
-              },
-            },
-            `${hr}h`
-          );
-        })
+        "select",
+        {
+          className: "compact-select full-width",
+          onChange: async (ev) => {
+            const hrs = Number((ev.target as HTMLSelectElement).value);
+            state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
+            renderApp();
+            showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
+          },
+        },
+        ...[1, 6, 12, 24].map((hr) =>
+          h(
+            "option",
+            { value: String(hr), selected: Math.round(currentHours) === hr },
+            hr === 6
+              ? t("settings.hoursRecommended")
+              : hr === 1
+                ? t("settings.hourOne")
+                : t("settings.hoursMany", { hours: hr })
+          )
+        )
       )
     ),
     h(

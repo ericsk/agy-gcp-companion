@@ -23,9 +23,9 @@ function extractPlaceholders(template: string): string[] {
   return Array.from(new Set(matches)).sort();
 }
 
-describe("Internationalization (i18n) Architecture & 5-Language Catalog Parity", () => {
-  it("supports en, ja, ko, zh-CN, and zh-TW with 100% key and placeholder parity", () => {
-    const expectedCodes: LocaleCode[] = ["en", "ja", "ko", "zh-CN", "zh-TW"];
+describe("Internationalization (i18n) Architecture & 7-Language Catalog Parity", () => {
+  it("supports en, es, fr, ja, ko, zh-CN, and zh-TW with 100% key and placeholder parity", () => {
+    const expectedCodes: LocaleCode[] = ["en", "es", "fr", "ja", "ko", "zh-CN", "zh-TW"];
     assert.deepEqual(
       SUPPORTED_LOCALES.map((l) => l.code),
       expectedCodes
@@ -66,11 +66,15 @@ describe("Internationalization (i18n) Architecture & 5-Language Catalog Parity",
     assert.equal(matchLanguageTagToLocale("zh"), "zh-CN");
     assert.equal(matchLanguageTagToLocale("ja-JP"), "ja");
     assert.equal(matchLanguageTagToLocale("ko-KR"), "ko");
+    assert.equal(matchLanguageTagToLocale("es-MX"), "es");
+    assert.equal(matchLanguageTagToLocale("fr-FR"), "fr");
     assert.equal(matchLanguageTagToLocale("en-US"), "en");
-    assert.equal(matchLanguageTagToLocale("fr-FR"), null);
+    assert.equal(matchLanguageTagToLocale("de-DE"), null);
 
-    assert.equal(detectBrowserLocale(["fr-FR", "ja-JP", "en-US"]), "ja");
-    assert.equal(detectBrowserLocale(["de-DE", "es-ES"]), "en");
+    assert.equal(detectBrowserLocale(["de-DE", "ja-JP", "en-US"]), "ja");
+    assert.equal(detectBrowserLocale(["fr-CA", "en-US"]), "fr");
+    assert.equal(detectBrowserLocale(["es-ES", "en-US"]), "es");
+    assert.equal(detectBrowserLocale(["de-DE", "it-IT"]), "en");
     assert.equal(resolveLocale("auto", ["zh-Hant-HK"]), "zh-TW");
     assert.equal(resolveLocale("ko", ["zh-TW"]), "ko");
   });
@@ -80,6 +84,14 @@ describe("Internationalization (i18n) Architecture & 5-Language Catalog Parity",
       setLocalePreference("en");
       assert.equal(getActiveLocale(), "en");
       assert.equal(t("overview.mtdNetSpend", { month: "2026-11" }), "Month-to-Date Net Spend (2026-11)");
+
+      setLocalePreference("es");
+      assert.equal(t("tabs.overview"), "Resumen");
+      assert.equal(t("tabs.billing"), "Facturación");
+
+      setLocalePreference("fr");
+      assert.equal(t("tabs.overview"), "Aperçu");
+      assert.equal(t("tabs.billing"), "Facturation");
 
       setLocalePreference("ja");
       assert.equal(t("tabs.overview"), "概要");
@@ -115,7 +127,7 @@ describe("Internationalization (i18n) Architecture & 5-Language Catalog Parity",
       const overviewTw = await service.getOverview();
       assert.equal(overviewTw.preferences.locale, "zh-TW");
 
-      for (const code of ["en", "ja", "ko", "zh-CN", "auto"] as const) {
+      for (const code of ["en", "es", "fr", "ja", "ko", "zh-CN", "auto"] as const) {
         service.updateSettings({ locale: code });
         assert.equal((await service.getOverview()).preferences.locale, code);
       }

@@ -1,5 +1,7 @@
 import type { LocaleCode, LocalePreference } from "../../core/types.ts";
 import { EN_MESSAGES, type TranslationCatalog, type TranslationKey } from "./en.ts";
+import { ES_MESSAGES } from "./es.ts";
+import { FR_MESSAGES } from "./fr.ts";
 import { JA_MESSAGES } from "./ja.ts";
 import { KO_MESSAGES } from "./ko.ts";
 import { ZH_CN_MESSAGES } from "./zh-CN.ts";
@@ -13,6 +15,8 @@ export interface LocaleOptionMeta {
 
 export const SUPPORTED_LOCALES: readonly LocaleOptionMeta[] = [
   { code: "en", nativeName: "English", shortName: "🌐 EN" },
+  { code: "es", nativeName: "Español", shortName: "🌐 ES" },
+  { code: "fr", nativeName: "Français", shortName: "🌐 FR" },
   { code: "ja", nativeName: "日本語", shortName: "🌐 日本語" },
   { code: "ko", nativeName: "한국어", shortName: "🌐 한국어" },
   { code: "zh-CN", nativeName: "简体中文", shortName: "🌐 简体" },
@@ -21,6 +25,8 @@ export const SUPPORTED_LOCALES: readonly LocaleOptionMeta[] = [
 
 export const TRANSLATION_CATALOGS: Record<LocaleCode, TranslationCatalog> = {
   en: EN_MESSAGES,
+  es: ES_MESSAGES,
+  fr: FR_MESSAGES,
   ja: JA_MESSAGES,
   ko: KO_MESSAGES,
   "zh-CN": ZH_CN_MESSAGES,
@@ -32,6 +38,8 @@ let currentLocalePreference: LocalePreference = "auto";
 export function isSupportedLocaleCode(value: string): value is LocaleCode {
   return (
     value === "en" ||
+    value === "es" ||
+    value === "fr" ||
     value === "ja" ||
     value === "ko" ||
     value === "zh-CN" ||
@@ -60,6 +68,12 @@ export function matchLanguageTagToLocale(rawTag: string): LocaleCode | null {
     tag.startsWith("zh-")
   ) {
     return "zh-CN";
+  }
+  if (tag === "es" || tag.startsWith("es-")) {
+    return "es";
+  }
+  if (tag === "fr" || tag.startsWith("fr-")) {
+    return "fr";
   }
   if (tag === "ja" || tag.startsWith("ja-")) {
     return "ja";
