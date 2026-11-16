@@ -2605,7 +2605,7 @@ function renderDailySparkline(
     return h("div", { className: "sparkline-empty" }, t("chart.noDailyUsage"));
   }
 
-  const width = 320;
+  const width = 460;
   const height = 68;
   const padX = 6;
   const padTop = 8;

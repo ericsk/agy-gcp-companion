@@ -2,6 +2,10 @@
 
 **GCP Companion** is a Google Antigravity plugin that adds an interactive **Auxiliary Side Panel** and **MCP Server + Agent Skill** for inspecting your Google Cloud **Projects**, **Billing Accounts**, **Budgets**, and **BigQuery Month-to-Date Spend**.
 
+<p align="center">
+  <img src="./docs/screenshot-en.png" alt="GCP Companion Side Panel Overview" width="480" />
+</p>
+
 ## Highlights
 
 - **Auxiliary Side Pane UI (`GCP Companion`)**:
