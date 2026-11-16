@@ -1,9 +1,12 @@
 import type {
   BillingAccount,
   CompanionOverviewResponse,
+  CurrencyTotalSummary,
   DiscoveredBillingTable,
   GcpProject,
   LocalePreference,
+  ProjectSpendSummary,
+  SpendReport,
 } from "../core/types.ts";
 import {
   applyPluginUpdateApi,
@@ -49,6 +52,7 @@ interface UiState {
   error: string | null;
   activeTab: ActiveTab;
   overviewMode: OverviewBreakdownMode;
+  selectedInvoiceMonth: string;
   projectSearch: string;
   projectFilter: string; // "focus" | "all" | "unbilled" | "ba:<ID>"
   projectSort: ProjectSortMode;
@@ -75,6 +79,7 @@ const state: UiState = {
   error: null,
   activeTab: "overview",
   overviewMode: "projects",
+  selectedInvoiceMonth: "",
   projectSearch: "",
   projectFilter: "all",
   projectSort: "smart",
@@ -117,6 +122,13 @@ async function loadData(forceRefresh = false): Promise<void> {
   try {
     const data = await fetchOverview(forceRefresh);
     state.overview = data;
+    const availableMonths =
+      data.spend.availableMonths && data.spend.availableMonths.length > 0
+        ? data.spend.availableMonths
+        : [data.spend.invoiceMonth];
+    if (state.selectedInvoiceMonth && !availableMonths.includes(state.selectedInvoiceMonth)) {
+      state.selectedInvoiceMonth = "";
+    }
     if (data.preferences.locale) {
       setLocalePreference(data.preferences.locale);
     }
@@ -470,6 +482,7 @@ function renderHeader(overview: CompanionOverviewResponse): HTMLElement {
                   try {
                     state.refreshing = true;
                     renderApp();
+                    state.selectedInvoiceMonth = "";
                     state.overview = await switchActiveAccount(nextAcct);
                     showToast(t("toast.switchedAccount"), "success");
                   } catch (err) {
@@ -556,6 +569,7 @@ function renderHeader(overview: CompanionOverviewResponse): HTMLElement {
                 className: "badge badge-demo",
                 title: t("header.demoExitTitle"),
                 onClick: async () => {
+                  state.selectedInvoiceMonth = "";
                   state.overview = await updateCompanionPreferences({ demoMode: false });
                   renderApp();
                   showToast(t("toast.exitedDemo"), "info");
@@ -884,8 +898,203 @@ function formatLinkedProjectCount(count: number): string {
     : t("billing.projectCountMany", { count });
 }
 
+interface MonthPillSummary {
+  hasRows: boolean;
+  settled: boolean;
+  coveredDays: number;
+  amountPreview: string;
+}
+
+interface ActiveSpendSelection {
+  spend: SpendReport;
+  selectedMonth: string;
+  isCurrentMonth: boolean;
+  availableMonths: string[];
+  hasRows: boolean;
+  hasAnyMonthRows: boolean;
+  settled: boolean;
+  coveredDays: number;
+  monthMeta: Record<string, MonthPillSummary>;
+}
+
+function formatMonthLabel(yyyymm: string): string {
+  return yyyymm.length === 6 ? `${yyyymm.slice(0, 4)}-${yyyymm.slice(4)}` : yyyymm;
+}
+
+function formatCompactPillSummary(totals: readonly CurrencyTotalSummary[]): string {
+  if (totals.length === 0) return "—";
+  return totals
+    .map((tot) => {
+      const net = Math.abs(tot.currentMonthNetCost) < 0.005 ? 0 : tot.currentMonthNetCost;
+      const netStr = formatMoney(net, tot.currency);
+      if (net <= 0.005 && tot.currentMonthGrossCost >= 0.005) {
+        return `${netStr} (${formatMoney(tot.currentMonthGrossCost, tot.currency)})`;
+      }
+      return netStr;
+    })
+    .join(" · ");
+}
+
+function renderHeroStatusBadge(
+  active: ActiveSpendSelection,
+  total: CurrencyTotalSummary
+): HTMLElement {
+  if (active.isCurrentMonth) {
+    return renderDeltaBadge(total.deltaPercentVsPrevSameDay);
+  }
+  const statusBadge = active.settled
+    ? h("span", { className: "badge badge-good" }, t("spend.settledBadge"))
+    : h(
+        "span",
+        { className: "badge badge-warn" },
+        t("spend.backfillingBadge", {
+          days: active.coveredDays || total.dailySeries.length || 0,
+        })
+      );
+  if (
+    active.settled &&
+    total.deltaPercentVsPrevSameDay !== null &&
+    Number.isFinite(total.deltaPercentVsPrevSameDay)
+  ) {
+    return h(
+      "div",
+      { className: "hero-badges-row" },
+      statusBadge,
+      renderDeltaBadge(total.deltaPercentVsPrevSameDay)
+    );
+  }
+  return statusBadge;
+}
+
+function isCreditCoveredZeroNet(netCost: number, grossCost: number): boolean {
+  return netCost <= 0.005 && grossCost >= 0.005;
+}
+
+function getProjectRankScore(ps: ProjectSpendSummary | undefined): number {
+  if (!ps) return -Infinity;
+  if (ps.currentMonthNetCost > 0.005) return ps.currentMonthNetCost;
+  if (ps.currentMonthGrossCost >= 0.005) return ps.currentMonthGrossCost;
+  return Math.abs(ps.currentMonthNetCost) < 0.005 ? 0 : ps.currentMonthNetCost;
+}
+
+function getActiveSpend(overview: CompanionOverviewResponse): ActiveSpendSelection {
+  const baseSpend = overview.spend;
+  const rawMonths =
+    baseSpend.availableMonths && baseSpend.availableMonths.length > 0
+      ? baseSpend.availableMonths
+      : [baseSpend.invoiceMonth];
+  const availableMonths = [...rawMonths];
+  const byMonth = baseSpend.byMonth ?? {};
+  const monthMeta: Record<string, MonthPillSummary> = {};
+  let firstPopulatedMonth = "";
+
+  for (const m of availableMonths) {
+    const snap = byMonth[m];
+    const mHasRows = snap
+      ? snap.hasRows
+      : m === baseSpend.invoiceMonth && baseSpend.totalsByCurrency.length > 0;
+    const mTotals = snap
+      ? snap.totalsByCurrency
+      : m === baseSpend.invoiceMonth
+        ? baseSpend.totalsByCurrency
+        : [];
+    const mSettled = Boolean(snap?.settled);
+    const mCoveredDays = snap?.coveredDays ?? mTotals[0]?.dailySeries.length ?? 0;
+    monthMeta[m] = {
+      hasRows: mHasRows,
+      settled: mSettled,
+      coveredDays: mCoveredDays,
+      amountPreview: mHasRows ? formatCompactPillSummary(mTotals) : "—",
+    };
+    if (mHasRows && !firstPopulatedMonth) {
+      firstPopulatedMonth = m;
+    }
+  }
+
+  let selectedMonth = state.selectedInvoiceMonth;
+  if (!selectedMonth || !availableMonths.includes(selectedMonth)) {
+    const currentSnap = byMonth[baseSpend.invoiceMonth];
+    const currentHasRows = currentSnap
+      ? currentSnap.hasRows
+      : baseSpend.totalsByCurrency.length > 0;
+    if (currentHasRows) {
+      selectedMonth = baseSpend.invoiceMonth;
+    } else if (firstPopulatedMonth) {
+      selectedMonth = firstPopulatedMonth;
+    } else {
+      selectedMonth = availableMonths[0] ?? baseSpend.invoiceMonth;
+    }
+  }
+
+  const activeSnap = byMonth[selectedMonth];
+  const effectiveSpend: SpendReport = activeSnap
+    ? {
+        ...baseSpend,
+        invoiceMonth: activeSnap.invoiceMonth,
+        previousInvoiceMonth: activeSnap.previousInvoiceMonth,
+        totalsByCurrency: activeSnap.totalsByCurrency,
+        byBillingAccount: activeSnap.byBillingAccount,
+        byProject: activeSnap.byProject,
+      }
+    : baseSpend;
+
+  const hasRows = activeSnap ? activeSnap.hasRows : effectiveSpend.totalsByCurrency.length > 0;
+  const hasAnyMonthRows = Boolean(firstPopulatedMonth) || baseSpend.totalsByCurrency.length > 0;
+
+  return {
+    spend: effectiveSpend,
+    selectedMonth,
+    isCurrentMonth: selectedMonth === baseSpend.invoiceMonth,
+    availableMonths,
+    hasRows,
+    hasAnyMonthRows,
+    settled: Boolean(activeSnap?.settled),
+    coveredDays:
+      activeSnap?.coveredDays ?? effectiveSpend.totalsByCurrency[0]?.dailySeries.length ?? 0,
+    monthMeta,
+  };
+}
+
+function renderMonthSwitcher(active: ActiveSpendSelection): HTMLElement | null {
+  if (active.availableMonths.length <= 1) return null;
+  return h(
+    "div",
+    {
+      className: "month-switcher-bar",
+      ariaLabel: t("overview.monthSelectorAria"),
+    },
+    ...active.availableMonths.map((ym) => {
+      const selected = ym === active.selectedMonth;
+      const meta = active.monthMeta[ym];
+      const populated = Boolean(meta?.hasRows);
+      const classes = ["month-pill"];
+      if (selected) classes.push("month-pill-active");
+      if (!populated) classes.push("month-pill-empty");
+      return h(
+        "button",
+        {
+          type: "button",
+          className: classes.join(" "),
+          ariaSelected: String(selected),
+          onClick: () => {
+            state.selectedInvoiceMonth = ym;
+            renderApp();
+          },
+        },
+        h(
+          "span",
+          { className: "month-pill-head" },
+          meta?.settled ? `${formatMonthLabel(ym)} ✓` : formatMonthLabel(ym)
+        ),
+        h("span", { className: "month-pill-amt" }, meta?.amountPreview ?? "—")
+      );
+    })
+  );
+}
+
 function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
-  const spend = overview.spend;
+  const active = getActiveSpend(overview);
+  const spend = active.spend;
   const sections: HTMLElement[] = [];
 
   if (!overview.preferences.demoMode && !overview.auth.gcloudInstalled) {
@@ -918,8 +1127,252 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
     );
   }
 
-  if (spend.configured && spend.totalsByCurrency.length > 0) {
-    for (const total of spend.totalsByCurrency) {
+  if (spend.configured && active.hasAnyMonthRows) {
+    const switcher = renderMonthSwitcher(active);
+    if (switcher) {
+      sections.push(switcher);
+    }
+
+    if (active.hasRows && spend.totalsByCurrency.length > 0) {
+      for (const total of spend.totalsByCurrency) {
+        sections.push(
+          h(
+            "section",
+            { className: "card hero-spend-card" },
+            h(
+              "div",
+              { className: "hero-top-row" },
+              h(
+                "span",
+                { className: "eyebrow" },
+                active.isCurrentMonth
+                  ? t("overview.mtdNetSpend", {
+                      month: formatMonthLabel(spend.invoiceMonth),
+                    })
+                  : t("overview.monthlyNetSpend", {
+                      month: formatMonthLabel(spend.invoiceMonth),
+                    })
+              ),
+              renderHeroStatusBadge(active, total)
+            ),
+            h(
+              "div",
+              { className: "hero-amount" },
+              formatMoney(total.currentMonthNetCost, total.currency)
+            ),
+            h(
+              "div",
+              { className: "hero-submetrics" },
+              h(
+                "span",
+                { className: "submetric" },
+                t("spend.gross", { amount: formatMoney(total.currentMonthGrossCost, total.currency) })
+              ),
+              h(
+                "span",
+                { className: "submetric submetric-credit" },
+                t("spend.credits", { amount: formatMoney(total.currentMonthCredits, total.currency) })
+              ),
+              h(
+                "span",
+                { className: "submetric" },
+                spend.previousInvoiceMonth
+                  ? t("spend.monthTotalLabel", {
+                      month: formatMonthLabel(spend.previousInvoiceMonth),
+                      amount: formatMoney(total.prevMonthTotalNetCost, total.currency),
+                    })
+                  : t("spend.lastMonthTotal", {
+                      amount: formatMoney(total.prevMonthTotalNetCost, total.currency),
+                    })
+              )
+            ),
+            renderDailySparkline(total.dailySeries, total.currency)
+          )
+        );
+      }
+
+      // Breakdown toggle: By Project vs By Billing Account
+      const topProjects = [...overview.projects]
+        .filter((p) => spend.byProject[p.projectId])
+        .sort(
+          (a, b) =>
+            getProjectRankScore(spend.byProject[b.projectId]) -
+            getProjectRankScore(spend.byProject[a.projectId])
+        )
+        .slice(0, 5);
+
+      sections.push(
+        h(
+          "section",
+          { className: "card" },
+          h(
+            "div",
+            { className: "section-header-row" },
+            h(
+              "h3",
+              { className: "section-title" },
+              t("overview.spendBreakdownTitleForMonth", {
+                month: formatMonthLabel(spend.invoiceMonth),
+              })
+            ),
+            h(
+              "div",
+              { className: "segmented-mini" },
+              h(
+                "button",
+                {
+                  type: "button",
+                  className:
+                    state.overviewMode === "projects" ? "seg-btn seg-btn-active" : "seg-btn",
+                  onClick: () => {
+                    state.overviewMode = "projects";
+                    renderApp();
+                  },
+                },
+                t("overview.byProject")
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className:
+                    state.overviewMode === "accounts" ? "seg-btn seg-btn-active" : "seg-btn",
+                  onClick: () => {
+                    state.overviewMode = "accounts";
+                    renderApp();
+                  },
+                },
+                t("overview.byAccount")
+              ),
+              h(
+                "button",
+                {
+                  type: "button",
+                  className:
+                    state.overviewMode === "services" ? "seg-btn seg-btn-active" : "seg-btn",
+                  onClick: () => {
+                    state.overviewMode = "services";
+                    renderApp();
+                  },
+                },
+                t("overview.byService")
+              )
+            )
+          ),
+          state.overviewMode === "projects"
+            ? topProjects.length > 0
+              ? h(
+                  "div",
+                  { className: "compact-list" },
+                  ...topProjects.map((proj) => {
+                    const ps = spend.byProject[proj.projectId];
+                    return h(
+                      "div",
+                      {
+                        className: "compact-row clickable-row",
+                        onClick: () => {
+                          state.activeTab = "projects";
+                          state.expandedProjectIds.add(proj.projectId);
+                          renderApp();
+                        },
+                      },
+                      h(
+                        "div",
+                        { className: "compact-row-main" },
+                        h("span", { className: "row-primary-text" }, proj.name),
+                        h("span", { className: "row-mono" }, proj.projectId)
+                      ),
+                      h(
+                        "div",
+                        { className: "compact-row-right" },
+                        h(
+                          "span",
+                          { className: "amount-strong" },
+                          formatMoney(ps.currentMonthNetCost, ps.currency)
+                        ),
+                        isCreditCoveredZeroNet(ps.currentMonthNetCost, ps.currentMonthGrossCost)
+                          ? h(
+                              "span",
+                              { className: "muted-micro" },
+                              t("chart.grossShort", {
+                                amount: formatMoney(ps.currentMonthGrossCost, ps.currency),
+                              })
+                            )
+                          : null,
+                        ps.topServices[0]
+                          ? h(
+                              "span",
+                              { className: "muted-micro" },
+                              t("overview.topService", { service: ps.topServices[0].serviceName })
+                            )
+                          : null
+                      )
+                    );
+                  })
+                )
+              : h("div", { className: "muted-note" }, t("overview.noProjectCosts"))
+            : state.overviewMode === "services"
+              ? renderServiceBreakdownList(
+                  spend.totalsByCurrency[0]?.topServices ?? [],
+                  spend.totalsByCurrency[0]?.currency ?? "USD"
+                )
+              : h(
+                "div",
+                { className: "compact-list" },
+                ...overview.billingAccounts.map((ba) => {
+                  const bs = spend.byBillingAccount[ba.id];
+                  return h(
+                    "div",
+                    {
+                      className: "compact-row clickable-row",
+                      onClick: () => {
+                        state.activeTab = "billing";
+                        renderApp();
+                      },
+                    },
+                    h(
+                      "div",
+                      { className: "compact-row-main" },
+                      h("span", { className: "row-primary-text" }, ba.displayName),
+                      h(
+                        "span",
+                        { className: "row-mono" },
+                        `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
+                      )
+                    ),
+                    h(
+                      "div",
+                      { className: "compact-row-right" },
+                      bs
+                        ? h(
+                            "span",
+                            { className: "amount-strong" },
+                            formatMoney(bs.currentMonthNetCost, bs.currency)
+                          )
+                        : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
+                      bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                        ? h(
+                            "span",
+                            { className: "muted-micro" },
+                            t("chart.grossShort", {
+                              amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                            })
+                          )
+                        : null,
+                      h(
+                        "span",
+                        { className: ba.open ? "status-dot-open" : "status-dot-closed" },
+                        ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
+                      )
+                    )
+                  );
+                })
+              )
+        )
+      );
+    } else {
+      const fallbackCurrency =
+        overview.billingAccounts.find((b) => b.currencyCode)?.currencyCode || "USD";
       sections.push(
         h(
           "section",
@@ -930,198 +1383,24 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
             h(
               "span",
               { className: "eyebrow" },
-              t("overview.mtdNetSpend", {
-                month: `${spend.invoiceMonth.slice(0, 4)}-${spend.invoiceMonth.slice(4)}`,
-              })
-            ),
-            renderDeltaBadge(total.deltaPercentVsPrevSameDay)
-          ),
-          h(
-            "div",
-            { className: "hero-amount" },
-            formatMoney(total.currentMonthNetCost, total.currency)
-          ),
-          h(
-            "div",
-            { className: "hero-submetrics" },
-            h(
-              "span",
-              { className: "submetric" },
-              t("spend.gross", { amount: formatMoney(total.currentMonthGrossCost, total.currency) })
-            ),
-            h(
-              "span",
-              { className: "submetric submetric-credit" },
-              t("spend.credits", { amount: formatMoney(total.currentMonthCredits, total.currency) })
-            ),
-            h(
-              "span",
-              { className: "submetric" },
-              t("spend.lastMonthTotal", {
-                amount: formatMoney(total.prevMonthTotalNetCost, total.currency),
-              })
+              active.isCurrentMonth
+                ? t("overview.mtdNetSpend", {
+                    month: formatMonthLabel(active.selectedMonth),
+                  })
+                : t("overview.monthlyNetSpend", {
+                    month: formatMonthLabel(active.selectedMonth),
+                  })
             )
           ),
-          renderDailySparkline(total.dailySeries, total.currency)
+          h("div", { className: "hero-amount" }, formatMoney(0, fallbackCurrency)),
+          h(
+            "p",
+            { className: "month-no-rows-note" },
+            t("overview.monthNoRowsYet", { month: formatMonthLabel(active.selectedMonth) })
+          )
         )
       );
     }
-
-    // Breakdown toggle: By Project vs By Billing Account
-    const topProjects = [...overview.projects]
-      .filter((p) => spend.byProject[p.projectId])
-      .sort(
-        (a, b) =>
-          (spend.byProject[b.projectId]?.currentMonthNetCost ?? 0) -
-          (spend.byProject[a.projectId]?.currentMonthNetCost ?? 0)
-      )
-      .slice(0, 5);
-
-    sections.push(
-      h(
-        "section",
-        { className: "card" },
-        h(
-          "div",
-          { className: "section-header-row" },
-          h("h3", { className: "section-title" }, t("overview.spendBreakdownTitle")),
-          h(
-            "div",
-            { className: "segmented-mini" },
-            h(
-              "button",
-              {
-                type: "button",
-                className:
-                  state.overviewMode === "projects" ? "seg-btn seg-btn-active" : "seg-btn",
-                onClick: () => {
-                  state.overviewMode = "projects";
-                  renderApp();
-                },
-              },
-              t("overview.byProject")
-            ),
-            h(
-              "button",
-              {
-                type: "button",
-                className:
-                  state.overviewMode === "accounts" ? "seg-btn seg-btn-active" : "seg-btn",
-                onClick: () => {
-                  state.overviewMode = "accounts";
-                  renderApp();
-                },
-              },
-              t("overview.byAccount")
-            ),
-            h(
-              "button",
-              {
-                type: "button",
-                className:
-                  state.overviewMode === "services" ? "seg-btn seg-btn-active" : "seg-btn",
-                onClick: () => {
-                  state.overviewMode = "services";
-                  renderApp();
-                },
-              },
-              t("overview.byService")
-            )
-          )
-        ),
-        state.overviewMode === "projects"
-          ? topProjects.length > 0
-            ? h(
-                "div",
-                { className: "compact-list" },
-                ...topProjects.map((proj) => {
-                  const ps = spend.byProject[proj.projectId];
-                  return h(
-                    "div",
-                    {
-                      className: "compact-row clickable-row",
-                      onClick: () => {
-                        state.activeTab = "projects";
-                        state.expandedProjectIds.add(proj.projectId);
-                        renderApp();
-                      },
-                    },
-                    h(
-                      "div",
-                      { className: "compact-row-main" },
-                      h("span", { className: "row-primary-text" }, proj.name),
-                      h("span", { className: "row-mono" }, proj.projectId)
-                    ),
-                    h(
-                      "div",
-                      { className: "compact-row-right" },
-                      h(
-                        "span",
-                        { className: "amount-strong" },
-                        formatMoney(ps.currentMonthNetCost, ps.currency)
-                      ),
-                      ps.topServices[0]
-                        ? h(
-                            "span",
-                            { className: "muted-micro" },
-                            t("overview.topService", { service: ps.topServices[0].serviceName })
-                          )
-                        : null
-                    )
-                  );
-                })
-              )
-            : h("div", { className: "muted-note" }, t("overview.noProjectCosts"))
-          : state.overviewMode === "services"
-            ? renderServiceBreakdownList(
-                spend.totalsByCurrency[0]?.topServices ?? [],
-                spend.totalsByCurrency[0]?.currency ?? "USD"
-              )
-            : h(
-              "div",
-              { className: "compact-list" },
-              ...overview.billingAccounts.map((ba) => {
-                const bs = spend.byBillingAccount[ba.id];
-                return h(
-                  "div",
-                  {
-                    className: "compact-row clickable-row",
-                    onClick: () => {
-                      state.activeTab = "billing";
-                      renderApp();
-                    },
-                  },
-                  h(
-                    "div",
-                    { className: "compact-row-main" },
-                    h("span", { className: "row-primary-text" }, ba.displayName),
-                    h(
-                      "span",
-                      { className: "row-mono" },
-                      `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
-                    )
-                  ),
-                  h(
-                    "div",
-                    { className: "compact-row-right" },
-                    bs
-                      ? h(
-                          "span",
-                          { className: "amount-strong" },
-                          formatMoney(bs.currentMonthNetCost, bs.currency)
-                        )
-                      : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
-                    h(
-                      "span",
-                      { className: ba.open ? "status-dot-open" : "status-dot-closed" },
-                      ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
-                    )
-                  )
-                );
-              })
-            )
-      )
-    );
   } else {
     const billingOff = isCloudBillingApiDisabled(overview);
     const billingApiPrompt = renderBillingApiSetupPrompt(overview);
@@ -1211,6 +1490,7 @@ function renderOverviewTab(overview: CompanionOverviewResponse): HTMLElement {
                   type: "button",
                   className: "btn btn-sm",
                   onClick: async () => {
+                    state.selectedInvoiceMonth = "";
                     state.overview = await updateCompanionPreferences({ demoMode: true });
                     renderApp();
                     showToast(t("toast.showingSampleSpend"), "info");
@@ -1312,7 +1592,7 @@ function renderQuickProjectItem(
   proj: GcpProject,
   overview: CompanionOverviewResponse
 ): HTMLElement {
-  const ps = overview.spend.byProject[proj.projectId];
+  const ps = getActiveSpend(overview).spend.byProject[proj.projectId];
   return h(
     "div",
     { className: "compact-row" },
@@ -1339,9 +1619,22 @@ function renderQuickProjectItem(
       { className: "compact-row-actions" },
       ps
         ? h(
-            "span",
-            { className: "amount-strong" },
-            formatMoney(ps.currentMonthNetCost, ps.currency)
+            "div",
+            { className: "project-spend-stack" },
+            h(
+              "span",
+              { className: "amount-strong" },
+              formatMoney(ps.currentMonthNetCost, ps.currency)
+            ),
+            isCreditCoveredZeroNet(ps.currentMonthNetCost, ps.currentMonthGrossCost)
+              ? h(
+                  "span",
+                  { className: "muted-micro" },
+                  t("chart.grossShort", {
+                    amount: formatMoney(ps.currentMonthGrossCost, ps.currency),
+                  })
+                )
+              : null
           )
         : null,
       !proj.isActiveProject
@@ -1413,10 +1706,14 @@ function getFilteredAndSortedProjects(overview: CompanionOverviewResponse): GcpP
     );
   });
 
+  const activeSpend = getActiveSpend(overview).spend;
   return [...filtered].sort((a, b) => {
+    const psA = activeSpend.byProject[a.projectId];
+    const psB = activeSpend.byProject[b.projectId];
     if (state.projectSort === "spend") {
-      const sa = overview.spend.byProject[a.projectId]?.currentMonthNetCost ?? -1;
-      const sb = overview.spend.byProject[b.projectId]?.currentMonthNetCost ?? -1;
+      if (Boolean(psA) !== Boolean(psB)) return psA ? -1 : 1;
+      const sa = getProjectRankScore(psA);
+      const sb = getProjectRankScore(psB);
       if (sa !== sb) return sb - sa;
       return a.projectId.localeCompare(b.projectId);
     }
@@ -1425,8 +1722,9 @@ function getFilteredAndSortedProjects(overview: CompanionOverviewResponse): GcpP
     }
     if (a.isActiveProject !== b.isActiveProject) return a.isActiveProject ? -1 : 1;
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    const sa = overview.spend.byProject[a.projectId]?.currentMonthNetCost ?? -1;
-    const sb = overview.spend.byProject[b.projectId]?.currentMonthNetCost ?? -1;
+    if (Boolean(psA) !== Boolean(psB)) return psA ? -1 : 1;
+    const sa = getProjectRankScore(psA);
+    const sb = getProjectRankScore(psB);
     if (sa !== sb) return sb - sa;
     return a.projectId.localeCompare(b.projectId);
   });
@@ -1450,9 +1748,14 @@ function renderProjectsTab(overview: CompanionOverviewResponse): HTMLElement {
     filterChips.push({ key: state.projectFilter, label: baLabel });
   }
 
+  const active = getActiveSpend(overview);
+  const monthSwitcher =
+    active.spend.configured && active.hasAnyMonthRows ? renderMonthSwitcher(active) : null;
+
   return h(
     "div",
     { className: "tab-panel" },
+    monthSwitcher,
     h(
       "section",
       { className: "card filter-toolbar" },
@@ -1656,9 +1959,15 @@ function buildProjectCards(
     ];
   }
 
+  const activeSpend = getActiveSpend(overview).spend;
+  const defaultCurrency =
+    activeSpend.totalsByCurrency[0]?.currency ||
+    overview.billingAccounts.find((b) => b.currencyCode)?.currencyCode ||
+    "USD";
+
   return projects.map((proj) => {
     const expanded = state.expandedProjectIds.has(proj.projectId);
-    const ps = overview.spend.byProject[proj.projectId];
+    const ps = activeSpend.byProject[proj.projectId];
     const encodedId = encodeURIComponent(proj.projectId);
 
     const toggleExpand = () => {
@@ -1743,12 +2052,25 @@ function buildProjectCards(
           { className: "project-right-col" },
           ps
             ? h(
-                "span",
-                { className: "amount-strong" },
-                formatMoney(ps.currentMonthNetCost, ps.currency)
+                "div",
+                { className: "project-spend-stack" },
+                h(
+                  "span",
+                  { className: "amount-strong" },
+                  formatMoney(ps.currentMonthNetCost, ps.currency)
+                ),
+                isCreditCoveredZeroNet(ps.currentMonthNetCost, ps.currentMonthGrossCost)
+                  ? h(
+                      "span",
+                      { className: "muted-micro" },
+                      t("chart.grossShort", {
+                        amount: formatMoney(ps.currentMonthGrossCost, ps.currency),
+                      })
+                    )
+                  : null
               )
-            : overview.spend.configured
-              ? h("span", { className: "muted-micro" }, formatMoney(0, "USD"))
+            : activeSpend.configured
+              ? h("span", { className: "muted-micro" }, formatMoney(0, defaultCurrency))
               : null,
           h(
             "div",
@@ -1928,9 +2250,10 @@ function renderLinkedProjectsForBillingAccount(
     ? ba.linkedProjectIds
     : ba.linkedProjectIds.slice(0, LINKED_PROJECTS_PREVIEW_LIMIT);
 
+  const activeSpend = getActiveSpend(overview).spend;
   const rows = visibleProjectIds.map((projId) => {
     const proj = projectMap.get(projId);
-    const ps = overview.spend.byProject[projId];
+    const ps = activeSpend.byProject[projId];
     const displayName = proj ? proj.name : projId;
     const isActive = proj ? proj.isActiveProject : overview.auth.activeProject === projId;
 
@@ -1954,9 +2277,22 @@ function renderLinkedProjectsForBillingAccount(
         { className: "compact-row-actions" },
         ps
           ? h(
-              "span",
-              { className: "amount-strong" },
-              formatMoney(ps.currentMonthNetCost, ps.currency)
+              "div",
+              { className: "project-spend-stack" },
+              h(
+                "span",
+                { className: "amount-strong" },
+                formatMoney(ps.currentMonthNetCost, ps.currency)
+              ),
+              isCreditCoveredZeroNet(ps.currentMonthNetCost, ps.currentMonthGrossCost)
+                ? h(
+                    "span",
+                    { className: "muted-micro" },
+                    t("chart.grossShort", {
+                      amount: formatMoney(ps.currentMonthGrossCost, ps.currency),
+                    })
+                  )
+                : null
             )
           : null,
         !isActive
@@ -2054,7 +2390,8 @@ function renderBillingAccountCard(
   ba: BillingAccount,
   overview: CompanionOverviewResponse
 ): HTMLElement {
-  const bs = overview.spend.byBillingAccount[ba.id];
+  const active = getActiveSpend(overview);
+  const bs = active.spend.byBillingAccount[ba.id];
 
   return h(
     "article",
@@ -2126,7 +2463,15 @@ function renderBillingAccountCard(
             h(
               "div",
               null,
-              h("div", { className: "eyebrow" }, t("billing.mtdNetLabel")),
+              h(
+                "div",
+                { className: "eyebrow" },
+                active.isCurrentMonth
+                  ? t("billing.mtdNetLabel")
+                  : t("overview.monthlyNetSpend", {
+                      month: formatMonthLabel(active.selectedMonth),
+                    })
+              ),
               h(
                 "div",
                 { className: "billing-net-figure" },
@@ -2259,6 +2604,7 @@ function renderBillingExportSetupCard(overview: CompanionOverviewResponse): HTML
                   className: "btn btn-xs btn-danger-outline",
                   onClick: async () => {
                     try {
+                      state.selectedInvoiceMonth = "";
                       state.overview = await configureExportTableApi({
                         billingAccountId: m.billingAccountId,
                         remove: true,
@@ -2373,6 +2719,7 @@ function renderBillingExportSetupCard(overview: CompanionOverviewResponse): HTML
                       try {
                         state.refreshing = true;
                         renderApp();
+                        state.selectedInvoiceMonth = "";
                         state.overview = await configureExportTableApi({
                           billingAccountId: tbl.inferredBillingAccountId || "*",
                           tableId: tbl.tableId,
@@ -2412,6 +2759,7 @@ function renderBillingExportSetupCard(overview: CompanionOverviewResponse): HTML
           try {
             state.refreshing = true;
             renderApp();
+            state.selectedInvoiceMonth = "";
             state.overview = await configureExportTableApi({
               billingAccountId: state.manualBillingAccountId || "*",
               tableId,
@@ -2650,6 +2998,7 @@ function renderSettingsBodyContent(overview: CompanionOverviewResponse): HTMLEle
           className: "btn btn-sm full-width",
           onClick: async () => {
             const nextDemo = !overview.preferences.demoMode;
+            state.selectedInvoiceMonth = "";
             state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
             renderApp();
             showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
@@ -2793,11 +3142,12 @@ function renderBillingTab(overview: CompanionOverviewResponse): HTMLElement {
         )
       : null;
 
+  const active = getActiveSpend(overview);
   const primaryAccounts = overview.billingAccounts.filter(
-    (ba) => ba.open || ba.linkedProjectCount > 0 || Boolean(overview.spend.byBillingAccount[ba.id])
+    (ba) => ba.open || ba.linkedProjectCount > 0 || Boolean(active.spend.byBillingAccount[ba.id])
   );
   const inactiveClosedAccounts = overview.billingAccounts.filter(
-    (ba) => !ba.open && ba.linkedProjectCount === 0 && !overview.spend.byBillingAccount[ba.id]
+    (ba) => !ba.open && ba.linkedProjectCount === 0 && !active.spend.byBillingAccount[ba.id]
   );
 
   return h(
@@ -2805,6 +3155,7 @@ function renderBillingTab(overview: CompanionOverviewResponse): HTMLElement {
     { className: "tab-panel" },
     billingApiPrompt,
     warningSection,
+    active.spend.configured && active.hasAnyMonthRows ? renderMonthSwitcher(active) : null,
     overview.billingAccounts.length > 0
       ? h(
            "div",

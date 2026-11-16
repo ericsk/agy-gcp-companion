@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -7,7 +7,10 @@ import {
   aggregateSpendRows,
   buildBillingExportSql,
   computeBillingDateWindow,
+  computeDeltaPercent,
+  getDaysInInvoiceMonth,
   inferBillingAccountFromTableName,
+  queryBillingExportSpend,
 } from "../src/core/bigquery-billing.ts";
 import { CompanionService } from "../src/core/companion-service.ts";
 import { fetchBillingAccountsAndProjectLinks } from "../src/core/gcp-api.ts";
@@ -228,6 +231,395 @@ describe("CompanionStore & BigQuery Aggregation", () => {
     assert.equal(alpha.topServices[0].sharePercent, 80);
     assert.equal(alpha.topServices[1].serviceName, "Cloud Run");
     assert.equal(alpha.topServices[1].sharePercent, 20);
+  });
+
+  it("computes 6-month date window across year rollover and sends minInvoiceMonth query parameter", async () => {
+    const windowCtx = computeBillingDateWindow(new Date("2026-01-15T12:00:00Z"));
+    assert.equal(windowCtx.currentInvoiceMonth, "202601");
+    assert.equal(windowCtx.previousInvoiceMonth, "202512");
+    assert.equal(windowCtx.minInvoiceMonth, "202508");
+    assert.equal(windowCtx.partitionStartTimestamp, "2025-08-01T00:00:00Z");
+    assert.deepEqual(windowCtx.recentInvoiceMonths, [
+      "202601",
+      "202512",
+      "202511",
+      "202510",
+      "202509",
+      "202508",
+    ]);
+
+    const { sql } = buildBillingExportSql("host.ds.gcp_billing_export_v1_01A8F2_94C110_77EB31");
+    assert.ok(sql.includes("invoice.month >= @minInvoiceMonth"));
+
+    let capturedBody: { query?: string; queryParameters?: Array<{ name: string; parameterValue?: { value?: string } }> } | null = null;
+    await queryBillingExportSpend(
+      "fake-token",
+      {
+        "01A8F2-94C110-77EB31": {
+          billingAccountId: "01A8F2-94C110-77EB31",
+          tableId: "host.ds.gcp_billing_export_v1_01A8F2_94C110_77EB31",
+        },
+      },
+      "host",
+      new Date("2026-01-15T12:00:00Z"),
+      async (_url, init) => {
+        capturedBody = JSON.parse(String(init?.body ?? "{}"));
+        return new Response(JSON.stringify({ jobComplete: true, rows: [] }), { status: 200 });
+      }
+    );
+
+    assert.ok(capturedBody, "Expected BigQuery query request body");
+    const params = Object.fromEntries(
+      (capturedBody.queryParameters ?? []).map((p) => [p.name, p.parameterValue?.value])
+    );
+    assert.equal(params.currentMonth, "202601");
+    assert.equal(params.prevMonth, "202512");
+    assert.equal(params.minInvoiceMonth, "202508");
+    assert.equal(params.partitionStart, "2025-08-01T00:00:00Z");
+  });
+
+  it("aggregates multi-month snapshots with 100% credit-covered Gross service ranking and previous gross totals", () => {
+    const refDate = new Date("2026-11-16T08:00:00Z");
+    const windowCtx = computeBillingDateWindow(refDate);
+    const report = aggregateSpendRows(
+      [
+        {
+          invoiceMonth: "202610",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Cloud Logging",
+          usageDate: "2026-10-01",
+          currency: "TWD",
+          grossCost: 0,
+          creditsAmount: 0,
+          netCost: 0,
+        },
+        {
+          invoiceMonth: "202610",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-10-01",
+          currency: "TWD",
+          grossCost: 200,
+          creditsAmount: -200,
+          netCost: 0,
+        },
+        {
+          invoiceMonth: "202610",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Networking",
+          usageDate: "2026-10-02",
+          currency: "TWD",
+          grossCost: 54.6649,
+          creditsAmount: -54.6651,
+          netCost: -0.0002,
+        },
+        {
+          invoiceMonth: "202609",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-09-15",
+          currency: "TWD",
+          grossCost: 164.6601,
+          creditsAmount: -164.8987,
+          netCost: -0.2385,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+
+    assert.deepEqual(report.availableMonths, ["202611", "202610", "202609"]);
+    assert.equal(report.byMonth?.["202611"]?.hasRows, false);
+    assert.equal(report.byMonth?.["202611"]?.rowCount, 0);
+    assert.equal(report.byMonth?.["202611"]?.totalsByCurrency[0]?.prevMonthGrossCost, 254.6649);
+
+    const oct = report.byMonth?.["202610"];
+    assert.ok(oct && oct.hasRows);
+    assert.equal(oct.totalsByCurrency.length, 1);
+    const octTwd = oct.totalsByCurrency[0];
+    assert.equal(octTwd.currentMonthGrossCost, 254.6649);
+    assert.equal(octTwd.currentMonthCredits, -254.6651);
+    assert.equal(octTwd.prevMonthGrossCost, 164.6601);
+    assert.equal(octTwd.prevMonthCredits, -164.8987);
+    assert.equal(octTwd.deltaPercentVsPrevSameDay, null);
+    assert.equal(octTwd.topServices[0].serviceName, "Compute Engine");
+    assert.ok(octTwd.topServices[0].sharePercent > 75);
+    assert.equal(octTwd.topServices[1].serviceName, "Networking");
+    assert.equal(octTwd.topServices[2].serviceName, "Cloud Logging");
+  });
+
+  it("returns null delta when both current and previous net spend are <= 0 and freezes settled historical months to prune BigQuery scans", async () => {
+    assert.equal(computeDeltaPercent(-0.0002, -0.2385), null);
+    assert.equal(computeDeltaPercent(0.005, 0.005), null);
+    assert.equal(computeDeltaPercent(0.0051, 0), 100);
+    assert.equal(computeDeltaPercent(125, 100), 25);
+
+    const refDate = new Date("2026-11-16T08:00:00Z");
+    const windowCtx = computeBillingDateWindow(refDate);
+
+    const initialReport = aggregateSpendRows(
+      [
+        {
+          invoiceMonth: "202609",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-legacy",
+          serviceName: "Cloud Run",
+          usageDate: "2026-09-01",
+          currency: "TWD",
+          grossCost: 10,
+          creditsAmount: -10,
+          netCost: 0,
+        },
+        {
+          invoiceMonth: "202609",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-09-30",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: -100.2385,
+          netCost: -0.2385,
+        },
+        {
+          invoiceMonth: "202609",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-10-01",
+          currency: "TWD",
+          grossCost: 54.6601,
+          creditsAmount: -54.6601,
+          netCost: 0,
+        },
+        {
+          invoiceMonth: "202610",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-10-01",
+          currency: "TWD",
+          grossCost: 254.6649,
+          creditsAmount: -254.6651,
+          netCost: -0.0002,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+
+    assert.equal(initialReport.byMonth?.["202609"]?.settled, true);
+    assert.equal(initialReport.byMonth?.["202609"]?.coveredDays, 3);
+    assert.equal(initialReport.byMonth?.["202610"]?.settled, false);
+    assert.equal(initialReport.byMonth?.["202610"]?.coveredDays, 1);
+
+    const spilloverOnly = aggregateSpendRows(
+      [
+        {
+          invoiceMonth: "202609",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-10-28",
+          currency: "TWD",
+          grossCost: 10,
+          creditsAmount: 0,
+          netCost: 10,
+        },
+        ...Array.from({ length: 28 }, (_, i) => ({
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: `2026-11-${String(i + 1).padStart(2, "0")}`,
+          currency: "TWD",
+          grossCost: 1,
+          creditsAmount: 0,
+          netCost: 1,
+        })),
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(spilloverOnly.byMonth?.["202609"]?.settled, false);
+    assert.equal(spilloverOnly.byMonth?.["202611"]?.settled, false);
+
+    let prunedBody: { queryParameters?: Array<{ name: string; parameterValue?: { value?: string } }> } | null = null;
+    const prunedRes = await queryBillingExportSpend(
+      "fake-token",
+      {
+        "01A8F2-94C110-77EB31": {
+          billingAccountId: "01A8F2-94C110-77EB31",
+          tableId: "host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31",
+        },
+      },
+      "host",
+      refDate,
+      async (_url, init) => {
+        prunedBody = JSON.parse(String(init?.body ?? "{}"));
+        return new Response(
+          JSON.stringify({
+            jobComplete: true,
+            rows: [
+              {
+                f: [
+                  { v: "202610" },
+                  { v: "01A8F2-94C110-77EB31" },
+                  { v: "proj-gde" },
+                  { v: "Compute Engine" },
+                  { v: "2026-10-03" },
+                  { v: "TWD" },
+                  { v: "300.5" },
+                  { v: "-300.5" },
+                  { v: "0" },
+                ],
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      },
+      initialReport
+    );
+
+    assert.ok(prunedBody);
+    const params = Object.fromEntries(
+      (prunedBody.queryParameters ?? []).map((p) => [p.name, p.parameterValue?.value])
+    );
+    assert.equal(params.partitionStart, "2026-10-01T00:00:00Z");
+    assert.equal(params.minInvoiceMonth, "202610");
+
+    assert.deepEqual(prunedRes.report.availableMonths, ["202611", "202610", "202609"]);
+    assert.equal(prunedRes.report.byMonth?.["202609"]?.settled, true);
+    assert.equal(prunedRes.report.byMonth?.["202609"]?.totalsByCurrency[0]?.currentMonthGrossCost, 164.6601);
+    const octMerged = prunedRes.report.byMonth?.["202610"];
+    assert.ok(octMerged);
+    assert.equal(octMerged.totalsByCurrency[0].prevMonthTotalNetCost, -0.2385);
+    assert.equal(octMerged.totalsByCurrency[0].prevMonthGrossCost, 164.6601);
+    assert.equal(octMerged.totalsByCurrency[0].prevMonthCredits, -164.8986);
+    assert.equal(octMerged.totalsByCurrency[0].deltaPercentVsPrevSameDay, null);
+    assert.equal(octMerged.byProject["proj-legacy"]?.prevMonthGrossCost, 10);
+  });
+
+  it("enforces sequential backfill guard before settling immediate previous month", () => {
+    assert.equal(getDaysInInvoiceMonth("202402"), 29);
+    assert.equal(getDaysInInvoiceMonth("202602"), 28);
+    assert.equal(getDaysInInvoiceMonth("202610"), 31);
+    assert.equal(getDaysInInvoiceMonth("202611"), 30);
+
+    const refDate = new Date("2026-11-16T08:00:00Z");
+    const windowCtx = computeBillingDateWindow(refDate);
+    const fullOctRows = Array.from({ length: 31 }, (_, i) => ({
+      invoiceMonth: "202610",
+      billingAccountId: "01A8F2-94C110-77EB31",
+      projectId: "proj-gde",
+      serviceName: "Compute Engine",
+      usageDate: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      currency: "TWD",
+      grossCost: 100,
+      creditsAmount: 0,
+      netCost: 100,
+    }));
+
+    // Case 1: 202610 has all 31 days, 202611 has 0 rows -> 202610 MUST stay unsettled
+    const nov0Report = aggregateSpendRows(
+      fullOctRows,
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov0Report.byMonth?.["202610"]?.coveredDays, 31);
+    assert.equal(nov0Report.byMonth?.["202610"]?.settled, false);
+
+    // Case 2: 202610 has 31 days, 202611 has only 1 day (11-01) -> still unsettled
+    const nov1Report = aggregateSpendRows(
+      [
+        ...fullOctRows,
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-01",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov1Report.byMonth?.["202610"]?.settled, false);
+
+    // Case 3: 202611 reaches 2 distinct days (11-01, 11-02) -> 202610 settles to true
+    const nov2Report = aggregateSpendRows(
+      [
+        ...fullOctRows,
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-01",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+        {
+          invoiceMonth: "202611",
+          billingAccountId: "01A8F2-94C110-77EB31",
+          projectId: "proj-gde",
+          serviceName: "Compute Engine",
+          usageDate: "2026-11-02",
+          currency: "TWD",
+          grossCost: 100,
+          creditsAmount: 0,
+          netCost: 100,
+        },
+      ],
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    assert.equal(nov2Report.byMonth?.["202610"]?.settled, true);
+    assert.equal(nov2Report.byMonth?.["202611"]?.settled, false);
+  });
+
+  it("bumps snapshot schema version to 7 and invalidates stale v6 cache snapshots", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-store-v7-test-"));
+    try {
+      const store = new CompanionStore(tmpDir);
+      const saved = store.saveSnapshot("dev@example.com", {
+        fetchedAt: new Date().toISOString(),
+        projects: [],
+        billingAccounts: [],
+        spendReport: null,
+        warnings: [],
+      });
+      assert.equal(saved.version, 7);
+      assert.ok(store.loadSnapshot("dev@example.com"));
+
+      const cacheFile = readdirSync(tmpDir).find((f) => f.startsWith("cache-") && f.endsWith(".json"));
+      assert.ok(cacheFile);
+      const fullPath = join(tmpDir, cacheFile);
+      const stale = JSON.parse(readFileSync(fullPath, "utf-8"));
+      stale.version = 6;
+      writeFileSync(fullPath, JSON.stringify(stale));
+
+      assert.equal(store.loadSnapshot("dev@example.com"), null);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -845,4 +1237,63 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
     assert.equal(transientRes.billingAccounts[0].id, "01AAAA-BBBBBB-CCCCCC");
   });
 
+  it("treats pending BigQuery billing export 404 as empty rows while surfacing non-export table 404s", async () => {
+    const mockFetch: typeof globalThis.fetch = async (_input, init) => {
+      const body = String(init?.body ?? "");
+      if (body.includes("gcp_billing_export_v1_")) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "Not found: Table host-proj:billing_ds.gcp_billing_export_v1_01AAAA_BBBBBB_CCCCCC",
+            },
+          }),
+          { status: 404 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          error: { message: "Not found: Table host-proj:billing_ds.custom_table" },
+        }),
+        { status: 404 }
+      );
+    };
+
+    const pendingRes = await queryBillingExportSpend(
+      "ya29.mock",
+      {
+        "01AAAA-BBBBBB-CCCCCC": {
+          billingAccountId: "01AAAA-BBBBBB-CCCCCC",
+          tableId: "host-proj.billing_ds.gcp_billing_export_v1_01AAAA_BBBBBB_CCCCCC",
+          hostProjectId: "host-proj",
+          exportType: "standard",
+          addedAt: "2026-11-16T00:00:00Z",
+        },
+      },
+      "host-proj",
+      new Date("2026-11-16T00:00:00Z"),
+      mockFetch
+    );
+    assert.equal(pendingRes.warnings.length, 0);
+    assert.equal(pendingRes.report.configured, true);
+    assert.equal(pendingRes.report.totalsByCurrency.length, 0);
+
+    const customMissingRes = await queryBillingExportSpend(
+      "ya29.mock",
+      {
+        "*": {
+          billingAccountId: "*",
+          tableId: "host-proj.billing_ds.custom_table",
+          hostProjectId: "host-proj",
+          exportType: "custom",
+          addedAt: "2026-11-16T00:00:00Z",
+        },
+      },
+      "host-proj",
+      new Date("2026-11-16T00:00:00Z"),
+      mockFetch
+    );
+    assert.equal(customMissingRes.warnings.length, 1);
+    assert.ok(customMissingRes.warnings[0].includes("404"));
+  });
 });

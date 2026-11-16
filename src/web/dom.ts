@@ -142,15 +142,23 @@ export function clearElement(el: Element): void {
 
 export function formatMoney(amount: number, currency = "USD"): string {
   const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "USD";
+  const normalizedAmount = Math.abs(amount) < 0.005 ? 0 : amount;
   try {
-    return new Intl.NumberFormat(getActiveLocale(), {
+    const formatter = new Intl.NumberFormat(getActiveLocale(), {
       style: "currency",
       currency: safeCurrency,
-      minimumFractionDigits: Math.abs(amount) < 10 && amount !== 0 ? 2 : 2,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    });
+    if (safeCurrency === "TWD" && typeof formatter.formatToParts === "function") {
+      return formatter
+        .formatToParts(normalizedAmount)
+        .map((part) => (part.type === "currency" && part.value === "$" ? "NT$" : part.value))
+        .join("");
+    }
+    return formatter.format(normalizedAmount);
   } catch {
-    return `${safeCurrency} ${amount.toFixed(2)}`;
+    return `${safeCurrency} ${normalizedAmount.toFixed(2)}`;
   }
 }
 

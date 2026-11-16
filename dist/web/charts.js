@@ -7,10 +7,11 @@ import { t } from "./i18n/index.js";
  */
 export function renderDailySparkline(
   series                            ,
-  currency        
+  currency        ,
+  emptyMessage         
 )              {
   if (series.length === 0) {
-    return h("div", { className: "sparkline-empty" }, t("chart.noDailyUsage"));
+    return h("div", { className: "sparkline-empty" }, emptyMessage || t("chart.noDailyUsage"));
   }
 
   const width = 460;
@@ -18,7 +19,12 @@ export function renderDailySparkline(
   const padX = 6;
   const padTop = 8;
   const padBottom = 10;
-  const values = series.map((d) => Math.max(0, d.netCost));
+  const netValues = series.map((d) => Math.max(0, d.netCost));
+  const grossValues = series.map((d) => Math.max(0, d.grossCost));
+  const maxNet = Math.max(...netValues, 0);
+  const maxGross = Math.max(...grossValues, 0);
+  const useGrossSeries = maxNet <= 0.005 && maxGross > 0.005;
+  const values = useGrossSeries ? grossValues : netValues;
   const maxVal = Math.max(...values, 0.01);
   const minVal = 0;
   const innerW = width - padX * 2;
@@ -29,7 +35,8 @@ export function renderDailySparkline(
       series.length === 1
         ? width / 2
         : padX + (idx / (series.length - 1)) * innerW;
-    const ratio = (Math.max(0, pt.netCost) - minVal) / (maxVal - minVal || 1);
+    const rawVal = useGrossSeries ? pt.grossCost : pt.netCost;
+    const ratio = (Math.max(0, rawVal) - minVal) / (maxVal - minVal || 1);
     const y = padTop + innerH - ratio * innerH;
     return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, pt };
   });
@@ -87,7 +94,9 @@ export function renderDailySparkline(
       viewBox: `0 0 ${width} ${height}`,
       class: "sparkline-svg",
       role: "img",
-      "aria-label": t("chart.dailyTrendAria", { days: series.length }),
+      "aria-label": useGrossSeries
+        ? t("chart.dailyGrossTrendAria", { days: series.length })
+        : t("chart.dailyTrendAria", { days: series.length }),
     },
     ...children
   );
@@ -104,7 +113,13 @@ export function renderDailySparkline(
       "div",
       { className: "sparkline-caption" },
       h("span", null, firstDate),
-      h("span", null, t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })),
+      h(
+        "span",
+        null,
+        useGrossSeries
+          ? t("chart.peakGrossPerDay", { amount: formatMoney(peakCost, currency) })
+          : t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })
+      ),
       h("span", null, lastDate)
     )
   );
@@ -149,6 +164,7 @@ export function renderServiceBreakdownList(
       })
     );
 
+    const isCreditOffsetZero = Math.abs(svc.netCost) < 0.005 && svc.grossCost >= 0.005;
     return h(
       "div",
       { className: "svc-row" },
@@ -160,7 +176,7 @@ export function renderServiceBreakdownList(
           "span",
           { className: "svc-amount" },
           formatMoney(svc.netCost, currency),
-          svc.creditsAmount < -0.005
+          isCreditOffsetZero
             ? h(
                 "span",
                 {
@@ -170,9 +186,21 @@ export function renderServiceBreakdownList(
                     credits: formatMoney(svc.creditsAmount, currency),
                   }),
                 },
-                ` (${svc.sharePercent.toFixed(0)}%)`
+                ` (${t("chart.grossShort", { amount: formatMoney(svc.grossCost, currency) })} · ${svc.sharePercent.toFixed(0)}%)`
               )
-            : ` (${svc.sharePercent.toFixed(0)}%)`
+            : svc.creditsAmount < -0.005
+              ? h(
+                  "span",
+                  {
+                    className: "svc-credit-hint",
+                    title: t("chart.grossCreditsHint", {
+                      gross: formatMoney(svc.grossCost, currency),
+                      credits: formatMoney(svc.creditsAmount, currency),
+                    }),
+                  },
+                  ` (${svc.sharePercent.toFixed(0)}%)`
+                )
+              : ` (${svc.sharePercent.toFixed(0)}%)`
         )
       ),
       barSvg

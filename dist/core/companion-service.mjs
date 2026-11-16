@@ -185,7 +185,8 @@ export class CompanionService {
         prefs.billingExportTables,
         quotaProject,
         now,
-        this.fetchFn
+        this.fetchFn,
+        cached?.spendReport ?? null
       );
 
       const combinedWarnings = [...staleProjectWarnings, ...warnings, ...spendWarnings];
