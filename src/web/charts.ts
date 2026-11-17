@@ -1,4 +1,4 @@
-import type { DailySpendPoint, ServiceCostItem } from "../core/types.ts";
+import type { DailySpendPoint, ServiceCostItem, SpendForecastSummary } from "../core/types.ts";
 import { formatMoney, h, svgEl } from "./dom.ts";
 import { t } from "./i18n/index.ts";
 
@@ -8,7 +8,8 @@ import { t } from "./i18n/index.ts";
 export function renderDailySparkline(
   series: readonly DailySpendPoint[],
   currency: string,
-  emptyMessage?: string
+  emptyMessage?: string,
+  forecast?: SpendForecastSummary
 ): HTMLElement {
   if (series.length === 0) {
     return h("div", { className: "sparkline-empty" }, emptyMessage || t("chart.noDailyUsage"));
@@ -25,20 +26,60 @@ export function renderDailySparkline(
   const maxGross = Math.max(...grossValues, 0);
   const useGrossSeries = maxNet <= 0.005 && maxGross > 0.005;
   const values = useGrossSeries ? grossValues : netValues;
-  const maxVal = Math.max(...values, 0.01);
   const minVal = 0;
   const innerW = width - padX * 2;
   const innerH = height - padTop - padBottom;
 
-  const points = series.map((pt, idx) => {
-    const x =
-      series.length === 1
-        ? width / 2
-        : padX + (idx / (series.length - 1)) * innerW;
-    const rawVal = useGrossSeries ? pt.grossCost : pt.netCost;
+  const monthPrefix =
+    forecast?.invoiceMonth?.length === 6
+      ? `${forecast.invoiceMonth.slice(0, 4)}-${forecast.invoiceMonth.slice(4, 6)}-`
+      : "";
+  const lastActualDate = series[series.length - 1]?.date ?? "";
+  const lastActualDay = Number(lastActualDate.slice(8, 10)) || series.length;
+  const forecastRate =
+    forecast && forecast.status === "estimated"
+      ? useGrossSeries
+        ? forecast.grossDailyRunRate
+        : forecast.netDailyRunRate
+      : null;
+  const forecastEomTotal =
+    forecast && forecast.status === "estimated"
+      ? useGrossSeries
+        ? forecast.monthEndGrossCost
+        : forecast.monthEndNetCost
+      : null;
+  const hasForecastProjection = Boolean(
+    forecast &&
+      forecast.status === "estimated" &&
+      forecast.daysInMonth > 1 &&
+      monthPrefix &&
+      lastActualDate.startsWith(monthPrefix) &&
+      lastActualDay < forecast.daysInMonth &&
+      forecastRate !== null &&
+      forecastEomTotal !== null
+  );
+
+  const maxVal = Math.max(...values, hasForecastProjection ? Math.max(0, forecastRate ?? 0) : 0, 0.01);
+  const dayToX = (dayNum: number): number => {
+    const totalDays = forecast?.daysInMonth ?? 30;
+    const clamped = Math.max(1, Math.min(totalDays, dayNum));
+    const ratio = totalDays > 1 ? (clamped - 1) / (totalDays - 1) : 0.5;
+    return Math.round((padX + ratio * innerW) * 10) / 10;
+  };
+  const valToY = (rawVal: number): number => {
     const ratio = (Math.max(0, rawVal) - minVal) / (maxVal - minVal || 1);
-    const y = padTop + innerH - ratio * innerH;
-    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, pt };
+    return Math.round((padTop + innerH - ratio * innerH) * 10) / 10;
+  };
+
+  const points = series.map((pt, idx) => {
+    const x = hasForecastProjection
+      ? dayToX(Number(pt.date.slice(8, 10)) || idx + 1)
+      : Math.round(
+          (series.length === 1 ? width / 2 : padX + (idx / (series.length - 1)) * innerW) * 10
+        ) / 10;
+    const rawVal = useGrossSeries ? pt.grossCost : pt.netCost;
+    const y = valToY(rawVal);
+    return { x, y, pt };
   });
 
   const linePath = points
@@ -78,6 +119,31 @@ export function renderDailySparkline(
 
   const last = points[points.length - 1];
   if (last) {
+    if (hasForecastProjection && forecast && forecastRate !== null) {
+      const rateY = valToY(forecastRate);
+      const nextX = dayToX(Math.min(forecast.daysInMonth, lastActualDay + 1));
+      const endX = dayToX(forecast.daysInMonth);
+      const forecastPath = `M${last.x},${last.y} L${nextX},${rateY} L${endX},${rateY}`;
+      children.push(
+        svgEl("path", {
+          d: forecastPath,
+          class: "sparkline-forecast",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-dasharray": "4 3",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        }),
+        svgEl("circle", {
+          cx: endX,
+          cy: rateY,
+          r: 2.6,
+          class: "sparkline-forecast-dot",
+          fill: "currentColor",
+        })
+      );
+    }
     children.push(
       svgEl("circle", {
         cx: last.x,
@@ -88,21 +154,30 @@ export function renderDailySparkline(
     );
   }
 
+  const ariaLabel = hasForecastProjection
+    ? useGrossSeries
+      ? t("chart.dailyGrossTrendWithForecastAria", { days: series.length })
+      : t("chart.dailyTrendWithForecastAria", { days: series.length })
+    : useGrossSeries
+      ? t("chart.dailyGrossTrendAria", { days: series.length })
+      : t("chart.dailyTrendAria", { days: series.length });
+
   const svg = svgEl(
     "svg",
     {
       viewBox: `0 0 ${width} ${height}`,
       class: "sparkline-svg",
       role: "img",
-      "aria-label": useGrossSeries
-        ? t("chart.dailyGrossTrendAria", { days: series.length })
-        : t("chart.dailyTrendAria", { days: series.length }),
+      "aria-label": ariaLabel,
     },
     ...children
   );
 
   const firstDate = series[0]?.date.slice(5) ?? "";
-  const lastDate = series[series.length - 1]?.date.slice(5) ?? "";
+  const monthEndDate =
+    hasForecastProjection && forecast
+      ? `${forecast.invoiceMonth.slice(4)}-${String(forecast.daysInMonth).padStart(2, "0")}`
+      : (series[series.length - 1]?.date.slice(5) ?? "");
   const peakCost = Math.max(...values);
 
   return h(
@@ -116,11 +191,16 @@ export function renderDailySparkline(
       h(
         "span",
         null,
-        useGrossSeries
-          ? t("chart.peakGrossPerDay", { amount: formatMoney(peakCost, currency) })
-          : t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })
+        hasForecastProjection && forecastRate !== null && forecastEomTotal !== null
+          ? t("chart.forecastCaption", {
+              rate: formatMoney(forecastRate, currency),
+              monthEnd: formatMoney(forecastEomTotal, currency),
+            })
+          : useGrossSeries
+            ? t("chart.peakGrossPerDay", { amount: formatMoney(peakCost, currency) })
+            : t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })
       ),
-      h("span", null, lastDate)
+      h("span", null, monthEndDate)
     )
   );
 }

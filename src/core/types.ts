@@ -92,6 +92,40 @@ export interface ServiceCostItem {
   sharePercent: number;
 }
 
+export type SpendForecastWarning =
+  | "partial-day-excluded"
+  | "sparse-series"
+  | "stale-data"
+  | "credits-not-guaranteed"
+  | "negative-adjustments"
+  | "cross-month-usage";
+
+export interface SpendForecastSummary {
+  invoiceMonth: string; // YYYYMM
+  method: "calendar-day-run-rate-v1";
+  dateBasis: "utc-usage-date-within-invoice-month";
+  status: "estimated" | "insufficient-data" | "no-current-month-data" | "historical";
+  daysInMonth: number;
+  elapsedCalendarDays: number;
+  observedDays: number;
+  rateThroughDate: string | null;
+  excludedTodayUtc: boolean;
+  grossDailyRunRate: number | null;
+  netDailyRunRate: number | null;
+  monthEndGrossCost: number | null;
+  monthEndNetCost: number | null;
+  creditsNotGuaranteed: boolean;
+  warnings: SpendForecastWarning[];
+}
+
+export interface PriorMonthRunRateReference {
+  sourceInvoiceMonth: string; // YYYYMM
+  currency: string;
+  coveredDays: number;
+  grossPerCoveredDay: number;
+  netPerCoveredDay: number;
+}
+
 export interface ProjectSpendSummary {
   projectId: string;
   billingAccountId: string;
@@ -106,6 +140,8 @@ export interface ProjectSpendSummary {
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
+  forecast?: SpendForecastSummary;
+  priorMonthRunRateReference?: PriorMonthRunRateReference;
 }
 
 export interface BillingAccountSpendSummary {
@@ -121,6 +157,8 @@ export interface BillingAccountSpendSummary {
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
+  forecast?: SpendForecastSummary;
+  priorMonthRunRateReference?: PriorMonthRunRateReference;
 }
 
 export interface CurrencyTotalSummary {
@@ -135,6 +173,8 @@ export interface CurrencyTotalSummary {
   deltaPercentVsPrevSameDay: number | null;
   topServices: ServiceCostItem[];
   dailySeries: DailySpendPoint[];
+  forecast?: SpendForecastSummary;
+  priorMonthRunRateReference?: PriorMonthRunRateReference;
 }
 
 export interface MonthlySpendSnapshot {

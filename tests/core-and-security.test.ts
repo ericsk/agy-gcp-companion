@@ -8,6 +8,7 @@ import {
   buildBillingExportSql,
   computeBillingDateWindow,
   computeDeltaPercent,
+  computeSpendForecast,
   getDaysInInvoiceMonth,
   inferBillingAccountFromTableName,
   queryBillingExportSpend,
@@ -595,8 +596,118 @@ describe("CompanionStore & BigQuery Aggregation", () => {
     assert.equal(nov2Report.byMonth?.["202611"]?.settled, false);
   });
 
-  it("bumps snapshot schema version to 7 and invalidates stale v6 cache snapshots", () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), "agy-store-v7-test-"));
+  it("computes month-end forecasts with partial-day exclusion, 7-day blend, 100%-credit caution, negative guard, and prior-month reference", async () => {
+    const refDate = new Date("2026-11-16T12:00:00Z");
+
+    // 1. Complete 15 days + spike on day 15 + partial 16th day (excludedTodayUtc)
+    const novSeries = [
+      ...Array.from({ length: 14 }, (_, i) => ({
+        date: `2026-11-${String(i + 1).padStart(2, "0")}`,
+        grossCost: 173,
+        creditsAmount: 0,
+        netCost: 173,
+      })),
+      { date: "2026-11-15", grossCost: 250, creditsAmount: 0, netCost: 250 },
+      { date: "2026-11-16", grossCost: 98.47, creditsAmount: 0, netCost: 98.47 },
+    ];
+    const blended = computeSpendForecast(novSeries, "202611", refDate, true);
+    assert.equal(blended.status, "estimated");
+    assert.equal(blended.daysInMonth, 30);
+    assert.equal(blended.elapsedCalendarDays, 15);
+    assert.equal(blended.observedDays, 15);
+    assert.equal(blended.rateThroughDate, "2026-11-15");
+    assert.equal(blended.excludedTodayUtc, true);
+    assert.ok(blended.warnings.includes("partial-day-excluded"));
+    // Full-15 avg = 2672/15 = 178.1333; recent-7 = (6*173+250)/7 = 184 -> blend ~181.0667 -> EOM ~5388
+    assert.ok(blended.monthEndGrossCost !== null && blended.monthEndGrossCost > 5200 && blended.monthEndGrossCost < 5500);
+    assert.equal(blended.creditsNotGuaranteed, false);
+
+    // 2. Historical & empty & single partial today & cross-month edge cases
+    assert.equal(computeSpendForecast(novSeries, "202610", refDate, false).status, "historical");
+    assert.equal(computeSpendForecast([], "202611", refDate, true).status, "no-current-month-data");
+    assert.equal(
+      computeSpendForecast([{ date: "2026-11-16", grossCost: 50, creditsAmount: 0, netCost: 50 }], "202611", refDate, true).status,
+      "insufficient-data"
+    );
+    const crossMonth = computeSpendForecast(
+      [
+        { date: "2026-10-31", grossCost: 10, creditsAmount: 0, netCost: 10 },
+        { date: "2026-11-01", grossCost: 20, creditsAmount: 0, netCost: 20 },
+        { date: "2026-11-02", grossCost: 20, creditsAmount: 0, netCost: 20 },
+      ],
+      "202611",
+      refDate,
+      true
+    );
+    assert.equal(crossMonth.status, "insufficient-data");
+    assert.ok(crossMonth.warnings.includes("cross-month-usage"));
+
+    // 3. 100% credit-covered dual-track Gross + Net + conservative caution
+    const creditCovered = computeSpendForecast(
+      [
+        { date: "2026-11-01", grossCost: 100, creditsAmount: -100, netCost: 0 },
+        { date: "2026-11-02", grossCost: 100, creditsAmount: -100, netCost: 0 },
+      ],
+      "202611",
+      refDate,
+      true
+    );
+    assert.equal(creditCovered.status, "estimated");
+    assert.equal(creditCovered.grossDailyRunRate, 100);
+    assert.equal(creditCovered.monthEndGrossCost, 3000);
+    assert.equal(creditCovered.netDailyRunRate, 0);
+    assert.equal(creditCovered.monthEndNetCost, 0);
+    assert.equal(creditCovered.creditsNotGuaranteed, true);
+    assert.ok(creditCovered.warnings.includes("credits-not-guaranteed"));
+
+    // 4. Negative net adjustments guard (stop net extrapolation without blocking gross)
+    const negativeNet = computeSpendForecast(
+      [
+        { date: "2026-11-01", grossCost: 50, creditsAmount: -100, netCost: -50 },
+        { date: "2026-11-02", grossCost: 50, creditsAmount: -80, netCost: -30 },
+      ],
+      "202611",
+      refDate,
+      true
+    );
+    assert.equal(negativeNet.status, "estimated");
+    assert.equal(negativeNet.monthEndGrossCost, 1500);
+    assert.equal(negativeNet.monthEndNetCost, null);
+    assert.equal(negativeNet.netDailyRunRate, null);
+    assert.ok(negativeNet.warnings.includes("negative-adjustments"));
+
+    // 5. 2026-11 zero rows + 2026-10 7-day backfill -> attaches priorMonthRunRateReference with 0 extra BQ queries
+    const windowCtx = computeBillingDateWindow(refDate);
+    const oct7Rows = Array.from({ length: 7 }, (_, i) => ({
+      invoiceMonth: "202610",
+      billingAccountId: "01A8F2-94C110-77EB31",
+      projectId: "proj-gde",
+      serviceName: "Compute Engine",
+      usageDate: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      currency: "TWD",
+      grossCost: 200,
+      creditsAmount: -180,
+      netCost: 20,
+    }));
+    const report = aggregateSpendRows(
+      oct7Rows,
+      ["host.billing_export.gcp_billing_export_v1_01A8F2_94C110_77EB31"],
+      windowCtx,
+      refDate.toISOString()
+    );
+    const novCurr = report.totalsByCurrency[0];
+    assert.equal(novCurr.forecast?.status, "no-current-month-data");
+    assert.deepEqual(novCurr.priorMonthRunRateReference, {
+      sourceInvoiceMonth: "202610",
+      currency: "TWD",
+      coveredDays: 7,
+      grossPerCoveredDay: 200,
+      netPerCoveredDay: 20,
+    });
+  });
+
+  it("bumps snapshot schema version to 8 and invalidates stale v7 cache snapshots", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-store-v8-test-"));
     try {
       const store = new CompanionStore(tmpDir);
       const saved = store.saveSnapshot("dev@example.com", {
@@ -606,14 +717,14 @@ describe("CompanionStore & BigQuery Aggregation", () => {
         spendReport: null,
         warnings: [],
       });
-      assert.equal(saved.version, 7);
+      assert.equal(saved.version, 8);
       assert.ok(store.loadSnapshot("dev@example.com"));
 
       const cacheFile = readdirSync(tmpDir).find((f) => f.startsWith("cache-") && f.endsWith(".json"));
       assert.ok(cacheFile);
       const fullPath = join(tmpDir, cacheFile);
       const stale = JSON.parse(readFileSync(fullPath, "utf-8"));
-      stale.version = 6;
+      stale.version = 7;
       writeFileSync(fullPath, JSON.stringify(stale));
 
       assert.equal(store.loadSnapshot("dev@example.com"), null);

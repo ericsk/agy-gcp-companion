@@ -13,8 +13,11 @@ import {
                   
                          
                        
+                             
                       
                   
+                       
+                       
               
                     
 
@@ -488,6 +491,242 @@ function finalizeDailySeries(map                              )                 
     }));
 }
 
+export function computeSpendForecast(
+  dailySeries                            ,
+  invoiceMonth        ,
+  referenceDate       = new Date(),
+  isCurrentMonth = true
+)                       {
+  const daysInMonth = getDaysInInvoiceMonth(invoiceMonth);
+  const monthPrefix = `${invoiceMonth.slice(0, 4)}-${invoiceMonth.slice(4, 6)}-`;
+  const mergedByDate = new Map                         ();
+  let hasCrossMonthUsage = false;
+
+  for (const raw of dailySeries) {
+    if (!raw?.date || !/^\d{4}-\d{2}-\d{2}$/.test(raw.date)) continue;
+    if (!Number.isFinite(raw.grossCost) || !Number.isFinite(raw.creditsAmount) || !Number.isFinite(raw.netCost)) {
+      continue;
+    }
+    if (!raw.date.startsWith(monthPrefix)) {
+      hasCrossMonthUsage = true;
+      continue;
+    }
+    const existing = mergedByDate.get(raw.date);
+    if (existing) {
+      existing.grossCost += raw.grossCost;
+      existing.creditsAmount += raw.creditsAmount;
+      existing.netCost += raw.netCost;
+    } else {
+      mergedByDate.set(raw.date, {
+        date: raw.date,
+        grossCost: raw.grossCost,
+        creditsAmount: raw.creditsAmount,
+        netCost: raw.netCost,
+      });
+    }
+  }
+
+  const sameMonthPoints = Array.from(mergedByDate.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+  const baseWarnings                         = hasCrossMonthUsage ? ["cross-month-usage"] : [];
+
+  if (!isCurrentMonth) {
+    return {
+      invoiceMonth,
+      method: "calendar-day-run-rate-v1",
+      dateBasis: "utc-usage-date-within-invoice-month",
+      status: "historical",
+      daysInMonth,
+      elapsedCalendarDays: daysInMonth,
+      observedDays: sameMonthPoints.length,
+      rateThroughDate: sameMonthPoints[sameMonthPoints.length - 1]?.date ?? null,
+      excludedTodayUtc: false,
+      grossDailyRunRate: null,
+      netDailyRunRate: null,
+      monthEndGrossCost: null,
+      monthEndNetCost: null,
+      creditsNotGuaranteed: false,
+      warnings: baseWarnings,
+    };
+  }
+
+  if (sameMonthPoints.length === 0) {
+    return {
+      invoiceMonth,
+      method: "calendar-day-run-rate-v1",
+      dateBasis: "utc-usage-date-within-invoice-month",
+      status: "no-current-month-data",
+      daysInMonth,
+      elapsedCalendarDays: 0,
+      observedDays: 0,
+      rateThroughDate: null,
+      excludedTodayUtc: false,
+      grossDailyRunRate: null,
+      netDailyRunRate: null,
+      monthEndGrossCost: null,
+      monthEndNetCost: null,
+      creditsNotGuaranteed: false,
+      warnings: baseWarnings,
+    };
+  }
+
+  const observedGrossTotal = sameMonthPoints.reduce((acc, pt) => acc + pt.grossCost, 0);
+  const observedNetTotal = sameMonthPoints.reduce((acc, pt) => acc + pt.netCost, 0);
+  const anyCredits =
+    sameMonthPoints.some((pt) => pt.creditsAmount < -0.005) ||
+    observedGrossTotal - observedNetTotal > 0.005;
+
+  if (hasCrossMonthUsage) {
+    const warnings = [...baseWarnings];
+    if (anyCredits) warnings.push("credits-not-guaranteed");
+    return {
+      invoiceMonth,
+      method: "calendar-day-run-rate-v1",
+      dateBasis: "utc-usage-date-within-invoice-month",
+      status: "insufficient-data",
+      daysInMonth,
+      elapsedCalendarDays: 0,
+      observedDays: sameMonthPoints.length,
+      rateThroughDate: sameMonthPoints[sameMonthPoints.length - 1]?.date ?? null,
+      excludedTodayUtc: false,
+      grossDailyRunRate: null,
+      netDailyRunRate: null,
+      monthEndGrossCost: null,
+      monthEndNetCost: null,
+      creditsNotGuaranteed: anyCredits,
+      warnings,
+    };
+  }
+
+  const todayUtc = referenceDate.toISOString().slice(0, 10);
+  const hasBeforeToday = sameMonthPoints.some((pt) => pt.date < todayUtc);
+  const hasToday = sameMonthPoints.some((pt) => pt.date === todayUtc);
+  const excludedTodayUtc = hasToday && hasBeforeToday;
+  const ratePoints = excludedTodayUtc
+    ? sameMonthPoints.filter((pt) => pt.date < todayUtc)
+    : sameMonthPoints;
+
+  const rateThroughDate = ratePoints[ratePoints.length - 1].date;
+  const rateThroughDay = Number(rateThroughDate.slice(8, 10)) || 0;
+  const observedDays = ratePoints.length;
+  const onlyPartialToday = !hasBeforeToday && observedDays === 1 && rateThroughDate === todayUtc;
+
+  const warnings                         = [...baseWarnings];
+  if (excludedTodayUtc) warnings.push("partial-day-excluded");
+  if (observedDays < rateThroughDay) warnings.push("sparse-series");
+
+  const yesterdayUtc = new Date(
+    Date.UTC(
+      referenceDate.getUTCFullYear(),
+      referenceDate.getUTCMonth(),
+      referenceDate.getUTCDate() - 1
+    )
+  )
+    .toISOString()
+    .slice(0, 10);
+  if (rateThroughDate < yesterdayUtc) warnings.push("stale-data");
+  if (anyCredits) warnings.push("credits-not-guaranteed");
+
+  if (rateThroughDay < 2 || onlyPartialToday) {
+    return {
+      invoiceMonth,
+      method: "calendar-day-run-rate-v1",
+      dateBasis: "utc-usage-date-within-invoice-month",
+      status: "insufficient-data",
+      daysInMonth,
+      elapsedCalendarDays: rateThroughDay,
+      observedDays,
+      rateThroughDate,
+      excludedTodayUtc,
+      grossDailyRunRate: null,
+      netDailyRunRate: null,
+      monthEndGrossCost: null,
+      monthEndNetCost: null,
+      creditsNotGuaranteed: anyCredits,
+      warnings,
+    };
+  }
+
+  const remainingDays = Math.max(0, daysInMonth - rateThroughDay);
+  const cumGross = ratePoints.reduce((acc, pt) => acc + pt.grossCost, 0);
+  const cumNet = ratePoints.reduce((acc, pt) => acc + pt.netCost, 0);
+  const fullGrossRate = cumGross / rateThroughDay;
+  const fullNetRate = cumNet / rateThroughDay;
+
+  let rawGrossRate = fullGrossRate;
+  let rawNetRate = fullNetRate;
+  if (rateThroughDay >= 7) {
+    const minRecentDay = rateThroughDay - 6;
+    let recentGross = 0;
+    let recentNet = 0;
+    for (const pt of ratePoints) {
+      const day = Number(pt.date.slice(8, 10)) || 0;
+      if (day >= minRecentDay && day <= rateThroughDay) {
+        recentGross += pt.grossCost;
+        recentNet += pt.netCost;
+      }
+    }
+    rawGrossRate = 0.5 * fullGrossRate + 0.5 * (recentGross / 7);
+    rawNetRate = 0.5 * fullNetRate + 0.5 * (recentNet / 7);
+  }
+
+  let hasNegativeAdj = false;
+  let grossDailyRunRate                = null;
+  let monthEndGrossCost                = null;
+  if (
+    cumGross < -0.005 ||
+    rawGrossRate < -0.005 ||
+    (!excludedTodayUtc && observedGrossTotal < -0.005)
+  ) {
+    hasNegativeAdj = true;
+  } else {
+    const cleanGrossRate = Math.abs(rawGrossRate) < 0.005 ? 0 : roundMoney(Math.max(0, rawGrossRate));
+    grossDailyRunRate = cleanGrossRate;
+    monthEndGrossCost = roundMoney(
+      Math.max(observedGrossTotal, cumGross + cleanGrossRate * remainingDays, 0)
+    );
+  }
+
+  let netDailyRunRate                = null;
+  let monthEndNetCost                = null;
+  if (
+    cumNet < -0.005 ||
+    rawNetRate < -0.005 ||
+    (!excludedTodayUtc && observedNetTotal < -0.005)
+  ) {
+    hasNegativeAdj = true;
+  } else {
+    const cleanNetRate = Math.abs(rawNetRate) < 0.005 ? 0 : roundMoney(Math.max(0, rawNetRate));
+    netDailyRunRate = cleanNetRate;
+    monthEndNetCost = roundMoney(
+      Math.max(observedNetTotal, cumNet + cleanNetRate * remainingDays, 0)
+    );
+  }
+
+  if (hasNegativeAdj) {
+    warnings.push("negative-adjustments");
+  }
+
+  return {
+    invoiceMonth,
+    method: "calendar-day-run-rate-v1",
+    dateBasis: "utc-usage-date-within-invoice-month",
+    status: "estimated",
+    daysInMonth,
+    elapsedCalendarDays: rateThroughDay,
+    observedDays,
+    rateThroughDate,
+    excludedTodayUtc,
+    grossDailyRunRate,
+    netDailyRunRate,
+    monthEndGrossCost,
+    monthEndNetCost,
+    creditsNotGuaranteed: anyCredits,
+    warnings,
+  };
+}
+
 function finalizeTopServices(
   serviceMap                                                                            ,
   totalNet        ,
@@ -523,7 +762,8 @@ function aggregateSingleMonthSnapshot(
   targetMonth        ,
   prevMonth        ,
   dayOfMonthCutoff        ,
-  currentInvoiceMonth         = targetMonth
+  currentInvoiceMonth         = targetMonth,
+  referenceDate       = new Date()
 )                       {
                                
                
@@ -658,9 +898,10 @@ function aggregateSingleMonthSnapshot(
     }
   }
 
-  const totalsByCurrency                         = Array.from(currencyMap.values())
-    .sort((a, b) => a.currency.localeCompare(b.currency))
-    .map((b) => ({
+  const isCurrentTargetMonth = targetMonth === currentInvoiceMonth;
+  const buildBaseFields = (b                   ) => {
+    const dailySeries = finalizeDailySeries(b.daily);
+    return {
       currency: b.currency,
       currentMonthGrossCost: roundMoney(b.currGross),
       currentMonthCredits: roundMoney(b.currCredits),
@@ -671,24 +912,20 @@ function aggregateSingleMonthSnapshot(
       prevMonthCredits: roundMoney(b.prevCredits),
       deltaPercentVsPrevSameDay: computeDeltaPercent(b.currNet, b.prevSameDayNet),
       topServices: finalizeTopServices(b.services, b.currNet, b.currGross),
-      dailySeries: finalizeDailySeries(b.daily),
-    }));
+      dailySeries,
+      forecast: computeSpendForecast(dailySeries, targetMonth, referenceDate, isCurrentTargetMonth),
+    };
+  };
+
+  const totalsByCurrency                         = Array.from(currencyMap.values())
+    .sort((a, b) => a.currency.localeCompare(b.currency))
+    .map(buildBaseFields);
 
   const byBillingAccount                                             = {};
   for (const [baId, b] of accountMap.entries()) {
     byBillingAccount[baId] = {
       billingAccountId: baId,
-      currency: b.currency,
-      currentMonthGrossCost: roundMoney(b.currGross),
-      currentMonthCredits: roundMoney(b.currCredits),
-      currentMonthNetCost: roundMoney(b.currNet),
-      prevMonthSameDayNetCost: roundMoney(b.prevSameDayNet),
-      prevMonthTotalNetCost: roundMoney(b.prevTotalNet),
-      prevMonthGrossCost: roundMoney(b.prevGross),
-      prevMonthCredits: roundMoney(b.prevCredits),
-      deltaPercentVsPrevSameDay: computeDeltaPercent(b.currNet, b.prevSameDayNet),
-      topServices: finalizeTopServices(b.services, b.currNet, b.currGross),
-      dailySeries: finalizeDailySeries(b.daily),
+      ...buildBaseFields(b),
     };
   }
 
@@ -697,17 +934,7 @@ function aggregateSingleMonthSnapshot(
     byProject[projId] = {
       projectId: projId,
       billingAccountId: b.billingAccountId,
-      currency: b.currency,
-      currentMonthGrossCost: roundMoney(b.currGross),
-      currentMonthCredits: roundMoney(b.currCredits),
-      currentMonthNetCost: roundMoney(b.currNet),
-      prevMonthSameDayNetCost: roundMoney(b.prevSameDayNet),
-      prevMonthTotalNetCost: roundMoney(b.prevTotalNet),
-      prevMonthGrossCost: roundMoney(b.prevGross),
-      prevMonthCredits: roundMoney(b.prevCredits),
-      deltaPercentVsPrevSameDay: computeDeltaPercent(b.currNet, b.prevSameDayNet),
-      topServices: finalizeTopServices(b.services, b.currNet, b.currGross),
-      dailySeries: finalizeDailySeries(b.daily),
+      ...buildBaseFields(b),
     };
   }
 
@@ -865,18 +1092,87 @@ function applyFrozenPreviousBaseline(
   };
 }
 
+function buildPriorMonthReference(
+  sourceInvoiceMonth        ,
+  prevItem   
+                     
+                                  
+                                
+                                   
+   ,
+  fallbackCoveredDays        
+)                                         {
+  const coveredDays = prevItem.dailySeries.length || fallbackCoveredDays;
+  if (coveredDays <= 0) return undefined;
+  return {
+    sourceInvoiceMonth,
+    currency: prevItem.currency,
+    coveredDays,
+    grossPerCoveredDay: roundMoney(prevItem.currentMonthGrossCost / coveredDays),
+    netPerCoveredDay: roundMoney(prevItem.currentMonthNetCost / coveredDays),
+  };
+}
+
+function attachPriorMonthReferences(
+  targetSnap                      ,
+  prevSnap                                  
+)                       {
+  if (!prevSnap || !prevSnap.hasRows) return targetSnap;
+  const fallbackDays = prevSnap.coveredDays ?? 0;
+
+  const prevCurrMap = new Map                              ();
+  for (const c of prevSnap.totalsByCurrency) {
+    prevCurrMap.set(c.currency, c);
+  }
+  const nextCurrencies = targetSnap.totalsByCurrency.map((curr) => {
+    const prev = prevCurrMap.get(curr.currency);
+    const ref = prev
+      ? buildPriorMonthReference(prevSnap.invoiceMonth, prev, fallbackDays)
+      : undefined;
+    return ref ? { ...curr, priorMonthRunRateReference: ref } : curr;
+  });
+
+  const nextAccounts                                             = {};
+  for (const [id, item] of Object.entries(targetSnap.byBillingAccount)) {
+    const prev = prevSnap.byBillingAccount[id];
+    const ref = prev
+      ? buildPriorMonthReference(prevSnap.invoiceMonth, prev, prev.dailySeries.length || fallbackDays)
+      : undefined;
+    nextAccounts[id] = ref ? { ...item, priorMonthRunRateReference: ref } : item;
+  }
+
+  const nextProjects                                      = {};
+  for (const [id, item] of Object.entries(targetSnap.byProject)) {
+    const prev = prevSnap.byProject[id];
+    const ref = prev
+      ? buildPriorMonthReference(prevSnap.invoiceMonth, prev, prev.dailySeries.length || fallbackDays)
+      : undefined;
+    nextProjects[id] = ref ? { ...item, priorMonthRunRateReference: ref } : item;
+  }
+
+  return {
+    ...targetSnap,
+    totalsByCurrency: nextCurrencies,
+    byBillingAccount: nextAccounts,
+    byProject: nextProjects,
+  };
+}
+
 export function aggregateSpendRows(
   rows                        ,
   queriedTables                   ,
   windowCtx                   ,
   queriedAt         = new Date().toISOString()
 )              {
-  const currentSnapshot = aggregateSingleMonthSnapshot(
+  const parsedRef = new Date(queriedAt);
+  const referenceDate = Number.isNaN(parsedRef.getTime()) ? new Date() : parsedRef;
+  let currentSnapshot = aggregateSingleMonthSnapshot(
     rows,
     windowCtx.currentInvoiceMonth,
     windowCtx.previousInvoiceMonth,
     windowCtx.dayOfMonthCutoff,
-    windowCtx.currentInvoiceMonth
+    windowCtx.currentInvoiceMonth,
+    referenceDate
   );
 
   const recentSet = new Set(windowCtx.recentInvoiceMonths);
@@ -904,10 +1200,17 @@ export function aggregateSpendRows(
           month,
           shiftInvoiceMonth(month, -1),
           31,
-          windowCtx.currentInvoiceMonth
+          windowCtx.currentInvoiceMonth,
+          referenceDate
         );
       }
     }
+    const enrichedCurrent = attachPriorMonthReferences(
+      currentSnapshot,
+      byMonth[windowCtx.previousInvoiceMonth]
+    );
+    currentSnapshot = enrichedCurrent;
+    byMonth[windowCtx.currentInvoiceMonth] = enrichedCurrent;
   }
 
   return {
@@ -1058,7 +1361,8 @@ export async function queryBillingExportSpend(
       fullWindowCtx.currentInvoiceMonth,
       fullWindowCtx.previousInvoiceMonth,
       fullWindowCtx.dayOfMonthCutoff,
-      fullWindowCtx.currentInvoiceMonth
+      fullWindowCtx.currentInvoiceMonth,
+      referenceDate
     );
   }
 
@@ -1127,7 +1431,14 @@ export async function queryBillingExportSpend(
     }
   }
 
-  const currentMerged = mergedByMonth[fullWindowCtx.currentInvoiceMonth];
+  const rawCurrentMerged = mergedByMonth[fullWindowCtx.currentInvoiceMonth];
+  const currentMerged = rawCurrentMerged
+    ? attachPriorMonthReferences(rawCurrentMerged, mergedByMonth[fullWindowCtx.previousInvoiceMonth])
+    : rawCurrentMerged;
+  if (currentMerged) {
+    mergedByMonth[fullWindowCtx.currentInvoiceMonth] = currentMerged;
+  }
+
   const mergedReport              = {
     ...freshReport,
     totalsByCurrency: currentMerged?.totalsByCurrency ?? freshReport.totalsByCurrency,

@@ -39,6 +39,9 @@ describe("Frontend Security Static Audit & Plugin Packaging Verification", () =>
       { name: "window.confirm", regex: /\bconfirm\s*\(/ },
       { name: "window.prompt", regex: /\bprompt\s*\(/ },
       { name: "CSP-violating inline style mutation", regex: /\.style\./ },
+      { name: "CSP-violating style cssText", regex: /\.cssText\b/ },
+      { name: "CSP-violating setAttribute style", regex: /setAttribute\s*\(\s*["']style["']/ },
+      { name: "CSP-violating inline style attribute", regex: /\bstyle\s*=/ },
     ];
 
     for (const file of files) {

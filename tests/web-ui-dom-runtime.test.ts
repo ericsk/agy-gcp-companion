@@ -188,6 +188,7 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
     };
 
     let simulateBillingApiDisabled = false;
+    let simulateEmptyCurrentMonth = false;
     let simulatedAuthMode: "normal" | "no_cli" | "no_login" = "normal";
     let gateInitialBoot = true;
     let releaseBootGate!: () => void;
@@ -206,6 +207,50 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
     const spendGate = new Promise<void>((r) => {
       releaseSpendGate = r;
     });
+
+    const applyEmptyCurrentMonth = (spend: any) => {
+      const currMonth = spend.invoiceMonth;
+      const prevMonth = spend.previousInvoiceMonth;
+      const emptyCurrSnap = {
+        ...(spend.byMonth?.[currMonth] ?? {
+          invoiceMonth: currMonth,
+          previousInvoiceMonth: prevMonth,
+          byBillingAccount: {},
+          byProject: {},
+        }),
+        hasRows: false,
+        rowCount: 0,
+        settled: false,
+        coveredDays: 0,
+        totalsByCurrency: [
+          {
+            currency: "USD",
+            currentMonthGrossCost: 0,
+            currentMonthCredits: 0,
+            currentMonthNetCost: 0,
+            prevMonthSameDayNetCost: 0,
+            prevMonthTotalNetCost: 241.5,
+            prevMonthGrossCost: 289.8,
+            prevMonthCredits: -48.3,
+            deltaPercentVsPrevSameDay: null,
+            topServices: [],
+            dailySeries: [],
+            priorMonthRunRateReference: {
+              sourceInvoiceMonth: prevMonth,
+              currency: "USD",
+              coveredDays: 7,
+              grossPerCoveredDay: 41.4,
+              netPerCoveredDay: 34.5,
+            },
+          },
+        ],
+      };
+      return {
+        ...spend,
+        totalsByCurrency: emptyCurrSnap.totalsByCurrency,
+        byMonth: { ...(spend.byMonth ?? {}), [currMonth]: emptyCurrSnap },
+      };
+    };
 
     Object.assign(globalThis, {
       Node: MockNode,
@@ -377,6 +422,12 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
             );
           }
           const spendData = await service.getSpendSection();
+          if (simulateEmptyCurrentMonth) {
+            return new Response(
+              JSON.stringify({ ...spendData, spend: applyEmptyCurrentMonth(spendData.spend) }),
+              { status: 200 }
+            );
+          }
           return new Response(JSON.stringify(spendData), { status: 200 });
         }
         if (url.includes("/api/enable-service")) {
@@ -391,6 +442,12 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         }
         if (url.includes("/api/overview")) {
           const overview = await service.getOverview();
+          if (simulateEmptyCurrentMonth) {
+            return new Response(
+              JSON.stringify({ ...overview, spend: applyEmptyCurrentMonth(overview.spend) }),
+              { status: 200 }
+            );
+          }
           return new Response(JSON.stringify(overview), { status: 200 });
         }
         if (url.includes("/api/plugin-update/check")) {
@@ -489,11 +546,24 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         await new Promise((r) => setTimeout(r, 15));
       }
 
-      // 1. Verify Overview Tab rendered Spend Hero, Sparkline SVG, and Pinned Projects
+      // 1. Verify Overview Tab rendered Spend Hero, Forecast block/SVG tail, Sparkline SVG, and Pinned Projects
       assert.ok(appRoot.allText.includes("GCP Companion"));
       assert.ok(appRoot.allText.includes("Month-to-Date Net Spend"));
+      assert.ok(appRoot.allText.includes("Projected EOM Net:"), "Expected month-end forecast Net on Demo current month");
+      assert.ok(appRoot.allText.includes("Projected Gross:"), "Expected month-end forecast Gross on Demo current month");
       assert.ok(appRoot.allText.includes("Acme AI Assistant (Prod)"));
       assert.ok(appRoot.querySelectorAll("svg").length >= 1);
+      const demoTodayUtc = new Date();
+      const demoDaysInMonth = new Date(
+        Date.UTC(demoTodayUtc.getUTCFullYear(), demoTodayUtc.getUTCMonth() + 1, 0)
+      ).getUTCDate();
+      if (demoTodayUtc.getUTCDate() < demoDaysInMonth) {
+        const forecastPaths = appRoot
+          .querySelectorAll("path")
+          .filter((p) => (p.attributes["class"] ?? "").includes("sparkline-forecast"));
+        assert.ok(forecastPaths.length >= 1, "Expected .sparkline-forecast dashed SVG path on current month");
+        assert.equal(forecastPaths[0].attributes["stroke-dasharray"], "4 3");
+      }
 
       // Switch Overview Breakdown to "By Service"
       const byServiceBtn = appRoot.findButtonsByText("By Service")[0];
@@ -513,6 +583,10 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       monthPills[1].click();
       assert.ok(appRoot.allText.includes("Monthly Net Spend"), "Expected Monthly Net Spend heading when viewing historical month");
       assert.ok(appRoot.allText.includes("Archived"), "Expected settled archive badge when viewing settled historical month");
+      const historicalForecastPaths = appRoot
+        .querySelectorAll("path")
+        .filter((p) => (p.attributes["class"] ?? "").includes("sparkline-forecast"));
+      assert.equal(historicalForecastPaths.length, 0, "Expected no dashed forecast line on historical month");
       const refreshedPills = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
         b.className.includes("month-pill")
       );
@@ -701,6 +775,64 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       const closeSettingsBtn = appRoot.findButtonsByText("✕")[0];
       assert.ok(closeSettingsBtn, "Expected close button in Settings menu");
       closeSettingsBtn.click();
+
+      // Deterministic forecast sparkline projection verification independent of wall-clock day
+      const { renderDailySparkline } = await import("../dist/web/charts.js");
+      const chartNode = renderDailySparkline(
+        [
+          { date: "2026-11-01", grossCost: 100, creditsAmount: 0, netCost: 100 },
+          { date: "2026-11-02", grossCost: 120, creditsAmount: 0, netCost: 120 },
+        ],
+        "USD",
+        undefined,
+        {
+          invoiceMonth: "202611",
+          method: "calendar-day-run-rate-v1",
+          dateBasis: "utc-usage-date-within-invoice-month",
+          status: "estimated",
+          daysInMonth: 30,
+          elapsedCalendarDays: 2,
+          observedDays: 2,
+          rateThroughDate: "2026-11-02",
+          excludedTodayUtc: false,
+          grossDailyRunRate: 110,
+          netDailyRunRate: 110,
+          monthEndGrossCost: 3300,
+          monthEndNetCost: 3300,
+          creditsNotGuaranteed: false,
+          warnings: [],
+        }
+      ) as unknown as MockElement;
+      const chartForecastPaths = chartNode
+        .querySelectorAll("path")
+        .filter((p) => (p.attributes["class"] ?? "").includes("sparkline-forecast"));
+      assert.equal(chartForecastPaths.length, 1);
+      assert.equal(chartForecastPaths[0].attributes["stroke-dasharray"], "4 3");
+      assert.ok(chartNode.allText.includes("11-30"), "Expected month-end 11-30 label on projected sparkline");
+
+      // Verify empty current month with priorMonthRunRateReference renders non-confusing prior daily avg line
+      simulateEmptyCurrentMonth = true;
+      const overviewTabReturnBtn = appRoot.findButtonsByText("Overview")[0];
+      assert.ok(overviewTabReturnBtn);
+      overviewTabReturnBtn.click();
+      const refreshBtnForRef = appRoot.findButtonsByText("Refresh")[0];
+      assert.ok(refreshBtnForRef);
+      refreshBtnForRef.click();
+      for (let i = 0; i < 30; i++) {
+        const curPills = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
+          b.className.includes("month-pill")
+        );
+        if (curPills[0]?.className.includes("month-pill-empty")) break;
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      const currEmptyPill = (appRoot.querySelectorAll("button") as MockButtonElement[]).filter((b) =>
+        b.className.includes("month-pill")
+      )[0];
+      assert.ok(currEmptyPill);
+      currEmptyPill.click();
+      assert.ok(appRoot.allText.includes("7d exported"), "Expected prior month 7d exported reference on empty current month");
+      assert.ok(appRoot.allText.includes("$34.50/day"), "Expected prior month daily net rate in reference text");
+      simulateEmptyCurrentMonth = false;
     } finally {
       Object.assign(globalThis, prevGlobals);
       rmSync(tmpDir, { recursive: true, force: true });
