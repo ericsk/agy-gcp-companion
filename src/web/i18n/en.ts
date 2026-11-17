@@ -10,6 +10,12 @@ export const EN_MESSAGES = {
   "boot.errorTitle": "Unable to Load GCP Companion",
   "boot.unknownError": "Unknown connection error.",
   "boot.retry": "Retry",
+  "loading.projects": "Loading projects…",
+  "loading.billing": "Loading billing accounts…",
+  "loading.budgets": "Loading budgets…",
+  "loading.spend": "Querying BigQuery spend…",
+  "loading.billingStatus": "Checking billing…",
+  "loading.sectionErrorRetry": "↻ Retry",
 
   // Relative sync age
   "age.notSynced": "Not synced",

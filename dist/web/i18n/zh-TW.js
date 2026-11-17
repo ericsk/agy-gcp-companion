@@ -12,6 +12,12 @@ export const ZH_TW_MESSAGES                     = {
   "boot.errorTitle": "無法載入 GCP Companion",
   "boot.unknownError": "未知的連線錯誤。",
   "boot.retry": "重試",
+  "loading.projects": "正在載入專案…",
+  "loading.billing": "正在載入帳單帳戶…",
+  "loading.budgets": "正在載入預算規則…",
+  "loading.spend": "正在查詢 BigQuery 支出…",
+  "loading.billingStatus": "查詢計費狀態…",
+  "loading.sectionErrorRetry": "↻ 重試此區塊",
 
   // Relative sync age
   "age.notSynced": "尚未同步",

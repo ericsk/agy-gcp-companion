@@ -353,6 +353,64 @@ describe("Sidecar HTTP Server Security & API Integration", () => {
     }
   });
 
+  it("serves progressive domain endpoints (/api/bootstrap, /api/projects, /api/billing, /api/budgets, /api/spend)", async () => {
+    const bootRes = await sendRawHttpRequest(server, { path: "/api/bootstrap" });
+    assert.equal(bootRes.status, 200);
+    assert.ok((bootRes.headers["set-cookie"] || "").includes("HttpOnly"));
+    const bootJson = JSON.parse(bootRes.body) as {
+      csrfToken: string;
+      proxyCsrfToken: string;
+      auth: { authenticated: boolean; activeProject: string | null };
+      spendConfigured: boolean;
+    };
+    assert.ok(bootJson.csrfToken.length > 20);
+    assert.ok(bootJson.proxyCsrfToken.length > 20);
+    assert.equal(bootJson.auth.authenticated, true);
+    assert.equal(bootJson.spendConfigured, true);
+
+    const [projRes, billRes, budRes, spendRes] = await Promise.all([
+      sendRawHttpRequest(server, { path: "/api/projects" }),
+      sendRawHttpRequest(server, { path: "/api/billing" }),
+      sendRawHttpRequest(server, { path: "/api/budgets" }),
+      sendRawHttpRequest(server, { path: "/api/spend" }),
+    ]);
+    assert.equal(projRes.status, 200);
+    assert.equal(billRes.status, 200);
+    assert.equal(budRes.status, 200);
+    assert.equal(spendRes.status, 200);
+
+    const projJson = JSON.parse(projRes.body) as {
+      authenticated: boolean;
+      projects: Array<{ projectId: string }>;
+    };
+    assert.equal(projJson.authenticated, true);
+    assert.ok(projJson.projects.some((p) => p.projectId === "acme-ai-assistant-prod"));
+
+    const billJson = JSON.parse(billRes.body) as {
+      authenticated: boolean;
+      billingAccounts: Array<{ id: string }>;
+      projectBillingLinks: Record<string, { billingAccountId: string; billingEnabled: boolean }>;
+    };
+    assert.equal(billJson.authenticated, true);
+    assert.ok(billJson.billingAccounts.length >= 1);
+    assert.equal(billJson.projectBillingLinks["acme-ai-assistant-prod"]?.billingEnabled, true);
+
+    const budJson = JSON.parse(budRes.body) as {
+      authenticated: boolean;
+      budgetsByAccount: Record<string, Array<{ displayName: string }>>;
+    };
+    assert.equal(budJson.authenticated, true);
+    assert.ok(Object.values(budJson.budgetsByAccount).flat().length >= 1);
+
+    const spendJson = JSON.parse(spendRes.body) as {
+      authenticated: boolean;
+      spend: { configured: boolean; totalsByCurrency: Array<{ currentMonthNetCost: number }> };
+    };
+    assert.equal(spendJson.authenticated, true);
+    assert.equal(spendJson.spend.configured, true);
+    assert.ok(spendJson.spend.totalsByCurrency[0].currentMonthNetCost > 0);
+  });
+
   it("launches dist/sidecar.mjs cleanly with fixed ANTIGRAVITY_SIDECAR_WEB_PORT without EADDRINUSE", async () => {
     // Allocate a free ephemeral port first, release it, then pass it via ANTIGRAVITY_SIDECAR_WEB_PORT
     const freePort = await new Promise<number>((resolvePort, rejectPort) => {

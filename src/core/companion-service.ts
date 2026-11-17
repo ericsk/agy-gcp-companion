@@ -5,7 +5,14 @@ import {
   queryBillingExportSpend,
 } from "./bigquery-billing.ts";
 import { buildDemoOverview } from "./demo-data.ts";
-import { fetchAllProjects, fetchBillingAccountsAndProjectLinks } from "./gcp-api.ts";
+import {
+  type RawBillingAccount,
+  type RawGcpProject,
+  fetchAllProjects,
+  fetchBillingAccountsAndProjectLinks,
+  fetchBillingAccountsCore,
+  fetchBudgetsForBillingAccounts,
+} from "./gcp-api.ts";
 import { GcloudClient, type FetchLike } from "./gcloud.ts";
 import {
   normalizeBillingAccountId,
@@ -17,14 +24,22 @@ import {
 import { CompanionStore, VALID_LOCALE_PREFERENCES, normalizeLocalePreference } from "./store.ts";
 import { PluginUpdater } from "./updater.ts";
 import type {
+  AuthStatus,
   BillingAccount,
   BillingExportMapping,
+  BudgetInfo,
   CachedCloudSnapshot,
+  CompanionBillingResponse,
+  CompanionBootstrapResponse,
+  CompanionBudgetsResponse,
   CompanionOverviewResponse,
   CompanionPreferences,
+  CompanionProjectsResponse,
+  CompanionSpendResponse,
   DiscoveredBillingTable,
   GcpProject,
   LocalePreference,
+  ProjectBillingLinkInfo,
   ProjectSpendSummary,
 } from "./types.ts";
 
@@ -36,6 +51,55 @@ export interface CompanionServiceOptions {
   nowFn?: () => Date;
 }
 
+interface SingleFlightSlot<T> {
+  unforced: Promise<T> | null;
+  forced: Promise<T> | null;
+}
+
+function createSingleFlightSlot<T>(): SingleFlightSlot<T> {
+  return { unforced: null, forced: null };
+}
+
+function clearSingleFlightSlot<T>(slot: SingleFlightSlot<T>): void {
+  slot.unforced = null;
+  slot.forced = null;
+}
+
+function runSingleFlight<T>(
+  slot: SingleFlightSlot<T>,
+  forced: boolean,
+  worker: (forceRefresh: boolean) => Promise<T>
+): Promise<T> {
+  if (forced) {
+    if (slot.forced) {
+      return slot.forced;
+    }
+    const pending = worker(true).finally(() => {
+      if (slot.forced === pending) {
+        slot.forced = null;
+      }
+    });
+    slot.forced = pending;
+    return pending;
+  }
+
+  // Unforced callers can safely share an already-running forced refresh,
+  // while forced callers never reuse an unforced promise.
+  if (slot.forced) {
+    return slot.forced;
+  }
+  if (slot.unforced) {
+    return slot.unforced;
+  }
+  const pending = worker(false).finally(() => {
+    if (slot.unforced === pending) {
+      slot.unforced = null;
+    }
+  });
+  slot.unforced = pending;
+  return pending;
+}
+
 export class CompanionService {
   readonly store: CompanionStore;
   readonly gcloud: GcloudClient;
@@ -43,8 +107,12 @@ export class CompanionService {
   private readonly fetchFn: FetchLike;
   private readonly nowFn: () => Date;
   private demoActiveProject: string | null = null;
-  private inFlightOverview: Promise<CompanionOverviewResponse> | null = null;
-  private inFlightForcedOverview: Promise<CompanionOverviewResponse> | null = null;
+  private readonly overviewSlot = createSingleFlightSlot<CompanionOverviewResponse>();
+  private readonly rawProjectsSlot = createSingleFlightSlot<RawGcpProject[]>();
+  private readonly projectsSlot = createSingleFlightSlot<CompanionProjectsResponse>();
+  private readonly billingSlot = createSingleFlightSlot<CompanionBillingResponse>();
+  private readonly budgetsSlot = createSingleFlightSlot<CompanionBudgetsResponse>();
+  private readonly spendSlot = createSingleFlightSlot<CompanionSpendResponse>();
 
   constructor(options: CompanionServiceOptions = {}) {
     this.store = options.store ?? new CompanionStore();
@@ -59,41 +127,894 @@ export class CompanionService {
       });
   }
 
+  private invalidateOverviewOnly(): void {
+    clearSingleFlightSlot(this.overviewSlot);
+  }
+
   private invalidateInFlightOverview(): void {
-    this.inFlightOverview = null;
-    this.inFlightForcedOverview = null;
+    clearSingleFlightSlot(this.overviewSlot);
+    clearSingleFlightSlot(this.rawProjectsSlot);
+    clearSingleFlightSlot(this.projectsSlot);
+    clearSingleFlightSlot(this.billingSlot);
+    clearSingleFlightSlot(this.budgetsSlot);
+    clearSingleFlightSlot(this.spendSlot);
+  }
+
+  private hasActiveDomainFetches(): boolean {
+    return Boolean(
+      this.projectsSlot.unforced ||
+        this.projectsSlot.forced ||
+        this.billingSlot.unforced ||
+        this.billingSlot.forced ||
+        this.budgetsSlot.unforced ||
+        this.budgetsSlot.forced ||
+        this.spendSlot.unforced ||
+        this.spendSlot.forced
+    );
+  }
+
+  private isSnapshotComplete(snapshot: CachedCloudSnapshot): boolean {
+    if (!snapshot.sectionsFetchedAt) {
+      return true;
+    }
+    return Boolean(
+      snapshot.sectionsFetchedAt.projects &&
+        snapshot.sectionsFetchedAt.billing &&
+        snapshot.sectionsFetchedAt.spend
+    );
+  }
+
+  private getSectionTimestamp(
+    snapshot: CachedCloudSnapshot,
+    section: "projects" | "billing" | "budgets" | "spend"
+  ): string | null {
+    if (!snapshot.sectionsFetchedAt) {
+      return snapshot.fetchedAt;
+    }
+    return snapshot.sectionsFetchedAt[section] ?? null;
+  }
+
+  private doSpendTablesMatch(
+    snapshot: CachedCloudSnapshot,
+    prefs: CompanionPreferences
+  ): boolean {
+    const configuredTables = Array.from(
+      new Set(Object.values(prefs.billingExportTables).map((m) => m.tableId))
+    ).sort();
+    const cachedTables = [...(snapshot.spendReport?.queriedTables ?? [])].sort();
+    return (
+      configuredTables.length === cachedTables.length &&
+      configuredTables.every((t, i) => t === cachedTables[i])
+    );
+  }
+
+  private isSectionFresh(
+    snapshot: CachedCloudSnapshot,
+    section: "projects" | "billing" | "budgets" | "spend",
+    prefs: CompanionPreferences,
+    now: Date
+  ): boolean {
+    const ts = this.getSectionTimestamp(snapshot, section);
+    if (!ts) return false;
+    const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+    if (ageMs > prefs.cacheTtlMs) return false;
+    if (section === "spend" && !this.doSpendTablesMatch(snapshot, prefs)) {
+      return false;
+    }
+    return true;
+  }
+
+  private extractBillingLinksFromSnapshot(
+    snapshot: CachedCloudSnapshot
+  ): Record<string, ProjectBillingLinkInfo> {
+    if (snapshot.projectBillingLinks) {
+      return { ...snapshot.projectBillingLinks };
+    }
+    const links: Record<string, ProjectBillingLinkInfo> = {};
+    for (const p of snapshot.projects) {
+      if (p.billingAccountId) {
+        links[p.projectId] = {
+          billingAccountId: p.billingAccountId,
+          billingEnabled: p.billingEnabled,
+        };
+      }
+    }
+    for (const ba of snapshot.billingAccounts) {
+      for (const pid of ba.linkedProjectIds) {
+        links[pid] = {
+          billingAccountId: ba.id,
+          billingEnabled: true,
+        };
+      }
+    }
+    return links;
+  }
+
+  private applyBillingLinksToRawProjects(
+    rawProjects: RawGcpProject[],
+    links: Record<string, ProjectBillingLinkInfo>
+  ): RawGcpProject[] {
+    return rawProjects.map((p) => {
+      const link = links[p.projectId];
+      return {
+        ...p,
+        billingAccountId: link ? link.billingAccountId : p.billingAccountId,
+        billingEnabled: link ? link.billingEnabled : p.billingEnabled,
+      };
+    });
+  }
+
+  private updateSnapshotSection(
+    activeAccount: string,
+    nowIso: string,
+    mutator: (draft: {
+      projects: RawGcpProject[];
+      billingAccounts: RawBillingAccount[];
+      spendReport: CachedCloudSnapshot["spendReport"];
+      sectionsFetchedAt: NonNullable<CachedCloudSnapshot["sectionsFetchedAt"]>;
+      projectBillingLinks: Record<string, ProjectBillingLinkInfo>;
+      sectionWarnings: NonNullable<CachedCloudSnapshot["sectionWarnings"]>;
+    }) => void
+  ): CachedCloudSnapshot {
+    const prev = this.store.loadSnapshot(activeAccount);
+    const sectionsFetchedAt: NonNullable<CachedCloudSnapshot["sectionsFetchedAt"]> = prev
+      ? prev.sectionsFetchedAt
+        ? { ...prev.sectionsFetchedAt }
+        : {
+            projects: prev.fetchedAt,
+            billing: prev.fetchedAt,
+            budgets: prev.fetchedAt,
+            spend: prev.fetchedAt,
+          }
+      : {};
+
+    const sectionWarnings: NonNullable<CachedCloudSnapshot["sectionWarnings"]> = prev
+      ? prev.sectionWarnings
+        ? { ...prev.sectionWarnings }
+        : { billing: [...prev.warnings] }
+      : {};
+
+    const draft = {
+      projects: prev ? prev.projects.map((p) => ({ ...p })) : [],
+      billingAccounts: prev
+        ? prev.billingAccounts.map((ba) => ({
+            ...ba,
+            linkedProjectIds: [...ba.linkedProjectIds],
+            budgets: [...(ba.budgets ?? [])],
+          }))
+        : [],
+      spendReport: prev?.spendReport ?? null,
+      sectionsFetchedAt,
+      projectBillingLinks: prev ? this.extractBillingLinksFromSnapshot(prev) : {},
+      sectionWarnings,
+    };
+
+    mutator(draft);
+
+    draft.projects = this.applyBillingLinksToRawProjects(
+      draft.projects,
+      draft.projectBillingLinks
+    );
+
+    const combinedWarnings = [
+      ...(draft.sectionWarnings.projects ?? []),
+      ...(draft.sectionWarnings.billing ?? []),
+      ...(draft.sectionWarnings.budgets ?? []),
+      ...(draft.sectionWarnings.spend ?? []),
+    ];
+
+    const coreTimestamps = [
+      draft.sectionsFetchedAt.projects,
+      draft.sectionsFetchedAt.billing,
+      draft.sectionsFetchedAt.spend,
+    ];
+    const allCoreReady = coreTimestamps.every((t): t is string => Boolean(t));
+    const effectiveFetchedAt = allCoreReady
+      ? coreTimestamps.reduce((oldest, curr) =>
+          new Date(curr).getTime() < new Date(oldest).getTime() ? curr : oldest
+        )
+      : (prev?.fetchedAt ?? nowIso);
+
+    return this.store.saveSnapshot(activeAccount, {
+      fetchedAt: effectiveFetchedAt,
+      projects: draft.projects,
+      billingAccounts: draft.billingAccounts,
+      spendReport: draft.spendReport,
+      warnings: combinedWarnings,
+      sectionsFetchedAt: draft.sectionsFetchedAt,
+      projectBillingLinks: draft.projectBillingLinks,
+      sectionWarnings: draft.sectionWarnings,
+    });
+  }
+
+  private isAuthExpiredError(errMsg: string): boolean {
+    return /Unable to obtain Google Cloud access token|ADC token refresh failed|invalid_grant|HTTP 401\b/i.test(
+      errMsg
+    );
+  }
+
+  private buildExpiredAuthStatus(auth: AuthStatus): AuthStatus {
+    return {
+      ...auth,
+      authenticated: false,
+      activeAccount: null,
+      maskedActiveAccount: null,
+      setupHint:
+        "Your Google Cloud session has expired or been revoked. Please sign in again with `gcloud auth login`.",
+    };
+  }
+
+  private maybeTriggerBackgroundUpdateCheck(prefs: CompanionPreferences): void {
+    const autoUpdate = prefs.autoUpdatePlugin !== false;
+    if (this.fetchFn === globalThis.fetch && this.updater.isCheckStale()) {
+      void this.updater.checkForUpdates({ force: false, autoUpdate }).catch(() => {});
+    }
+  }
+
+  private getRawProjectsShared(
+    auth: AuthStatus,
+    prefs: CompanionPreferences,
+    forced: boolean
+  ): Promise<RawGcpProject[]> {
+    return runSingleFlight(this.rawProjectsSlot, forced, async () => {
+      if (!auth.activeAccount) return [];
+      const token = await this.gcloud.getAccessToken(prefs.gcloudPathOverride, auth.activeAccount);
+      return fetchAllProjects(token, this.fetchFn);
+    });
+  }
+
+  async getBootstrap(options: { forceRefresh?: boolean } = {}): Promise<CompanionBootstrapResponse> {
+    const prefs = this.store.loadPreferences();
+    const now = this.nowFn();
+    const autoUpdate = prefs.autoUpdatePlugin !== false;
+    this.maybeTriggerBackgroundUpdateCheck(prefs);
+
+    if (prefs.demoMode) {
+      const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+      return {
+        auth: demo.auth,
+        preferences: demo.preferences,
+        pluginUpdate: this.updater.getStatus(autoUpdate),
+        spendConfigured: true,
+        cachedOverview: null,
+      };
+    }
+
+    const auth = await this.gcloud.getAuthStatus(
+      prefs.gcloudPathOverride,
+      Boolean(options.forceRefresh)
+    );
+    const spendConfigured = Object.keys(prefs.billingExportTables).length > 0;
+    let cachedOverview: CompanionOverviewResponse | null = null;
+
+    if (!options.forceRefresh && auth.authenticated && auth.activeAccount) {
+      const cached = this.store.loadSnapshot(auth.activeAccount);
+      if (cached && this.isSnapshotComplete(cached)) {
+        const ageMs = Math.max(0, now.getTime() - new Date(cached.fetchedAt).getTime());
+        const isExpired = ageMs > prefs.cacheTtlMs || !this.doSpendTablesMatch(cached, prefs);
+        if (isExpired) {
+          cachedOverview = this.assembleOverviewResponse(auth, prefs, cached, {
+            hit: true,
+            stale: true,
+            ageMs,
+          });
+        }
+      }
+    }
+
+    return {
+      auth,
+      preferences: this.formatPublicPreferences(prefs),
+      pluginUpdate: this.updater.getStatus(autoUpdate),
+      spendConfigured,
+      cachedOverview,
+    };
+  }
+
+  getProjectsSection(options: { forceRefresh?: boolean } = {}): Promise<CompanionProjectsResponse> {
+    const forced = Boolean(options.forceRefresh);
+    return runSingleFlight(this.projectsSlot, forced, async (forceRefresh) => {
+      const prefs = this.store.loadPreferences();
+      const now = this.nowFn();
+
+      if (prefs.demoMode) {
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        return {
+          authenticated: true,
+          projects: demo.projects,
+          cache: demo.cache,
+          warnings: [],
+        };
+      }
+
+      const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride, forceRefresh);
+      if (!auth.authenticated || !auth.activeAccount) {
+        return {
+          authenticated: false,
+          auth,
+          projects: [],
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: null,
+            ageMs: null,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: [],
+        };
+      }
+
+      const activeAccount = auth.activeAccount;
+      const cached = this.store.loadSnapshot(activeAccount);
+      if (!forceRefresh && cached && this.isSectionFresh(cached, "projects", prefs, now)) {
+        const ts = this.getSectionTimestamp(cached, "projects") ?? cached.fetchedAt;
+        const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+        const assembled = this.assembleOverviewResponse(auth, prefs, cached, {
+          hit: true,
+          stale: false,
+          ageMs,
+        });
+        return {
+          authenticated: true,
+          projects: assembled.projects,
+          cache: assembled.cache,
+          warnings: cached.sectionWarnings?.projects ?? [],
+        };
+      }
+
+      try {
+        const rawProjects = await this.getRawProjectsShared(auth, prefs, forceRefresh);
+        const activeProjectExists =
+          !auth.activeProject ||
+          rawProjects.length === 0 ||
+          rawProjects.some((p) => p.projectId === auth.activeProject);
+        const staleProjectWarnings =
+          auth.activeProject && !activeProjectExists
+            ? [
+                `Active gcloud project "${auth.activeProject}" is deleted or inaccessible. Consider switching to an active project.`,
+              ]
+            : [];
+
+        const nowIso = now.toISOString();
+        const updatedSnapshot = this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+          draft.projects = rawProjects;
+          draft.sectionsFetchedAt.projects = nowIso;
+          draft.sectionWarnings.projects = staleProjectWarnings;
+        });
+
+        const assembled = this.assembleOverviewResponse(auth, prefs, updatedSnapshot, {
+          hit: false,
+          stale: false,
+          ageMs: 0,
+        });
+        return {
+          authenticated: true,
+          projects: assembled.projects,
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: nowIso,
+            ageMs: 0,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: staleProjectWarnings,
+        };
+      } catch (err) {
+        const errMsg = sanitizeErrorMessage(err);
+        if (this.isAuthExpiredError(errMsg)) {
+          this.gcloud.invalidateTokenCache();
+          return {
+            authenticated: false,
+            authExpired: true,
+            auth: this.buildExpiredAuthStatus(auth),
+            projects: [],
+            cache: {
+              hit: false,
+              stale: false,
+              fetchedAt: null,
+              ageMs: null,
+              ttlMs: prefs.cacheTtlMs,
+            },
+            warnings: [],
+          };
+        }
+        if (cached && this.getSectionTimestamp(cached, "projects")) {
+          const ts = this.getSectionTimestamp(cached, "projects")!;
+          const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+          const assembled = this.assembleOverviewResponse(auth, prefs, cached, {
+            hit: true,
+            stale: true,
+            ageMs,
+          });
+          return {
+            authenticated: true,
+            projects: assembled.projects,
+            cache: assembled.cache,
+            warnings: [
+              `Live projects refresh failed (${errMsg}); showing cached projects.`,
+              ...(cached.sectionWarnings?.projects ?? []),
+            ],
+          };
+        }
+        throw new Error(`Failed to fetch Google Cloud projects: ${errMsg}`);
+      }
+    });
+  }
+
+  getBillingSection(options: { forceRefresh?: boolean } = {}): Promise<CompanionBillingResponse> {
+    const forced = Boolean(options.forceRefresh);
+    return runSingleFlight(this.billingSlot, forced, async (forceRefresh) => {
+      const prefs = this.store.loadPreferences();
+      const now = this.nowFn();
+
+      if (prefs.demoMode) {
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const demoLinks: Record<string, ProjectBillingLinkInfo> = {};
+        for (const p of demo.projects) {
+          if (p.billingAccountId) {
+            demoLinks[p.projectId] = {
+              billingAccountId: p.billingAccountId,
+              billingEnabled: p.billingEnabled,
+            };
+          }
+        }
+        return {
+          authenticated: true,
+          billingAccounts: demo.billingAccounts,
+          projectBillingLinks: demoLinks,
+          budgetsLoaded: true,
+          cache: demo.cache,
+          warnings: [],
+        };
+      }
+
+      const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride, forceRefresh);
+      if (!auth.authenticated || !auth.activeAccount) {
+        return {
+          authenticated: false,
+          auth,
+          billingAccounts: [],
+          projectBillingLinks: {},
+          budgetsLoaded: true,
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: null,
+            ageMs: null,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: [],
+        };
+      }
+
+      const activeAccount = auth.activeAccount;
+      const cached = this.store.loadSnapshot(activeAccount);
+      if (!forceRefresh && cached && this.isSectionFresh(cached, "billing", prefs, now)) {
+        const ts = this.getSectionTimestamp(cached, "billing") ?? cached.fetchedAt;
+        const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+        const assembled = this.assembleOverviewResponse(auth, prefs, cached, {
+          hit: true,
+          stale: false,
+          ageMs,
+        });
+        return {
+          authenticated: true,
+          billingAccounts: assembled.billingAccounts,
+          projectBillingLinks: this.extractBillingLinksFromSnapshot(cached),
+          budgetsLoaded: this.isSectionFresh(cached, "budgets", prefs, now),
+          cache: assembled.cache,
+          warnings: cached.sectionWarnings?.billing ?? cached.warnings,
+        };
+      }
+
+      try {
+        const token = await this.gcloud.getAccessToken(prefs.gcloudPathOverride, activeAccount);
+        const quotaProject = prefs.quotaProjectOverride || auth.activeProject || null;
+
+        const {
+          billingAccounts: rawBillingAccounts,
+          projectBillingLinks,
+          warnings,
+          usedQuotaProject,
+        } = await fetchBillingAccountsCore(
+          token,
+          [],
+          quotaProject,
+          this.fetchFn,
+          prefs.lastWorkingQuotaProject,
+          () => this.getRawProjectsShared(auth, prefs, forceRefresh)
+        );
+
+        if (usedQuotaProject && usedQuotaProject !== prefs.lastWorkingQuotaProject) {
+          this.store.updatePreferences((curr) => ({
+            ...curr,
+            lastWorkingQuotaProject: usedQuotaProject,
+          }));
+        }
+
+        const reuseBudgets = Boolean(
+          !forceRefresh && cached && this.isSectionFresh(cached, "budgets", prefs, now)
+        );
+        if (reuseBudgets && cached) {
+          const prevBudgets = new Map<string, BudgetInfo[]>();
+          for (const prevBa of cached.billingAccounts) {
+            prevBudgets.set(prevBa.id, prevBa.budgets ?? []);
+          }
+          for (const acct of rawBillingAccounts) {
+            acct.budgets = prevBudgets.get(acct.id) ?? [];
+          }
+        }
+
+        const nowIso = now.toISOString();
+        const updatedSnapshot = this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+          draft.billingAccounts = rawBillingAccounts;
+          draft.projectBillingLinks = projectBillingLinks;
+          draft.sectionsFetchedAt.billing = nowIso;
+          if (!reuseBudgets) {
+            delete draft.sectionsFetchedAt.budgets;
+            delete draft.sectionWarnings.budgets;
+          }
+          draft.sectionWarnings.billing = warnings;
+        });
+
+        const assembled = this.assembleOverviewResponse(auth, prefs, updatedSnapshot, {
+          hit: false,
+          stale: false,
+          ageMs: 0,
+        });
+        return {
+          authenticated: true,
+          billingAccounts: assembled.billingAccounts,
+          projectBillingLinks,
+          budgetsLoaded: reuseBudgets || rawBillingAccounts.length === 0,
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: nowIso,
+            ageMs: 0,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings,
+        };
+      } catch (err) {
+        const errMsg = sanitizeErrorMessage(err);
+        if (this.isAuthExpiredError(errMsg)) {
+          this.gcloud.invalidateTokenCache();
+          return {
+            authenticated: false,
+            authExpired: true,
+            auth: this.buildExpiredAuthStatus(auth),
+            billingAccounts: [],
+            projectBillingLinks: {},
+            budgetsLoaded: true,
+            cache: {
+              hit: false,
+              stale: false,
+              fetchedAt: null,
+              ageMs: null,
+              ttlMs: prefs.cacheTtlMs,
+            },
+            warnings: [],
+          };
+        }
+        if (cached && this.getSectionTimestamp(cached, "billing")) {
+          const ts = this.getSectionTimestamp(cached, "billing")!;
+          const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+          const assembled = this.assembleOverviewResponse(auth, prefs, cached, {
+            hit: true,
+            stale: true,
+            ageMs,
+          });
+          return {
+            authenticated: true,
+            billingAccounts: assembled.billingAccounts,
+            projectBillingLinks: this.extractBillingLinksFromSnapshot(cached),
+            budgetsLoaded: true,
+            cache: assembled.cache,
+            warnings: [
+              `Live billing refresh failed (${errMsg}); showing cached billing accounts.`,
+              ...(cached.sectionWarnings?.billing ?? []),
+            ],
+          };
+        }
+        throw new Error(`Failed to fetch Cloud Billing accounts: ${errMsg}`);
+      }
+    });
+  }
+
+  getBudgetsSection(options: { forceRefresh?: boolean } = {}): Promise<CompanionBudgetsResponse> {
+    const forced = Boolean(options.forceRefresh);
+    return runSingleFlight(this.budgetsSlot, forced, async (forceRefresh) => {
+      const prefs = this.store.loadPreferences();
+      const now = this.nowFn();
+
+      if (prefs.demoMode) {
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const budgetsByAccount: Record<string, BudgetInfo[]> = {};
+        for (const ba of demo.billingAccounts) {
+          budgetsByAccount[ba.id] = ba.budgets;
+        }
+        return {
+          authenticated: true,
+          budgetsByAccount,
+          warnings: [],
+        };
+      }
+
+      const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride, false);
+      if (!auth.authenticated || !auth.activeAccount) {
+        return { authenticated: false, budgetsByAccount: {}, warnings: [] };
+      }
+
+      const activeAccount = auth.activeAccount;
+      let cached = this.store.loadSnapshot(activeAccount);
+      if (!forceRefresh && cached && this.isSectionFresh(cached, "budgets", prefs, now)) {
+        const budgetsByAccount: Record<string, BudgetInfo[]> = {};
+        for (const ba of cached.billingAccounts) {
+          budgetsByAccount[ba.id] = ba.budgets ?? [];
+        }
+        return {
+          authenticated: true,
+          budgetsByAccount,
+          warnings: cached.sectionWarnings?.budgets ?? [],
+        };
+      }
+
+      // Ensure billing accounts are loaded first
+      if (!cached || !this.isSectionFresh(cached, "billing", prefs, now)) {
+        await this.getBillingSection({ forceRefresh });
+        cached = this.store.loadSnapshot(activeAccount);
+      }
+
+      const targetAccounts: RawBillingAccount[] = (cached?.billingAccounts ?? []).map((ba) => ({
+        ...ba,
+        linkedProjectIds: [...ba.linkedProjectIds],
+        budgets: [...(ba.budgets ?? [])],
+      }));
+
+      const nowIso = now.toISOString();
+      if (targetAccounts.length === 0) {
+        this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+          draft.sectionsFetchedAt.budgets = nowIso;
+          draft.sectionWarnings.budgets = [];
+        });
+        return { authenticated: true, budgetsByAccount: {}, warnings: [] };
+      }
+
+      const latestPrefs = this.store.loadPreferences();
+      const token = await this.gcloud.getAccessToken(
+        latestPrefs.gcloudPathOverride,
+        activeAccount
+      );
+      const quotaProject =
+        latestPrefs.quotaProjectOverride ||
+        latestPrefs.lastWorkingQuotaProject ||
+        auth.activeProject ||
+        null;
+
+      const { budgetsByAccount, warnings } = await fetchBudgetsForBillingAccounts(
+        token,
+        targetAccounts,
+        quotaProject,
+        this.fetchFn
+      );
+
+      this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+        for (const ba of draft.billingAccounts) {
+          if (budgetsByAccount[ba.id] !== undefined) {
+            ba.budgets = budgetsByAccount[ba.id];
+          }
+        }
+        draft.sectionsFetchedAt.budgets = nowIso;
+        draft.sectionWarnings.budgets = warnings;
+      });
+
+      return {
+        authenticated: true,
+        budgetsByAccount,
+        warnings,
+      };
+    });
+  }
+
+  getSpendSection(options: { forceRefresh?: boolean } = {}): Promise<CompanionSpendResponse> {
+    const forced = Boolean(options.forceRefresh);
+    return runSingleFlight(this.spendSlot, forced, async (forceRefresh) => {
+      const prefs = this.store.loadPreferences();
+      const now = this.nowFn();
+
+      if (prefs.demoMode) {
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        return {
+          authenticated: true,
+          spend: demo.spend,
+          cache: demo.cache,
+          warnings: [],
+        };
+      }
+
+      const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride, forceRefresh);
+      if (!auth.authenticated || !auth.activeAccount) {
+        return {
+          authenticated: false,
+          auth,
+          spend: createEmptySpendReport(now),
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: null,
+            ageMs: null,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: [],
+        };
+      }
+
+      const activeAccount = auth.activeAccount;
+      const nowIso = now.toISOString();
+
+      // Fast path when no BigQuery Billing Export table is configured yet
+      if (Object.keys(prefs.billingExportTables).length === 0) {
+        const emptySpend = createEmptySpendReport(now);
+        this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+          draft.spendReport = emptySpend;
+          draft.sectionsFetchedAt.spend = nowIso;
+          draft.sectionWarnings.spend = [];
+        });
+        return {
+          authenticated: true,
+          spend: emptySpend,
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: nowIso,
+            ageMs: 0,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: [],
+        };
+      }
+
+      const cached = this.store.loadSnapshot(activeAccount);
+      if (!forceRefresh && cached && this.isSectionFresh(cached, "spend", prefs, now)) {
+        const ts = this.getSectionTimestamp(cached, "spend") ?? cached.fetchedAt;
+        const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+        return {
+          authenticated: true,
+          spend: cached.spendReport ?? createEmptySpendReport(now),
+          cache: {
+            hit: true,
+            stale: false,
+            fetchedAt: ts,
+            ageMs,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: cached.sectionWarnings?.spend ?? [],
+        };
+      }
+
+      try {
+        const token = await this.gcloud.getAccessToken(prefs.gcloudPathOverride, activeAccount);
+        const quotaProject =
+          prefs.quotaProjectOverride ||
+          auth.activeProject ||
+          prefs.lastWorkingQuotaProject ||
+          null;
+
+        const { report: spendReport, warnings: spendWarnings } = await queryBillingExportSpend(
+          token,
+          prefs.billingExportTables,
+          quotaProject,
+          now,
+          this.fetchFn,
+          cached?.spendReport ?? null
+        );
+
+        this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+          draft.spendReport = spendReport;
+          draft.sectionsFetchedAt.spend = nowIso;
+          draft.sectionWarnings.spend = spendWarnings;
+        });
+
+        return {
+          authenticated: true,
+          spend: spendReport,
+          cache: {
+            hit: false,
+            stale: false,
+            fetchedAt: nowIso,
+            ageMs: 0,
+            ttlMs: prefs.cacheTtlMs,
+          },
+          warnings: spendWarnings,
+        };
+      } catch (err) {
+        const errMsg = sanitizeErrorMessage(err);
+        if (this.isAuthExpiredError(errMsg)) {
+          this.gcloud.invalidateTokenCache();
+          return {
+            authenticated: false,
+            authExpired: true,
+            auth: this.buildExpiredAuthStatus(auth),
+            spend: createEmptySpendReport(now),
+            cache: {
+              hit: false,
+              stale: false,
+              fetchedAt: null,
+              ageMs: null,
+              ttlMs: prefs.cacheTtlMs,
+            },
+            warnings: [],
+          };
+        }
+        if (cached?.spendReport && this.getSectionTimestamp(cached, "spend")) {
+          const ts = this.getSectionTimestamp(cached, "spend")!;
+          const ageMs = Math.max(0, now.getTime() - new Date(ts).getTime());
+          return {
+            authenticated: true,
+            spend: cached.spendReport,
+            cache: {
+              hit: true,
+              stale: true,
+              fetchedAt: ts,
+              ageMs,
+              ttlMs: prefs.cacheTtlMs,
+            },
+            warnings: [
+              `Live BigQuery spend refresh failed (${errMsg}); showing cached spend.`,
+              ...(cached.sectionWarnings?.spend ?? []),
+            ],
+          };
+        }
+        throw new Error(`Failed to query BigQuery billing export: ${errMsg}`);
+      }
+    });
+  }
+
+  /**
+   * Returns an immediate overview assembled from local disk cache (even if partial while progressive
+   * background fetches are still running), avoiding blocking fast local mutations (like pinning a project
+   * or switching display language) on upstream GCP / BigQuery calls.
+   */
+  async getFastOverviewAfterLocalMutation(): Promise<CompanionOverviewResponse> {
+    const prefs = this.store.loadPreferences();
+    const now = this.nowFn();
+    const autoUpdate = prefs.autoUpdatePlugin !== false;
+
+    if (prefs.demoMode) {
+      return {
+        ...buildDemoOverview(prefs, now, this.demoActiveProject),
+        pluginUpdate: this.updater.getStatus(autoUpdate),
+      };
+    }
+
+    const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride, false);
+    if (!auth.authenticated || !auth.activeAccount) {
+      return this.buildUnauthenticatedOverview(auth, prefs, now);
+    }
+
+    const cached = this.store.loadSnapshot(auth.activeAccount);
+    if (cached) {
+      const ageMs = Math.max(0, now.getTime() - new Date(cached.fetchedAt).getTime());
+      return this.assembleOverviewResponse(auth, prefs, cached, {
+        hit: true,
+        stale: ageMs > prefs.cacheTtlMs,
+        ageMs,
+      });
+    }
+
+    if (this.hasActiveDomainFetches()) {
+      return this.buildUnauthenticatedOverview(auth, prefs, now);
+    }
+
+    return this.getOverview({ forceRefresh: false });
   }
 
   getOverview(options: { forceRefresh?: boolean } = {}): Promise<CompanionOverviewResponse> {
     const forced = Boolean(options.forceRefresh);
-    if (forced) {
-      if (this.inFlightForcedOverview) {
-        return this.inFlightForcedOverview;
-      }
-      const pending = this.loadOverviewInternal(options).finally(() => {
-        if (this.inFlightForcedOverview === pending) {
-          this.inFlightForcedOverview = null;
-        }
-      });
-      this.inFlightForcedOverview = pending;
-      return pending;
-    }
-
-    // Unforced callers can safely share an already-running forced refresh,
-    // while forced callers never reuse an unforced promise.
-    if (this.inFlightForcedOverview) {
-      return this.inFlightForcedOverview;
-    }
-    if (this.inFlightOverview) {
-      return this.inFlightOverview;
-    }
-    const pending = this.loadOverviewInternal(options).finally(() => {
-      if (this.inFlightOverview === pending) {
-        this.inFlightOverview = null;
-      }
-    });
-    this.inFlightOverview = pending;
-    return pending;
+    return runSingleFlight(this.overviewSlot, forced, (forceRefresh) =>
+      this.loadOverviewInternal({ forceRefresh })
+    );
   }
 
   private async loadOverviewInternal(
@@ -128,7 +1049,7 @@ export class CompanionService {
       new Set(Object.values(prefs.billingExportTables).map((m) => m.tableId))
     ).sort();
 
-    if (cached && !options.forceRefresh) {
+    if (cached && !options.forceRefresh && this.isSnapshotComplete(cached)) {
       const ageMs = Math.max(0, now.getTime() - new Date(cached.fetchedAt).getTime());
       const cachedTables = [...(cached.spendReport?.queriedTables ?? [])].sort();
       const tablesMatch =
@@ -383,6 +1304,7 @@ export class CompanionService {
   async setActiveProject(projectId: string): Promise<{ activeProject: string }> {
     const validId = validateProjectId(projectId);
     const prefs = this.store.loadPreferences();
+    let clearedBillingSnapshot = false;
     if (prefs.demoMode) {
       this.demoActiveProject = validId;
     } else {
@@ -393,10 +1315,15 @@ export class CompanionService {
         const prev = this.store.loadSnapshot(auth.activeAccount);
         if (prev && prev.billingAccounts.length === 0 && prev.warnings.length > 0) {
           this.store.clearSnapshot(auth.activeAccount);
+          clearedBillingSnapshot = true;
         }
       }
     }
-    this.invalidateInFlightOverview();
+    if (clearedBillingSnapshot) {
+      this.invalidateInFlightOverview();
+    } else {
+      this.invalidateOverviewOnly();
+    }
     return { activeProject: validId };
   }
 
@@ -424,7 +1351,7 @@ export class CompanionService {
         pinnedProjects: Array.from(next),
       };
     });
-    this.invalidateInFlightOverview();
+    this.invalidateOverviewOnly();
     return updated;
   }
 
@@ -477,7 +1404,15 @@ export class CompanionService {
           ? Boolean(input.autoUpdatePlugin)
           : curr.autoUpdatePlugin !== false,
     }));
-    this.invalidateInFlightOverview();
+    const cloudContextChanged =
+      input.demoMode !== undefined ||
+      input.gcloudPathOverride !== undefined ||
+      input.quotaProjectOverride !== undefined;
+    if (cloudContextChanged) {
+      this.invalidateInFlightOverview();
+    } else {
+      this.invalidateOverviewOnly();
+    }
     return updated;
   }
 

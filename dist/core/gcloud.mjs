@@ -202,6 +202,8 @@ export class GcloudClient {
           resolvedBinaryCache                                                      = null;
           cachedToken                     = null;
           cachedAuth                    = null;
+          inFlightAuth = new Map                             ();
+          inFlightTokens = new Map                         ();
 
   constructor(options                      = {}) {
     this.execFn = options.execFn ?? defaultExecFile;
@@ -218,6 +220,8 @@ export class GcloudClient {
     this.cachedToken = null;
     this.cachedAuth = null;
     this.resolvedBinaryCache = null;
+    this.inFlightAuth.clear();
+    this.inFlightTokens.clear();
   }
 
           resolveGcloudBinarySync(overridePath                )                {
@@ -399,14 +403,33 @@ export class GcloudClient {
 
   async getAuthStatus(overridePath                , forceRefresh = false)                      {
     const overrideKey = overridePath?.trim() || "";
+    const forcedFlightKey = `forced::${overrideKey}`;
+    const unforcedFlightKey = `unforced::${overrideKey}`;
+
     if (forceRefresh) {
+      const existingForced = this.inFlightAuth.get(forcedFlightKey);
+      if (existingForced) {
+        return existingForced;
+      }
       this.cachedAuth = null;
       if (this.resolvedBinaryCache?.path === null) {
         this.resolvedBinaryCache = null;
       }
+      const pending = this.resolveAuthStatusInternal(overridePath, overrideKey).finally(() => {
+        if (this.inFlightAuth.get(forcedFlightKey) === pending) {
+          this.inFlightAuth.delete(forcedFlightKey);
+        }
+      });
+      this.inFlightAuth.set(forcedFlightKey, pending);
+      return pending;
     }
+
+    const activeForced = this.inFlightAuth.get(forcedFlightKey);
+    if (activeForced) {
+      return activeForced;
+    }
+
     if (
-      !forceRefresh &&
       this.cachedAuth &&
       this.cachedAuth.overrideKey === overrideKey &&
       Date.now() < this.cachedAuth.expiresAt
@@ -414,6 +437,24 @@ export class GcloudClient {
       return this.cachedAuth.status;
     }
 
+    const existingUnforced = this.inFlightAuth.get(unforcedFlightKey);
+    if (existingUnforced) {
+      return existingUnforced;
+    }
+
+    const pending = this.resolveAuthStatusInternal(overridePath, overrideKey).finally(() => {
+      if (this.inFlightAuth.get(unforcedFlightKey) === pending) {
+        this.inFlightAuth.delete(unforcedFlightKey);
+      }
+    });
+    this.inFlightAuth.set(unforcedFlightKey, pending);
+    return pending;
+  }
+
+          async resolveAuthStatusInternal(
+    overridePath                           ,
+    overrideKey        
+  )                      {
     const cacheAndReturn = (status            )             => {
       this.cachedAuth = {
         overrideKey,
@@ -601,6 +642,27 @@ export class GcloudClient {
       return this.cachedToken.accessToken;
     }
 
+    const existingFlight = this.inFlightTokens.get(cacheKey);
+    if (existingFlight) {
+      return existingFlight;
+    }
+
+    const pending = this.resolveAccessTokenInternal(overridePath, accountHint, cacheKey).finally(
+      () => {
+        if (this.inFlightTokens.get(cacheKey) === pending) {
+          this.inFlightTokens.delete(cacheKey);
+        }
+      }
+    );
+    this.inFlightTokens.set(cacheKey, pending);
+    return pending;
+  }
+
+          async resolveAccessTokenInternal(
+    overridePath                           ,
+    accountHint                           ,
+    cacheKey        
+  )                  {
     const targetAccount = accountHint || this.readLocalConfigValues().account;
 
     // 1. Best fast path: exchange first-party gcloud OAuth credential from credentials.db (~80ms, no quota project needed for Cloud Billing)
@@ -748,6 +810,7 @@ export class GcloudClient {
   async setActiveProject(projectId        , overridePath                )                {
     const validId = validateProjectId(projectId);
     this.cachedAuth = null;
+    this.inFlightAuth.clear();
     if (this.updateActiveConfigProperty("project", validId)) {
       return;
     }
@@ -755,6 +818,7 @@ export class GcloudClient {
     if (binary) {
       await this.execFn(binary, ["config", "set", "project", validId, "--quiet"], 6_000);
       this.cachedAuth = null;
+      this.inFlightAuth.clear();
       return;
     }
     throw new Error("gcloud CLI is not installed; cannot switch active project.");

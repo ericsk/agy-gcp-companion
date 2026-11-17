@@ -12,6 +12,12 @@ export const JA_MESSAGES                     = {
   "boot.errorTitle": "GCP Companion を読み込めませんでした",
   "boot.unknownError": "不明な接続エラーが発生しました。",
   "boot.retry": "再試行",
+  "loading.projects": "プロジェクトを読み込み中…",
+  "loading.billing": "請求先アカウントを読み込み中…",
+  "loading.budgets": "予算ルールを読み込み中…",
+  "loading.spend": "BigQuery 支出データを集計中…",
+  "loading.billingStatus": "課金状態を確認中…",
+  "loading.sectionErrorRetry": "↻ 再試行",
 
   // Relative sync age
   "age.notSynced": "未同期",

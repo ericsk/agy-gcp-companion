@@ -17,6 +17,12 @@ const EN_MESSAGES = {
   "boot.errorTitle": "Unable to Load GCP Companion",
   "boot.unknownError": "Unknown connection error.",
   "boot.retry": "Retry",
+  "loading.projects": "Loading projects…",
+  "loading.billing": "Loading billing accounts…",
+  "loading.budgets": "Loading budgets…",
+  "loading.spend": "Querying BigQuery spend…",
+  "loading.billingStatus": "Checking billing…",
+  "loading.sectionErrorRetry": "↻ Retry",
 
   // Relative sync age
   "age.notSynced": "Not synced",
@@ -355,6 +361,12 @@ const ES_MESSAGES                     = {
   "boot.errorTitle": "No se pudo cargar GCP Companion",
   "boot.unknownError": "Error de conexión desconocido.",
   "boot.retry": "Reintentar",
+  "loading.projects": "Cargando proyectos…",
+  "loading.billing": "Cargando cuentas de facturación…",
+  "loading.budgets": "Cargando presupuestos…",
+  "loading.spend": "Consultando gasto en BigQuery…",
+  "loading.billingStatus": "Comprobando facturación…",
+  "loading.sectionErrorRetry": "↻ Reintentar",
 
   // Relative sync age
   "age.notSynced": "Sin sincronizar",
@@ -692,6 +704,12 @@ const FR_MESSAGES                     = {
   "boot.errorTitle": "Impossible de charger GCP Companion",
   "boot.unknownError": "Erreur de connexion inconnue.",
   "boot.retry": "Réessayer",
+  "loading.projects": "Chargement des projets…",
+  "loading.billing": "Chargement des comptes de facturation…",
+  "loading.budgets": "Chargement des budgets…",
+  "loading.spend": "Requête des dépenses BigQuery…",
+  "loading.billingStatus": "Vérification de la facturation…",
+  "loading.sectionErrorRetry": "↻ Réessayer",
 
   // Relative sync age
   "age.notSynced": "Non synchronisé",
@@ -1029,6 +1047,12 @@ const JA_MESSAGES                     = {
   "boot.errorTitle": "GCP Companion を読み込めませんでした",
   "boot.unknownError": "不明な接続エラーが発生しました。",
   "boot.retry": "再試行",
+  "loading.projects": "プロジェクトを読み込み中…",
+  "loading.billing": "請求先アカウントを読み込み中…",
+  "loading.budgets": "予算ルールを読み込み中…",
+  "loading.spend": "BigQuery 支出データを集計中…",
+  "loading.billingStatus": "課金状態を確認中…",
+  "loading.sectionErrorRetry": "↻ 再試行",
 
   // Relative sync age
   "age.notSynced": "未同期",
@@ -1365,6 +1389,12 @@ const KO_MESSAGES                     = {
   "boot.errorTitle": "GCP Companion을 불러올 수 없습니다",
   "boot.unknownError": "알 수 없는 연결 오류가 발생했습니다.",
   "boot.retry": "다시 시도",
+  "loading.projects": "프로젝트 불러오는 중…",
+  "loading.billing": "결제 계정 불러오는 중…",
+  "loading.budgets": "예산 규칙 불러오는 중…",
+  "loading.spend": "BigQuery 지출 조회 중…",
+  "loading.billingStatus": "결제 상태 확인 중…",
+  "loading.sectionErrorRetry": "↻ 다시 시도",
 
   // Relative sync age
   "age.notSynced": "동기화 안 됨",
@@ -1701,6 +1731,12 @@ const ZH_CN_MESSAGES                     = {
   "boot.errorTitle": "无法加载 GCP Companion",
   "boot.unknownError": "未知连接错误。",
   "boot.retry": "重试",
+  "loading.projects": "正在加载项目…",
+  "loading.billing": "正在加载结算账户…",
+  "loading.budgets": "正在加载预算规则…",
+  "loading.spend": "正在查询 BigQuery 支出…",
+  "loading.billingStatus": "查询计费状态…",
+  "loading.sectionErrorRetry": "↻ 重试此区域",
 
   // Relative sync age
   "age.notSynced": "未同步",
@@ -2030,6 +2066,12 @@ const ZH_TW_MESSAGES                     = {
   "boot.errorTitle": "無法載入 GCP Companion",
   "boot.unknownError": "未知的連線錯誤。",
   "boot.retry": "重試",
+  "loading.projects": "正在載入專案…",
+  "loading.billing": "正在載入帳單帳戶…",
+  "loading.budgets": "正在載入預算規則…",
+  "loading.spend": "正在查詢 BigQuery 支出…",
+  "loading.billingStatus": "查詢計費狀態…",
+  "loading.sectionErrorRetry": "↻ 重試此區塊",
 
   // Relative sync age
   "age.notSynced": "尚未同步",
@@ -2515,6 +2557,8 @@ function localizeSetupHint(hint               )                {
                      
                         
                         
+                    
+                      
                                    
                                      
                                 
@@ -2543,6 +2587,8 @@ function h                                       (
     if (attrs.ariaLabel) el.setAttribute("aria-label", attrs.ariaLabel);
     if (attrs.ariaSelected) el.setAttribute("aria-selected", attrs.ariaSelected);
     if (attrs.ariaExpanded) el.setAttribute("aria-expanded", attrs.ariaExpanded);
+    if (attrs.ariaBusy) el.setAttribute("aria-busy", attrs.ariaBusy);
+    if (attrs.ariaHidden) el.setAttribute("aria-hidden", attrs.ariaHidden);
 
     if (attrs.href !== undefined && el instanceof HTMLAnchorElement) {
       // Only allow https:// external links or relative internal anchors
@@ -2890,7 +2936,12 @@ function renderServiceBreakdownList(
 
 // --- api.js ---
              
+                           
+                             
+                           
                             
+                            
+                         
                          
              
                    
@@ -3008,6 +3059,172 @@ async function apiPost   (
     throw new Error(payload.error || `Request failed (HTTP ${res.status})`);
   }
   return payload;
+}
+async function fetchBootstrap(
+  forceRefresh = false
+)                                      {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/bootstrap${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    // Graceful fallback if sidecar process has not restarted onto the progressive API routes yet
+    return {}                              ;
+  }
+  const payload = (await res.json().catch(() => ({})))     
+                   
+                       
+                            
+                         
+                                ;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to initialize GCP Companion (HTTP ${res.status})`);
+  }
+  if (payload.csrfToken && payload.proxyCsrfToken) {
+    activeSession = {
+      csrfToken: payload.csrfToken,
+      proxyCsrfToken: payload.proxyCsrfToken,
+      expiresAt: Date.now() + Number(payload.expiresInMs || 1_800_000),
+    };
+  }
+  return payload;
+}
+async function fetchProjectsSection(
+  forceRefresh = false
+)                                     {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/projects${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return { authenticated: false, projects: [], cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 }, warnings: [] };
+  }
+  const payload = (await res.json().catch(() => ({})))     
+                   
+                               ;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load GCP projects (HTTP ${res.status})`);
+  }
+  return payload;
+}
+async function fetchBillingSection(
+  forceRefresh = false
+)                                    {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/billing${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return {
+      authenticated: false,
+      billingAccounts: [],
+      projectBillingLinks: {},
+      budgetsLoaded: true,
+      cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 },
+      warnings: [],
+    };
+  }
+  const payload = (await res.json().catch(() => ({})))     
+                   
+                              ;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load billing accounts (HTTP ${res.status})`);
+  }
+  return payload;
+}
+async function fetchBudgetsSection(
+  forceRefresh = false
+)                                    {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/budgets${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return { authenticated: false, budgetsByAccount: {}, warnings: [] };
+  }
+  const payload = (await res.json().catch(() => ({})))     
+                   
+                              ;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load billing budgets (HTTP ${res.status})`);
+  }
+  return payload;
+}
+async function fetchSpendSection(
+  forceRefresh = false
+)                                  {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/spend${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return {
+      authenticated: false,
+      spend: {
+        configured: false,
+        invoiceMonth: "",
+        previousInvoiceMonth: "",
+        queriedTables: [],
+        queriedAt: "",
+        totalsByCurrency: [],
+        byBillingAccount: {},
+        byProject: {},
+      },
+      cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 },
+      warnings: [],
+    };
+  }
+  const payload = (await res.json().catch(() => ({})))     
+                   
+                            ;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load BigQuery spend (HTTP ${res.status})`);
+  }
+  return payload;
+}
+async function switchActiveAccountProgressive(
+  account        
+)                                     {
+  return apiPost                           ("./api/active-account", {
+    account,
+    progressive: true,
+  });
+}
+async function updateCloudPreferencesProgressive(prefs   
+                                     
+                                       
+                     
+ )                                      {
+  const data = await apiPost  
+                                           
+                                         
+    ("./api/preferences", {
+    ...prefs,
+    progressive: true,
+  });
+  if (data.bootstrap) {
+    return data.bootstrap;
+  }
+  if (data.overview) {
+    return {
+      auth: data.overview.auth,
+      preferences: data.overview.preferences,
+      pluginUpdate: data.overview.pluginUpdate,
+      spendConfigured: data.overview.summary.spendConfigured,
+      cachedOverview: data.overview,
+    };
+  }
+  throw new Error("Unexpected response from preferences update.");
 }
 async function fetchOverview(forceRefresh = false)                                     {
   await ensureSession(false);
@@ -3156,11 +3373,111 @@ async function applyPluginUpdateApi()                                     {
 const PROJECT_PAGE_SIZE = 6;
 const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
 
-                   
-                                             
-                   
-                      
                        
+                     
+                    
+                   
+                   
+                 
+ 
+
+                            
+                           
+                          
+                         
+                         
+                       
+ 
+
+                                
+                     
+                    
+                    
+                  
+ 
+
+function getCurrentYyyymm(now = new Date())         {
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}${m}`;
+}
+
+function getPrevYyyymm(now = new Date())         {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}${m}`;
+}
+
+function createEmptyClientSpendReport()              {
+  const now = new Date();
+  return {
+    configured: false,
+    invoiceMonth: getCurrentYyyymm(now),
+    previousInvoiceMonth: getPrevYyyymm(now),
+    queriedTables: [],
+    queriedAt: now.toISOString(),
+    totalsByCurrency: [],
+    byBillingAccount: {},
+    byProject: {},
+  };
+}
+
+function createInitialOverviewShell()                            {
+  return {
+    auth: {
+      authenticated: true,
+      source: "none",
+      gcloudInstalled: true,
+      gcloudBinaryPath: null,
+      activeAccount: null,
+      maskedActiveAccount: null,
+      activeProject: null,
+      accounts: [],
+      setupHint: null,
+    },
+    preferences: {
+      pinnedProjects: [],
+      billingExportTables: {},
+      cacheTtlHours: 6,
+      maskEmails: false,
+      gcloudPathOverride: null,
+      quotaProjectOverride: null,
+      demoMode: false,
+      locale: "auto",
+      autoUpdatePlugin: true,
+    },
+    cache: {
+      hit: false,
+      stale: false,
+      fetchedAt: null,
+      ageMs: null,
+      ttlMs: 6 * 3_600_000,
+    },
+    summary: {
+      totalProjects: 0,
+      billedProjects: 0,
+      unbilledProjects: 0,
+      pinnedProjectsCount: 0,
+      totalBillingAccounts: 0,
+      openBillingAccounts: 0,
+      spendConfigured: false,
+    },
+    projects: [],
+    billingAccounts: [],
+    spend: createEmptyClientSpendReport(),
+    warnings: [],
+  };
+}
+
+                   
+                                      
+                             
+                            
+                                 
+                                        
+                                                              
+                      
                        
                                       
                                
@@ -3179,15 +3496,45 @@ const LINKED_PROJECTS_PREVIEW_LIMIT = 5;
                        
                             
                             
+                                    
+                                     
                                 
                                 
  
 
+let activeLoadSeq = 0;
+
 const state          = {
-  overview: null,
-  loading: true,
+  overview: createInitialOverviewShell(),
+  domainLoading: {
+    bootstrap: true,
+    projects: true,
+    billing: true,
+    budgets: false,
+    spend: true,
+  },
+  domainLoaded: {
+    bootstrap: false,
+    projects: false,
+    billing: false,
+    budgets: false,
+    spend: false,
+  },
+  domainErrors: {
+    bootstrap: null,
+    projects: null,
+    billing: null,
+    budgets: null,
+    spend: null,
+  },
+  sectionWarnings: {
+    projects: [],
+    billing: [],
+    budgets: [],
+    spend: [],
+  },
+  projectBillingLinks: {},
   refreshing: false,
-  error: null,
   activeTab: "overview",
   overviewMode: "projects",
   selectedInvoiceMonth: "",
@@ -3206,9 +3553,28 @@ const state          = {
   enablingApi: false,
   signingInBrowser: false,
   settingsMenuOpen: false,
+  settingsQuotaDraft: null,
+  settingsGcloudDraft: null,
   checkingPluginUpdate: false,
   applyingPluginUpdate: false,
 };
+
+function isSpendExpected(overview                           )          {
+  return (
+    overview.preferences.demoMode ||
+    Object.keys(overview.preferences.billingExportTables).length > 0 ||
+    overview.spend.configured
+  );
+}
+
+function isAnyCoreDomainLoading()          {
+  return (
+    state.domainLoading.bootstrap ||
+    state.domainLoading.projects ||
+    state.domainLoading.billing ||
+    (isSpendExpected(state.overview) && state.domainLoading.spend)
+  );
+}
 
 function showToast(message        , kind                               = "info")       {
   if (typeof document === "undefined" || !document) return;
@@ -3221,54 +3587,641 @@ function showToast(message        , kind                               = "info")
   }, 3200);
 }
 
-async function loadData(forceRefresh = false)                {
-  if (forceRefresh) {
-    state.refreshing = true;
-  } else if (!state.overview) {
-    state.loading = true;
+function reconcileSpendSelection(spend             )       {
+  const availableMonths =
+    spend.availableMonths && spend.availableMonths.length > 0
+      ? spend.availableMonths
+      : [spend.invoiceMonth];
+  if (state.selectedInvoiceMonth && !availableMonths.includes(state.selectedInvoiceMonth)) {
+    state.selectedInvoiceMonth = "";
   }
-  state.error = null;
-  renderApp();
+}
 
+function recomputeDerivedOverview()       {
+  const ov = state.overview;
+  const pinnedSet = new Set(ov.preferences.pinnedProjects);
+  const globalExport = ov.preferences.billingExportTables["*"]?.tableId ?? null;
+  const baDisplayMap = new Map                ();
+  for (const ba of ov.billingAccounts) {
+    baDisplayMap.set(ba.id, ba.displayName);
+  }
+
+  const spend = ov.spend;
+  const nextAccounts                   = ov.billingAccounts.map((ba) => ({
+    ...ba,
+    exportTableId: ov.preferences.billingExportTables[ba.id]?.tableId ?? globalExport,
+  }));
+  nextAccounts.sort((a, b) => {
+    if (a.open !== b.open) return a.open ? -1 : 1;
+    if (a.linkedProjectCount !== b.linkedProjectCount) {
+      return b.linkedProjectCount - a.linkedProjectCount;
+    }
+    const spendA = spend.byBillingAccount[a.id]?.currentMonthNetCost ?? -1;
+    const spendB = spend.byBillingAccount[b.id]?.currentMonthNetCost ?? -1;
+    if (spendA !== spendB) return spendB - spendA;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  const nextProjects               = ov.projects.map((p) => {
+    const link = state.domainLoaded.billing ? state.projectBillingLinks[p.projectId] : undefined;
+    const billingAccountId = link !== undefined ? link.billingAccountId : p.billingAccountId;
+    const billingEnabled = link !== undefined ? link.billingEnabled : p.billingEnabled;
+    return {
+      ...p,
+      billingAccountId,
+      billingAccountName: billingAccountId
+        ? (baDisplayMap.get(billingAccountId) ?? p.billingAccountName ?? billingAccountId)
+        : null,
+      billingEnabled,
+      pinned: pinnedSet.has(p.projectId),
+      isActiveProject: ov.auth.activeProject === p.projectId,
+    };
+  });
+
+  nextProjects.sort((a, b) => {
+    if (a.isActiveProject !== b.isActiveProject) return a.isActiveProject ? -1 : 1;
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    const spendA = spend.byProject[a.projectId]?.currentMonthNetCost ?? -1;
+    const spendB = spend.byProject[b.projectId]?.currentMonthNetCost ?? -1;
+    if (spendA !== spendB) return spendB - spendA;
+    return a.projectId.localeCompare(b.projectId);
+  });
+
+  const spendConfigured =
+    spend.configured ||
+    ov.preferences.demoMode ||
+    Object.keys(ov.preferences.billingExportTables).length > 0;
+
+  const combinedWarnings = [
+    ...state.sectionWarnings.projects,
+    ...state.sectionWarnings.billing,
+    ...state.sectionWarnings.budgets,
+    ...state.sectionWarnings.spend,
+  ];
+
+  state.overview = {
+    ...ov,
+    projects: nextProjects,
+    billingAccounts: nextAccounts,
+    summary: {
+      totalProjects: nextProjects.length,
+      billedProjects: nextProjects.filter((p) => p.billingEnabled).length,
+      unbilledProjects: nextProjects.filter((p) => !p.billingEnabled).length,
+      pinnedProjectsCount: nextProjects.filter((p) => p.pinned).length,
+      totalBillingAccounts: nextAccounts.length,
+      openBillingAccounts: nextAccounts.filter((b) => b.open).length,
+      spendConfigured,
+    },
+    warnings: combinedWarnings,
+  };
+}
+
+function applyFullOverview(data                           )       {
+  activeLoadSeq++;
+  const links                                         = {};
+  for (const p of data.projects) {
+    if (p.billingAccountId) {
+      links[p.projectId] = {
+        billingAccountId: p.billingAccountId,
+        billingEnabled: p.billingEnabled,
+      };
+    }
+  }
+  state.projectBillingLinks = links;
+  state.sectionWarnings = {
+    projects: [],
+    billing: [...data.warnings],
+    budgets: [],
+    spend: [],
+  };
+  state.domainLoading = {
+    bootstrap: false,
+    projects: false,
+    billing: false,
+    budgets: false,
+    spend: false,
+  };
+  state.domainLoaded = {
+    bootstrap: true,
+    projects: true,
+    billing: true,
+    budgets: true,
+    spend: true,
+  };
+  state.domainErrors = {
+    bootstrap: null,
+    projects: null,
+    billing: null,
+    budgets: null,
+    spend: null,
+  };
+  state.overview = data;
+  reconcileSpendSelection(data.spend);
+  if (data.preferences.locale) {
+    setLocalePreference(data.preferences.locale);
+  }
+  if (!state.discoverHostProject && data.auth.activeProject) {
+    state.discoverHostProject = data.auth.activeProject;
+  }
+  if (
+    state.enableTargetProject &&
+    !data.projects.some((p) => p.projectId === state.enableTargetProject)
+  ) {
+    state.enableTargetProject = "";
+  }
+  if (state.manualBillingAccountId === "*" && data.billingAccounts.length === 1) {
+    state.manualBillingAccountId = data.billingAccounts[0].id;
+  }
+}
+
+function applyLocalMutationOverview(data                           )       {
+  state.overview = {
+    ...state.overview,
+    auth: data.auth,
+    preferences: data.preferences,
+    pluginUpdate: data.pluginUpdate ?? state.overview.pluginUpdate,
+  };
+  if (data.preferences.locale) {
+    setLocalePreference(data.preferences.locale);
+  }
+  recomputeDerivedOverview();
+}
+
+function handleDomainAuthExpired(expiredAuth            )       {
+  activeLoadSeq++;
+  state.overview = {
+    ...createInitialOverviewShell(),
+    auth: expiredAuth,
+    preferences: state.overview.preferences,
+    pluginUpdate: state.overview.pluginUpdate,
+  };
+  state.domainLoading = {
+    bootstrap: false,
+    projects: false,
+    billing: false,
+    budgets: false,
+    spend: false,
+  };
+  state.domainLoaded = {
+    bootstrap: true,
+    projects: false,
+    billing: false,
+    budgets: false,
+    spend: false,
+  };
+  state.refreshing = false;
+  renderApp();
+}
+
+async function runBudgetsTask(seq        , forceRefresh         )                {
+  state.domainLoading.budgets = true;
+  state.domainErrors.budgets = null;
+  renderApp();
   try {
-    const data = await fetchOverview(forceRefresh);
-    state.overview = data;
-    const availableMonths =
-      data.spend.availableMonths && data.spend.availableMonths.length > 0
-        ? data.spend.availableMonths
-        : [data.spend.invoiceMonth];
-    if (state.selectedInvoiceMonth && !availableMonths.includes(state.selectedInvoiceMonth)) {
-      state.selectedInvoiceMonth = "";
-    }
-    if (data.preferences.locale) {
-      setLocalePreference(data.preferences.locale);
-    }
-    if (!state.discoverHostProject && data.auth.activeProject) {
-      state.discoverHostProject = data.auth.activeProject;
-    }
-    if (
-      state.enableTargetProject &&
-      !data.projects.some((p) => p.projectId === state.enableTargetProject)
-    ) {
-      state.enableTargetProject = "";
-    }
-    if (
-      state.manualBillingAccountId === "*" &&
-      data.billingAccounts.length === 1
-    ) {
-      state.manualBillingAccountId = data.billingAccounts[0].id;
-    }
-    if (forceRefresh) {
-      showToast(t("toast.refreshed"), "success");
+    const res = await fetchBudgetsSection(forceRefresh);
+    if (seq !== activeLoadSeq) return;
+    if (res.authenticated) {
+      state.overview = {
+        ...state.overview,
+        billingAccounts: state.overview.billingAccounts.map((ba) => ({
+          ...ba,
+          budgets: res.budgetsByAccount[ba.id] ?? ba.budgets ?? [],
+        })),
+      };
+      state.sectionWarnings.budgets = res.warnings ?? [];
+      state.domainLoaded.budgets = true;
     }
   } catch (err) {
-    state.error = err instanceof Error ? err.message : t("toast.loadFailed");
-    showToast(state.error, "error");
+    if (seq !== activeLoadSeq) return;
+    state.domainErrors.budgets = err instanceof Error ? err.message : t("toast.loadFailed");
   } finally {
-    state.loading = false;
+    if (seq === activeLoadSeq) {
+      state.domainLoading.budgets = false;
+      recomputeDerivedOverview();
+      renderApp();
+    }
+  }
+}
+
+async function runProjectsTask(seq        , forceRefresh         )                {
+  try {
+    const res = await fetchProjectsSection(forceRefresh);
+    if (seq !== activeLoadSeq) return;
+    if (res.authExpired && res.auth) {
+      handleDomainAuthExpired(res.auth);
+      return;
+    }
+    if (res.authenticated && Array.isArray(res.projects)) {
+      state.overview = {
+        ...state.overview,
+        projects: res.projects,
+        cache: res.cache ?? state.overview.cache,
+      };
+      state.sectionWarnings.projects = res.warnings ?? [];
+      if (
+        state.enableTargetProject &&
+        !res.projects.some((p) => p.projectId === state.enableTargetProject)
+      ) {
+        state.enableTargetProject = "";
+      }
+      state.domainLoaded.projects = true;
+      state.domainErrors.projects = null;
+    }
+  } catch (err) {
+    if (seq !== activeLoadSeq) return;
+    state.domainErrors.projects = err instanceof Error ? err.message : t("toast.loadFailed");
+  } finally {
+    if (seq === activeLoadSeq) {
+      state.domainLoading.projects = false;
+      recomputeDerivedOverview();
+      renderApp();
+    }
+  }
+}
+
+async function runBillingTask(seq        , forceRefresh         )                {
+  try {
+    const res = await fetchBillingSection(forceRefresh);
+    if (seq !== activeLoadSeq) return;
+    if (res.authExpired && res.auth) {
+      handleDomainAuthExpired(res.auth);
+      return;
+    }
+    if (res.authenticated && Array.isArray(res.billingAccounts)) {
+      state.projectBillingLinks = res.projectBillingLinks ?? {};
+      state.overview = {
+        ...state.overview,
+        billingAccounts: res.billingAccounts,
+        cache: res.cache ?? state.overview.cache,
+      };
+      state.sectionWarnings.billing = res.warnings ?? [];
+      if (state.manualBillingAccountId === "*" && res.billingAccounts.length === 1) {
+        state.manualBillingAccountId = res.billingAccounts[0].id;
+      }
+      state.domainLoaded.billing = true;
+      state.domainErrors.billing = null;
+
+      if (res.billingAccounts.length > 0 && !res.budgetsLoaded) {
+        void runBudgetsTask(seq, forceRefresh);
+      } else {
+        state.domainLoaded.budgets = true;
+        state.domainLoading.budgets = false;
+      }
+    }
+  } catch (err) {
+    if (seq !== activeLoadSeq) return;
+    state.domainErrors.billing = err instanceof Error ? err.message : t("toast.loadFailed");
+  } finally {
+    if (seq === activeLoadSeq) {
+      state.domainLoading.billing = false;
+      recomputeDerivedOverview();
+      renderApp();
+    }
+  }
+}
+
+async function runSpendTask(seq        , forceRefresh         )                {
+  try {
+    const res = await fetchSpendSection(forceRefresh);
+    if (seq !== activeLoadSeq) return;
+    if (res.authExpired && res.auth) {
+      handleDomainAuthExpired(res.auth);
+      return;
+    }
+    if (res.authenticated && res.spend) {
+      state.overview = {
+        ...state.overview,
+        spend: res.spend,
+        cache: res.cache ?? state.overview.cache,
+      };
+      state.sectionWarnings.spend = res.warnings ?? [];
+      reconcileSpendSelection(res.spend);
+      state.domainLoaded.spend = true;
+      state.domainErrors.spend = null;
+    }
+  } catch (err) {
+    if (seq !== activeLoadSeq) return;
+    state.domainErrors.spend = err instanceof Error ? err.message : t("toast.loadFailed");
+  } finally {
+    if (seq === activeLoadSeq) {
+      state.domainLoading.spend = false;
+      recomputeDerivedOverview();
+      renderApp();
+    }
+  }
+}
+
+async function retryProjectsDomain()                {
+  state.domainLoading.projects = true;
+  state.domainErrors.projects = null;
+  renderApp();
+  await runProjectsTask(activeLoadSeq, true);
+}
+
+async function retryBillingDomain()                {
+  state.domainLoading.billing = true;
+  state.domainErrors.billing = null;
+  renderApp();
+  await runBillingTask(activeLoadSeq, true);
+}
+
+async function retrySpendDomain()                {
+  state.domainLoading.spend = true;
+  state.domainErrors.spend = null;
+  renderApp();
+  await runSpendTask(activeLoadSeq, true);
+}
+
+async function loadData(
+  forceRefresh = false,
+  options                              = {}
+)                {
+  const seq = ++activeLoadSeq;
+  if (forceRefresh) {
+    state.refreshing = true;
+  }
+
+  if (options.resetSections) {
+    state.projectBillingLinks = {};
+    state.sectionWarnings = { projects: [], billing: [], budgets: [], spend: [] };
+    state.overview = {
+      ...state.overview,
+      projects: [],
+      billingAccounts: [],
+      spend: createEmptyClientSpendReport(),
+      warnings: [],
+    };
+    state.domainLoaded = {
+      bootstrap: state.domainLoaded.bootstrap,
+      projects: false,
+      billing: false,
+      budgets: false,
+      spend: false,
+    };
+    recomputeDerivedOverview();
+  }
+
+  state.domainLoading = {
+    bootstrap: true,
+    projects: true,
+    billing: true,
+    budgets: false,
+    spend: true,
+  };
+  state.domainErrors = {
+    bootstrap: null,
+    projects: null,
+    billing: null,
+    budgets: null,
+    spend: null,
+  };
+  renderApp();
+
+  const pProjects = runProjectsTask(seq, forceRefresh);
+  const pBilling = runBillingTask(seq, forceRefresh);
+  const pSpend = runSpendTask(seq, forceRefresh);
+
+  const pBootstrap = (async () => {
+    try {
+      const boot = await fetchBootstrap(forceRefresh);
+      if (seq !== activeLoadSeq) return;
+
+      // Fallback for mocked environments that only implement monolithic `/api/overview`
+      if (!boot || !boot.auth || !boot.preferences) {
+        const legacyOverview = await fetchOverview(forceRefresh);
+        if (seq !== activeLoadSeq) return;
+        applyFullOverview(legacyOverview);
+        state.refreshing = false;
+        if (forceRefresh) {
+          showToast(t("toast.refreshed"), "success");
+        }
+        renderApp();
+        return;
+      }
+
+      if (boot.preferences.locale) {
+        setLocalePreference(boot.preferences.locale);
+      }
+      if (!state.discoverHostProject && boot.auth.activeProject) {
+        state.discoverHostProject = boot.auth.activeProject;
+      }
+
+      // Stale-while-revalidate: pre-hydrate expired disk snapshot immediately while live section tasks finish
+      if (!forceRefresh && boot.cachedOverview) {
+        const stale = boot.cachedOverview;
+        if (!state.domainLoaded.projects) {
+          state.overview.projects = stale.projects;
+          state.domainLoaded.projects = true;
+        }
+        if (!state.domainLoaded.billing) {
+          const staleLinks                                         = {};
+          for (const p of stale.projects) {
+            if (p.billingAccountId) {
+              staleLinks[p.projectId] = {
+                billingAccountId: p.billingAccountId,
+                billingEnabled: p.billingEnabled,
+              };
+            }
+          }
+          state.projectBillingLinks = staleLinks;
+          state.overview.billingAccounts = stale.billingAccounts;
+          state.domainLoaded.billing = true;
+          state.domainLoaded.budgets = true;
+        }
+        if (!state.domainLoaded.spend) {
+          state.overview.spend = stale.spend;
+          reconcileSpendSelection(stale.spend);
+          state.domainLoaded.spend = true;
+        }
+        state.overview.cache = stale.cache;
+      }
+
+      state.overview = {
+        ...state.overview,
+        auth: boot.auth,
+        preferences: boot.preferences,
+        pluginUpdate: boot.pluginUpdate ?? state.overview.pluginUpdate,
+      };
+      state.domainLoaded.bootstrap = true;
+      state.domainLoading.bootstrap = false;
+
+      if (!boot.auth.authenticated && !boot.preferences.demoMode) {
+        state.domainLoading = {
+          bootstrap: false,
+          projects: false,
+          billing: false,
+          budgets: false,
+          spend: false,
+        };
+      } else if (!boot.spendConfigured && !boot.preferences.demoMode) {
+        state.domainLoaded.spend = true;
+        state.domainLoading.spend = false;
+      }
+
+      recomputeDerivedOverview();
+      renderApp();
+    } catch (err) {
+      if (seq !== activeLoadSeq) return;
+      state.domainErrors.bootstrap = err instanceof Error ? err.message : t("toast.loadFailed");
+      state.domainLoading = {
+        bootstrap: false,
+        projects: false,
+        billing: false,
+        budgets: false,
+        spend: false,
+      };
+      showToast(state.domainErrors.bootstrap, "error");
+      renderApp();
+    }
+  })();
+
+  await Promise.allSettled([pBootstrap, pProjects, pBilling, pSpend]);
+  if (seq === activeLoadSeq) {
     state.refreshing = false;
+    const anyError =
+      state.domainErrors.bootstrap ||
+      state.domainErrors.projects ||
+      state.domainErrors.billing ||
+      state.domainErrors.spend;
+    if (forceRefresh && !anyError) {
+      showToast(t("toast.refreshed"), "success");
+    }
     renderApp();
   }
+}
+
+function renderSectionLoadingPill(label        )              {
+  return h(
+    "span",
+    { className: "section-loading-pill" },
+    h("span", { className: "spinner-xs", ariaHidden: "true" }),
+    h("span", null, label)
+  );
+}
+
+function renderSectionErrorCard(message        , onRetry            )              {
+  return h(
+    "section",
+    { className: "card warning-card" },
+    h(
+      "div",
+      { className: "inline-error-row" },
+      h("span", { className: "warning-line" }, message),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-primary",
+          onClick: onRetry,
+        },
+        t("loading.sectionErrorRetry")
+      )
+    )
+  );
+}
+
+function renderHeroSpendSkeletonCard(statusLabel         )              {
+  return h(
+    "section",
+    { className: "card skeleton-card", ariaBusy: "true" },
+    h(
+      "div",
+      { className: "hero-top-row" },
+      h("span", { className: "skeleton sk-line-sm", ariaHidden: "true" }),
+      statusLabel ? renderSectionLoadingPill(statusLabel) : null
+    ),
+    h("div", { className: "skeleton sk-hero-amt", ariaHidden: "true" }),
+    h(
+      "div",
+      { className: "hero-submetrics", ariaHidden: "true" },
+      h("span", { className: "skeleton sk-pill-md" }),
+      h("span", { className: "skeleton sk-pill-sm" })
+    ),
+    h("div", { className: "skeleton sk-chart-box", ariaHidden: "true" })
+  );
+}
+
+function renderBreakdownSkeletonCard()              {
+  return h(
+    "section",
+    { className: "card skeleton-card", ariaBusy: "true", ariaHidden: "true" },
+    h(
+      "div",
+      { className: "section-header-row" },
+      h("span", { className: "skeleton sk-line-sm" }),
+      h("span", { className: "skeleton sk-pill-md" })
+    ),
+    ...Array.from({ length: 3 }, () =>
+      h(
+        "div",
+        { className: "skeleton-row" },
+        h(
+          "div",
+          { className: "skeleton-stack" },
+          h("span", { className: "skeleton sk-line-md" }),
+          h("span", { className: "skeleton sk-line-xs" })
+        ),
+        h("span", { className: "skeleton sk-amt-sm" })
+      )
+    )
+  );
+}
+
+function renderProjectCardsSkeleton(count = 4)                {
+  return [
+    h(
+      "div",
+      { className: "section-header-row" },
+      renderSectionLoadingPill(t("loading.projects"))
+    ),
+    ...Array.from({ length: count }, () =>
+      h(
+        "article",
+        { className: "card project-card skeleton-card", ariaBusy: "true", ariaHidden: "true" },
+        h(
+          "div",
+          { className: "skeleton-row" },
+          h(
+            "div",
+            { className: "skeleton-stack" },
+            h("span", { className: "skeleton sk-line-md" }),
+            h("span", { className: "skeleton sk-line-sm" })
+          ),
+          h("span", { className: "skeleton sk-amt-sm" })
+        )
+      )
+    ),
+  ];
+}
+
+function renderBillingCardsSkeleton(count = 2)              {
+  return h(
+    "div",
+    { className: "stack-list", ariaBusy: "true" },
+    h(
+      "div",
+      { className: "section-header-row" },
+      renderSectionLoadingPill(t("loading.billing"))
+    ),
+    ...Array.from({ length: count }, () =>
+      h(
+        "article",
+        { className: "card billing-card skeleton-card", ariaHidden: "true" },
+        h(
+          "div",
+          { className: "skeleton-row" },
+          h(
+            "div",
+            { className: "skeleton-stack" },
+            h("span", { className: "skeleton sk-line-md" }),
+            h("span", { className: "skeleton sk-line-xs" })
+          ),
+          h("span", { className: "skeleton sk-pill-sm" })
+        ),
+        h("div", { className: "skeleton sk-chart-box" })
+      )
+    )
+  );
 }
 
 function isCloudBillingApiDisabled(overview                           )          {
@@ -3382,10 +4335,11 @@ function renderBillingApiSetupPrompt(overview                           )       
                   state.enablingApi = true;
                   renderApp();
                   showToast(t("toast.enablingBillingApi", { project: selectedProj }), "info");
-                  state.overview = await enableGcpServiceApi(
+                  const updated = await enableGcpServiceApi(
                     selectedProj,
                     "cloudbilling.googleapis.com"
                   );
+                  applyFullOverview(updated);
                   showToast(t("toast.enabledBillingApi"), "success");
                 } catch (err) {
                   showToast(
@@ -3459,10 +4413,8 @@ function renderLanguageSelect()              {
         setLocalePreference(nextPref);
         renderApp();
         try {
-          state.overview = await updateCompanionPreferences({ locale: nextPref });
-          if (state.overview.preferences.locale) {
-            setLocalePreference(state.overview.preferences.locale);
-          }
+          const updated = await updateCompanionPreferences({ locale: nextPref });
+          applyLocalMutationOverview(updated);
           renderApp();
           showToast(t("toast.languageUpdated"), "success");
         } catch (err) {
@@ -3480,12 +4432,38 @@ function renderLanguageSelect()              {
   );
 }
 
+async function handleToggleDemoMode(nextDemo         , toastMessage        )                {
+  try {
+    state.selectedInvoiceMonth = "";
+    state.overview = {
+      ...state.overview,
+      preferences: {
+        ...state.overview.preferences,
+        demoMode: nextDemo,
+      },
+    };
+    const boot = await updateCloudPreferencesProgressive({ demoMode: nextDemo });
+    state.overview = {
+      ...state.overview,
+      auth: boot.auth,
+      preferences: boot.preferences,
+      pluginUpdate: boot.pluginUpdate ?? state.overview.pluginUpdate,
+    };
+    showToast(toastMessage, "info");
+    await loadData(false, { resetSections: true });
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : t("toast.prefUpdateFailed"), "error");
+    renderApp();
+  }
+}
+
 async function handleInstallPluginUpdate()                {
   if (state.applyingPluginUpdate) return;
   try {
     state.applyingPluginUpdate = true;
     renderApp();
-    state.overview = await applyPluginUpdateApi();
+    const updated = await applyPluginUpdateApi();
+    applyLocalMutationOverview(updated);
     const newVer =
       state.overview.pluginUpdate?.updatedToVersion ||
       state.overview.pluginUpdate?.latestVersion ||
@@ -3505,7 +4483,8 @@ async function handleCheckPluginUpdate()                {
   try {
     state.checkingPluginUpdate = true;
     renderApp();
-    state.overview = await checkPluginUpdateApi();
+    const updated = await checkPluginUpdateApi();
+    applyLocalMutationOverview(updated);
     const upd = state.overview.pluginUpdate;
     if (upd?.error) {
       showToast(upd.error, "error");
@@ -3560,6 +4539,7 @@ function renderHeaderUpdateBadge(overview                           )           
 
 function renderHeader(overview                           )              {
   const mask = overview.preferences.maskEmails;
+  const syncing = state.refreshing || isAnyCoreDomainLoading();
   const accountOptions = overview.auth.accounts.map((acct) =>
     h(
       "option",
@@ -3571,8 +4551,24 @@ function renderHeader(overview                           )              {
     )
   );
 
-  const accountBar =
-    overview.auth.accounts.length > 0
+  const accountBar = !state.domainLoaded.bootstrap
+    ? h(
+        "div",
+        { className: "context-row", ariaHidden: "true" },
+        h(
+          "div",
+          { className: "context-item context-account" },
+          h("span", { className: "context-label" }, t("header.account")),
+          h("span", { className: "skeleton sk-pill-lg" })
+        ),
+        h(
+          "div",
+          { className: "context-item context-project" },
+          h("span", { className: "context-label" }, t("header.activeProject")),
+          h("span", { className: "skeleton sk-pill-md" })
+        )
+      )
+    : overview.auth.accounts.length > 0
       ? h(
           "div",
           { className: "context-row" },
@@ -3591,18 +4587,15 @@ function renderHeader(overview                           )              {
                   const nextAcct = target.value;
                   if (!nextAcct || nextAcct === overview.auth.activeAccount) return;
                   try {
-                    state.refreshing = true;
-                    renderApp();
                     state.selectedInvoiceMonth = "";
-                    state.overview = await switchActiveAccount(nextAcct);
+                    await switchActiveAccountProgressive(nextAcct);
                     showToast(t("toast.switchedAccount"), "success");
+                    await loadData(false, { resetSections: true });
                   } catch (err) {
                     showToast(
                       err instanceof Error ? err.message : t("toast.switchAccountFailed"),
                       "error"
                     );
-                  } finally {
-                    state.refreshing = false;
                     renderApp();
                   }
                 },
@@ -3617,8 +4610,15 @@ function renderHeader(overview                           )              {
                 title: mask ? t("header.showEmailTitle") : t("header.maskEmailTitle"),
                 ariaLabel: mask ? t("header.showEmailAria") : t("header.maskEmailAria"),
                 onClick: async () => {
+                  const nextMask = !mask;
+                  state.overview = {
+                    ...state.overview,
+                    preferences: { ...state.overview.preferences, maskEmails: nextMask },
+                  };
+                  renderApp();
                   try {
-                    state.overview = await updateCompanionPreferences({ maskEmails: !mask });
+                    const updated = await updateCompanionPreferences({ maskEmails: nextMask });
+                    applyLocalMutationOverview(updated);
                     renderApp();
                   } catch (err) {
                     showToast(
@@ -3679,11 +4679,8 @@ function renderHeader(overview                           )              {
                 type: "button",
                 className: "badge badge-demo",
                 title: t("header.demoExitTitle"),
-                onClick: async () => {
-                  state.selectedInvoiceMonth = "";
-                  state.overview = await updateCompanionPreferences({ demoMode: false });
-                  renderApp();
-                  showToast(t("toast.exitedDemo"), "info");
+                onClick: () => {
+                  void handleToggleDemoMode(false, t("toast.exitedDemo"));
                 },
               },
               t("header.demoBadge")
@@ -3693,11 +4690,13 @@ function renderHeader(overview                           )              {
       h(
         "div",
         { className: "brand-right" },
-        h(
-          "span",
-          { className: "sync-age", title: overview.cache.fetchedAt || "" },
-          formatRelativeAge(overview.cache.ageMs, overview.cache.stale)
-        ),
+        syncing
+          ? renderSectionLoadingPill(t("header.syncing"))
+          : h(
+              "span",
+              { className: "sync-age", title: overview.cache.fetchedAt || "" },
+              formatRelativeAge(overview.cache.ageMs, overview.cache.stale)
+            ),
         h(
           "button",
           {
@@ -3853,10 +4852,8 @@ function renderUnauthenticatedView(overview                           )         
           {
             type: "button",
             className: "btn",
-            onClick: async () => {
-              state.overview = await updateCompanionPreferences({ demoMode: true });
-              renderApp();
-              showToast(t("toast.demoEnabled"), "info");
+            onClick: () => {
+              void handleToggleDemoMode(true, t("toast.demoEnabled"));
             },
           },
           t("onboard.previewDemoBtn")
@@ -3922,7 +4919,8 @@ function renderUnauthenticatedView(overview                           )         
               state.signingInBrowser = true;
               renderApp();
               showToast(t("toast.openingBrowserSignIn"), "info");
-              state.overview = await startBrowserLoginApi();
+              const signedInOverview = await startBrowserLoginApi();
+              applyFullOverview(signedInOverview);
               showToast(t("toast.signedInSuccess"), "success");
             } catch (err) {
               showToast(
@@ -3960,10 +4958,8 @@ function renderUnauthenticatedView(overview                           )         
           type: "button",
           className: "btn",
           disabled: state.signingInBrowser,
-          onClick: async () => {
-            state.overview = await updateCompanionPreferences({ demoMode: true });
-            renderApp();
-            showToast(t("toast.demoEnabled"), "info");
+          onClick: () => {
+            void handleToggleDemoMode(true, t("toast.demoEnabled"));
           },
         },
         t("onboard.previewDemoBtn")
@@ -3974,10 +4970,20 @@ function renderUnauthenticatedView(overview                           )         
 }
 
 function renderTabNav(overview                           )              {
-  const tabs                                                          = [
+  const tabs                                                                                  = [
     { id: "overview", label: t("tabs.overview") },
-    { id: "projects", label: t("tabs.projects"), count: overview.summary.totalProjects },
-    { id: "billing", label: t("tabs.billing"), count: overview.summary.totalBillingAccounts },
+    {
+      id: "projects",
+      label: t("tabs.projects"),
+      count: state.domainLoaded.projects ? overview.summary.totalProjects : undefined,
+      loadingCount: !state.domainLoaded.projects && state.domainLoading.projects,
+    },
+    {
+      id: "billing",
+      label: t("tabs.billing"),
+      count: state.domainLoaded.billing ? overview.summary.totalBillingAccounts : undefined,
+      loadingCount: !state.domainLoaded.billing && state.domainLoading.billing,
+    },
   ];
 
   return h(
@@ -3997,7 +5003,11 @@ function renderTabNav(overview                           )              {
           },
         },
         tab.label,
-        tab.count !== undefined ? h("span", { className: "tab-count" }, String(tab.count)) : null
+        tab.count !== undefined
+          ? h("span", { className: "tab-count" }, String(tab.count))
+          : tab.loadingCount
+            ? h("span", { className: "skeleton sk-tab-badge", ariaHidden: "true" })
+            : null
       )
     )
   );
@@ -4203,12 +5213,78 @@ function renderMonthSwitcher(active                      )                     {
   );
 }
 
+async function handleSwitchActiveProject(projectId        , toastKey                                                    )                {
+  const prevActive = state.overview.auth.activeProject;
+  state.enableTargetProject = "";
+  state.overview = {
+    ...state.overview,
+    auth: {
+      ...state.overview.auth,
+      activeProject: projectId,
+    },
+  };
+  recomputeDerivedOverview();
+  renderApp();
+  try {
+    const updated = await switchActiveProject(projectId);
+    applyLocalMutationOverview(updated);
+    renderApp();
+    showToast(t(toastKey, { project: projectId }), "success");
+  } catch (err) {
+    state.overview = {
+      ...state.overview,
+      auth: {
+        ...state.overview.auth,
+        activeProject: prevActive,
+      },
+    };
+    recomputeDerivedOverview();
+    renderApp();
+    showToast(err instanceof Error ? err.message : t("toast.switchProjectFailed"), "error");
+  }
+}
+
+async function handleTogglePinProject(projectId        , nextPinned         )                {
+  const prevPinned = [...state.overview.preferences.pinnedProjects];
+  const nextSet = new Set(prevPinned);
+  if (nextPinned) {
+    nextSet.add(projectId);
+  } else {
+    nextSet.delete(projectId);
+  }
+  state.overview = {
+    ...state.overview,
+    preferences: {
+      ...state.overview.preferences,
+      pinnedProjects: Array.from(nextSet),
+    },
+  };
+  recomputeDerivedOverview();
+  renderApp();
+  try {
+    const updated = await togglePinProject(projectId, nextPinned);
+    applyLocalMutationOverview(updated);
+    renderApp();
+  } catch (err) {
+    state.overview = {
+      ...state.overview,
+      preferences: {
+        ...state.overview.preferences,
+        pinnedProjects: prevPinned,
+      },
+    };
+    recomputeDerivedOverview();
+    renderApp();
+    showToast(err instanceof Error ? err.message : t("toast.pinUpdateFailed"), "error");
+  }
+}
+
 function renderOverviewTab(overview                           )              {
   const active = getActiveSpend(overview);
   const spend = active.spend;
   const sections                = [];
 
-  if (!overview.preferences.demoMode && !overview.auth.gcloudInstalled) {
+  if (state.domainLoaded.bootstrap && !overview.preferences.demoMode && !overview.auth.gcloudInstalled) {
     sections.push(
       h(
         "section",
@@ -4238,7 +5314,20 @@ function renderOverviewTab(overview                           )              {
     );
   }
 
-  if (spend.configured && active.hasAnyMonthRows) {
+  if (!state.domainLoaded.bootstrap) {
+    sections.push(renderHeroSpendSkeletonCard());
+  } else if (isSpendExpected(overview) && !state.domainLoaded.spend) {
+    if (state.domainErrors.spend) {
+      sections.push(
+        renderSectionErrorCard(state.domainErrors.spend, () => {
+          void retrySpendDomain();
+        })
+      );
+    } else {
+      sections.push(renderHeroSpendSkeletonCard(t("loading.spend")));
+      sections.push(renderBreakdownSkeletonCard());
+    }
+  } else if (spend.configured && active.hasAnyMonthRows) {
     const switcher = renderMonthSwitcher(active);
     if (switcher) {
       sections.push(switcher);
@@ -4249,7 +5338,7 @@ function renderOverviewTab(overview                           )              {
         sections.push(
           h(
             "section",
-            { className: "card hero-spend-card" },
+            { className: "card hero-spend-card card-hydrated" },
             h(
               "div",
               { className: "hero-top-row" },
@@ -4264,7 +5353,12 @@ function renderOverviewTab(overview                           )              {
                       month: formatMonthLabel(spend.invoiceMonth),
                     })
               ),
-              renderHeroStatusBadge(active, total)
+              h(
+                "div",
+                { className: "hero-badges-row" },
+                state.domainLoading.spend ? renderSectionLoadingPill(t("loading.spend")) : null,
+                renderHeroStatusBadge(active, total)
+              )
             ),
             h(
               "div",
@@ -4302,20 +5396,19 @@ function renderOverviewTab(overview                           )              {
         );
       }
 
-      // Breakdown toggle: By Project vs By Billing Account
-      const topProjects = [...overview.projects]
-        .filter((p) => spend.byProject[p.projectId])
-        .sort(
-          (a, b) =>
-            getProjectRankScore(spend.byProject[b.projectId]) -
-            getProjectRankScore(spend.byProject[a.projectId])
-        )
+      // Breakdown toggle: By Project vs By Billing Account vs By Service
+      const projectNameById = new Map                ();
+      for (const p of overview.projects) {
+        projectNameById.set(p.projectId, p.name);
+      }
+      const topProjectSummaries = Object.values(spend.byProject)
+        .sort((a, b) => getProjectRankScore(b) - getProjectRankScore(a))
         .slice(0, 5);
 
       sections.push(
         h(
           "section",
-          { className: "card" },
+          { className: "card card-hydrated" },
           h(
             "div",
             { className: "section-header-row" },
@@ -4371,27 +5464,27 @@ function renderOverviewTab(overview                           )              {
             )
           ),
           state.overviewMode === "projects"
-            ? topProjects.length > 0
+            ? topProjectSummaries.length > 0
               ? h(
                   "div",
                   { className: "compact-list" },
-                  ...topProjects.map((proj) => {
-                    const ps = spend.byProject[proj.projectId];
+                  ...topProjectSummaries.map((ps) => {
+                    const displayName = projectNameById.get(ps.projectId) ?? ps.projectId;
                     return h(
                       "div",
                       {
                         className: "compact-row clickable-row",
                         onClick: () => {
                           state.activeTab = "projects";
-                          state.expandedProjectIds.add(proj.projectId);
+                          state.expandedProjectIds.add(ps.projectId);
                           renderApp();
                         },
                       },
                       h(
                         "div",
                         { className: "compact-row-main" },
-                        h("span", { className: "row-primary-text" }, proj.name),
-                        h("span", { className: "row-mono" }, proj.projectId)
+                        h("span", { className: "row-primary-text" }, displayName),
+                        h("span", { className: "row-mono" }, ps.projectId)
                       ),
                       h(
                         "div",
@@ -4427,58 +5520,60 @@ function renderOverviewTab(overview                           )              {
                   spend.totalsByCurrency[0]?.topServices ?? [],
                   spend.totalsByCurrency[0]?.currency ?? "USD"
                 )
-              : h(
-                "div",
-                { className: "compact-list" },
-                ...overview.billingAccounts.map((ba) => {
-                  const bs = spend.byBillingAccount[ba.id];
-                  return h(
+              : !state.domainLoaded.billing
+                ? renderSectionLoadingPill(t("loading.billing"))
+                : h(
                     "div",
-                    {
-                      className: "compact-row clickable-row",
-                      onClick: () => {
-                        state.activeTab = "billing";
-                        renderApp();
-                      },
-                    },
-                    h(
-                      "div",
-                      { className: "compact-row-main" },
-                      h("span", { className: "row-primary-text" }, ba.displayName),
-                      h(
-                        "span",
-                        { className: "row-mono" },
-                        `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
-                      )
-                    ),
-                    h(
-                      "div",
-                      { className: "compact-row-right" },
-                      bs
-                        ? h(
+                    { className: "compact-list" },
+                    ...overview.billingAccounts.map((ba) => {
+                      const bs = spend.byBillingAccount[ba.id];
+                      return h(
+                        "div",
+                        {
+                          className: "compact-row clickable-row",
+                          onClick: () => {
+                            state.activeTab = "billing";
+                            renderApp();
+                          },
+                        },
+                        h(
+                          "div",
+                          { className: "compact-row-main" },
+                          h("span", { className: "row-primary-text" }, ba.displayName),
+                          h(
                             "span",
-                            { className: "amount-strong" },
-                            formatMoney(bs.currentMonthNetCost, bs.currency)
+                            { className: "row-mono" },
+                            `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
                           )
-                        : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
-                      bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
-                        ? h(
+                        ),
+                        h(
+                          "div",
+                          { className: "compact-row-right" },
+                          bs
+                            ? h(
+                                "span",
+                                { className: "amount-strong" },
+                                formatMoney(bs.currentMonthNetCost, bs.currency)
+                              )
+                            : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
+                          bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                            ? h(
+                                "span",
+                                { className: "muted-micro" },
+                                t("chart.grossShort", {
+                                  amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                                })
+                              )
+                            : null,
+                          h(
                             "span",
-                            { className: "muted-micro" },
-                            t("chart.grossShort", {
-                              amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
-                            })
+                            { className: ba.open ? "status-dot-open" : "status-dot-closed" },
+                            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
                           )
-                        : null,
-                      h(
-                        "span",
-                        { className: ba.open ? "status-dot-open" : "status-dot-closed" },
-                        ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
-                      )
-                    )
-                  );
-                })
-              )
+                        )
+                      );
+                    })
+                  )
         )
       );
     } else {
@@ -4513,8 +5608,10 @@ function renderOverviewTab(overview                           )              {
       );
     }
   } else {
-    const billingOff = isCloudBillingApiDisabled(overview);
-    const billingApiPrompt = renderBillingApiSetupPrompt(overview);
+    const billingReady = state.domainLoaded.billing;
+    const projectsReady = state.domainLoaded.projects;
+    const billingOff = billingReady && isCloudBillingApiDisabled(overview);
+    const billingApiPrompt = billingReady ? renderBillingApiSetupPrompt(overview) : null;
     // Progressive Base Mode card when BigQuery export isn't linked yet (or returned 0 rows)
     sections.push(
       h(
@@ -4523,17 +5620,21 @@ function renderOverviewTab(overview                           )              {
         h(
           "div",
           { className: "kpi-cell" },
-          h("span", { className: "kpi-num" }, String(overview.summary.totalProjects)),
+          projectsReady
+            ? h("span", { className: "kpi-num" }, String(overview.summary.totalProjects))
+            : h("span", { className: "skeleton sk-kpi-num", ariaHidden: "true" }),
           h("span", { className: "kpi-label" }, t("overview.kpiActiveProjects"))
         ),
         h(
           "div",
           { className: "kpi-cell" },
-          h(
-            "span",
-            { className: "kpi-num" },
-            billingOff ? "—" : String(overview.summary.openBillingAccounts)
-          ),
+          billingReady
+            ? h(
+                "span",
+                { className: "kpi-num" },
+                billingOff ? "—" : String(overview.summary.openBillingAccounts)
+              )
+            : h("span", { className: "skeleton sk-kpi-num", ariaHidden: "true" }),
           h(
             "span",
             { className: "kpi-label" },
@@ -4543,11 +5644,13 @@ function renderOverviewTab(overview                           )              {
         h(
           "div",
           { className: "kpi-cell" },
-          h(
-            "span",
-            { className: "kpi-num" },
-            billingOff ? "—" : String(overview.summary.unbilledProjects)
-          ),
+          projectsReady && billingReady
+            ? h(
+                "span",
+                { className: "kpi-num" },
+                billingOff ? "—" : String(overview.summary.unbilledProjects)
+              )
+            : h("span", { className: "skeleton sk-kpi-num", ariaHidden: "true" }),
           h(
             "span",
             { className: "kpi-label" },
@@ -4556,7 +5659,13 @@ function renderOverviewTab(overview                           )              {
         )
       )
     );
-    if (billingApiPrompt) {
+    if (state.domainErrors.billing && !billingReady) {
+      sections.push(
+        renderSectionErrorCard(state.domainErrors.billing, () => {
+          void retryBillingDomain();
+        })
+      );
+    } else if (billingApiPrompt) {
       sections.push(billingApiPrompt);
     }
     sections.push(
@@ -4600,11 +5709,8 @@ function renderOverviewTab(overview                           )              {
                 {
                   type: "button",
                   className: "btn btn-sm",
-                  onClick: async () => {
-                    state.selectedInvoiceMonth = "";
-                    state.overview = await updateCompanionPreferences({ demoMode: true });
-                    renderApp();
-                    showToast(t("toast.showingSampleSpend"), "info");
+                  onClick: () => {
+                    void handleToggleDemoMode(true, t("toast.showingSampleSpend"));
                   },
                 },
                 t("overview.previewSampleBtn")
@@ -4625,28 +5731,52 @@ function renderOverviewTab(overview                           )              {
         "div",
         { className: "section-header-row" },
         h("h3", { className: "section-title" }, t("overview.pinnedAndActiveTitle")),
-        h(
-          "button",
-          {
-            type: "button",
-            className: "link-btn",
-            onClick: () => {
-              state.activeTab = "projects";
-              state.projectFilter = "all";
-              state.projectPageLimit = PROJECT_PAGE_SIZE;
-              renderApp();
-            },
-          },
-          t("overview.viewAllProjects", { count: overview.projects.length })
-        )
+        !state.domainLoaded.projects && state.domainLoading.projects
+          ? renderSectionLoadingPill(t("loading.projects"))
+          : h(
+              "button",
+              {
+                type: "button",
+                className: "link-btn",
+                onClick: () => {
+                  state.activeTab = "projects";
+                  state.projectFilter = "all";
+                  state.projectPageLimit = PROJECT_PAGE_SIZE;
+                  renderApp();
+                },
+              },
+              t("overview.viewAllProjects", { count: overview.projects.length })
+            )
       ),
-      quickProjects.length > 0
-        ? h(
-            "div",
-            { className: "compact-list" },
-            ...quickProjects.map((proj) => renderQuickProjectItem(proj, overview))
-          )
-        : h("div", { className: "muted-note" }, t("overview.pinEmptyHint"))
+      !state.domainLoaded.projects
+        ? state.domainErrors.projects
+          ? renderSectionErrorCard(state.domainErrors.projects, () => {
+              void retryProjectsDomain();
+            })
+          : h(
+              "div",
+              { className: "compact-list", ariaBusy: "true", ariaHidden: "true" },
+              ...Array.from({ length: 2 }, () =>
+                h(
+                  "div",
+                  { className: "skeleton-row" },
+                  h(
+                    "div",
+                    { className: "skeleton-stack" },
+                    h("span", { className: "skeleton sk-line-md" }),
+                    h("span", { className: "skeleton sk-line-sm" })
+                  ),
+                  h("span", { className: "skeleton sk-amt-sm" })
+                )
+              )
+            )
+        : quickProjects.length > 0
+          ? h(
+              "div",
+              { className: "compact-list card-hydrated" },
+              ...quickProjects.map((proj) => renderQuickProjectItem(proj, overview))
+            )
+          : h("div", { className: "muted-note" }, t("overview.pinEmptyHint"))
     )
   );
 
@@ -4704,6 +5834,11 @@ function renderQuickProjectItem(
   overview                           
 )              {
   const ps = getActiveSpend(overview).spend.byProject[proj.projectId];
+  const billingSubtext = !state.domainLoaded.billing
+    ? t("loading.billingStatus")
+    : proj.billingAccountName || t("project.unbilledTag");
+  const spendPending = !ps && isSpendExpected(overview) && !state.domainLoaded.spend;
+
   return h(
     "div",
     { className: "compact-row" },
@@ -4719,11 +5854,7 @@ function renderQuickProjectItem(
           ? h("span", { className: "badge badge-active" }, t("project.activeBadge"))
           : null
       ),
-      h(
-        "span",
-        { className: "row-mono" },
-        `${proj.projectId}${proj.billingAccountName ? ` · ${proj.billingAccountName}` : ` · ${t("project.unbilledTag")}`}`
-      )
+      h("span", { className: "row-mono" }, `${proj.projectId} · ${billingSubtext}`)
     ),
     h(
       "div",
@@ -4747,7 +5878,9 @@ function renderQuickProjectItem(
                 )
               : null
           )
-        : null,
+        : spendPending
+          ? h("span", { className: "skeleton sk-amt-sm", ariaHidden: "true" })
+          : null,
       !proj.isActiveProject
         ? h(
             "button",
@@ -4755,18 +5888,8 @@ function renderQuickProjectItem(
               type: "button",
               className: "btn btn-xs",
               title: t("project.setActiveCmdTitle", { project: proj.projectId }),
-              onClick: async () => {
-                try {
-                  state.enableTargetProject = "";
-                  state.overview = await switchActiveProject(proj.projectId);
-                  renderApp();
-                  showToast(t("toast.activeProjectSet", { project: proj.projectId }), "success");
-                } catch (err) {
-                  showToast(
-                    err instanceof Error ? err.message : t("toast.switchProjectFailed"),
-                    "error"
-                  );
-                }
+              onClick: () => {
+                void handleSwitchActiveProject(proj.projectId, "toast.activeProjectSet");
               },
             },
             t("project.setActiveBtn")
@@ -4843,11 +5966,24 @@ function getFilteredAndSortedProjects(overview                           )      
 
 function renderProjectsTab(overview                           )              {
   const focusCount = overview.projects.filter((p) => p.isActiveProject || p.pinned).length;
+  const projectsReady = state.domainLoaded.projects;
+  const billingReady = state.domainLoaded.billing;
 
   const filterChips                                        = [
-    { key: "all", label: t("projects.filterAll", { count: overview.projects.length }) },
-    { key: "unbilled", label: t("projects.filterUnbilled", { count: overview.summary.unbilledProjects }) },
-    { key: "focus", label: t("projects.filterFocus", { count: focusCount }) },
+    {
+      key: "all",
+      label: t("projects.filterAll", { count: projectsReady ? overview.projects.length : "…" }),
+    },
+    {
+      key: "unbilled",
+      label: t("projects.filterUnbilled", {
+        count: projectsReady && billingReady ? overview.summary.unbilledProjects : "…",
+      }),
+    },
+    {
+      key: "focus",
+      label: t("projects.filterFocus", { count: projectsReady ? focusCount : "…" }),
+    },
   ];
 
   if (state.projectFilter.startsWith("ba:")) {
@@ -4874,6 +6010,7 @@ function renderProjectsTab(overview                           )              {
         "div",
         { className: "search-sort-row" },
         h("input", {
+          id: "project-search-input",
           type: "search",
           className: "search-input",
           placeholder: t("projects.searchPlaceholder"),
@@ -4939,7 +6076,7 @@ function renderProjectsTab(overview                           )              {
 
 function renderProjectsListOnly()       {
   const container = document.getElementById("projects-results-container");
-  if (!container || !state.overview) return;
+  if (!container) return;
   clearElement(container);
   for (const node of buildProjectResultsNodes(state.overview)) {
     container.appendChild(node);
@@ -4947,6 +6084,17 @@ function renderProjectsListOnly()       {
 }
 
 function buildProjectResultsNodes(overview                           )                {
+  if (!state.domainLoaded.projects) {
+    if (state.domainErrors.projects) {
+      return [
+        renderSectionErrorCard(state.domainErrors.projects, () => {
+          void retryProjectsDomain();
+        }),
+      ];
+    }
+    return renderProjectCardsSkeleton(4);
+  }
+
   const filtered = getFilteredAndSortedProjects(overview);
   const isCompactDefault = state.projectFilter === "focus" && !state.projectSearch.trim();
   const totalProjects = overview.projects.length;
@@ -5107,17 +6255,9 @@ function buildProjectCards(
             ariaLabel: proj.pinned
               ? t("project.unpinAria", { project: proj.projectId })
               : t("project.pinAria", { project: proj.projectId }),
-            onClick: async (ev) => {
+            onClick: (ev) => {
               ev.stopPropagation();
-              try {
-                state.overview = await togglePinProject(proj.projectId, !proj.pinned);
-                renderApp();
-              } catch (err) {
-                showToast(
-                  err instanceof Error ? err.message : t("toast.pinUpdateFailed"),
-                  "error"
-                );
-              }
+              void handleTogglePinProject(proj.projectId, !proj.pinned);
             },
           },
           proj.pinned ? "★" : "☆"
@@ -5153,9 +6293,11 @@ function buildProjectCards(
               },
               `${proj.projectId} ⧉`
             ),
-            proj.billingEnabled && proj.billingAccountName
-              ? h("span", { className: "billing-tag" }, proj.billingAccountName)
-              : h("span", { className: "billing-tag billing-tag-off" }, t("project.noBillingTag"))
+            !state.domainLoaded.billing
+              ? h("span", { className: "billing-tag" }, t("loading.billingStatus"))
+              : proj.billingEnabled && proj.billingAccountName
+                ? h("span", { className: "billing-tag" }, proj.billingAccountName)
+                : h("span", { className: "billing-tag billing-tag-off" }, t("project.noBillingTag"))
           )
         ),
         h(
@@ -5180,9 +6322,11 @@ function buildProjectCards(
                     )
                   : null
               )
-            : activeSpend.configured
-              ? h("span", { className: "muted-micro" }, formatMoney(0, defaultCurrency))
-              : null,
+            : isSpendExpected(overview) && !state.domainLoaded.spend
+              ? h("span", { className: "skeleton sk-amt-sm", ariaHidden: "true" })
+              : activeSpend.configured
+                ? h("span", { className: "muted-micro" }, formatMoney(0, defaultCurrency))
+                : null,
           h(
             "div",
             { className: "project-btn-group" },
@@ -5192,19 +6336,9 @@ function buildProjectCards(
                   {
                     type: "button",
                     className: "btn btn-xs",
-                    onClick: async (ev) => {
+                    onClick: (ev) => {
                       ev.stopPropagation();
-                      try {
-                        state.enableTargetProject = "";
-                        state.overview = await switchActiveProject(proj.projectId);
-                        renderApp();
-                        showToast(t("toast.switchedProject", { project: proj.projectId }), "success");
-                      } catch (err) {
-                        showToast(
-                          err instanceof Error ? err.message : t("toast.switchProjectFailed"),
-                          "error"
-                        );
-                      }
+                      void handleSwitchActiveProject(proj.projectId, "toast.switchedProject");
                     },
                   },
                   t("project.setActiveBtn")
@@ -5270,13 +6404,15 @@ function buildProjectCards(
                   ),
                   renderServiceBreakdownList(ps.topServices, ps.currency)
                 )
-              : h(
-                  "div",
-                  { className: "muted-note" },
-                  overview.spend.configured
-                    ? t("project.noBqCostThisMonth")
-                    : t("project.connectBqForCosts")
-                ),
+              : isSpendExpected(overview) && !state.domainLoaded.spend
+                ? renderSectionLoadingPill(t("loading.spend"))
+                : h(
+                    "div",
+                    { className: "muted-note" },
+                    overview.spend.configured
+                      ? t("project.noBqCostThisMonth")
+                      : t("project.connectBqForCosts")
+                  ),
             h(
               "div",
               { className: "console-links-row" },
@@ -5405,7 +6541,9 @@ function renderLinkedProjectsForBillingAccount(
                   )
                 : null
             )
-          : null,
+          : isSpendExpected(overview) && !state.domainLoaded.spend
+            ? h("span", { className: "skeleton sk-amt-sm", ariaHidden: "true" })
+            : null,
         !isActive
           ? h(
               "button",
@@ -5413,18 +6551,8 @@ function renderLinkedProjectsForBillingAccount(
                 type: "button",
                 className: "btn btn-xs",
                 title: t("billing.setActiveTitle", { project: projId }),
-                onClick: async () => {
-                  try {
-                    state.enableTargetProject = "";
-                    state.overview = await switchActiveProject(projId);
-                    renderApp();
-                    showToast(t("toast.activeProjectSet", { project: projId }), "success");
-                  } catch (err) {
-                    showToast(
-                      err instanceof Error ? err.message : t("toast.switchProjectFailed"),
-                      "error"
-                    );
-                  }
+                onClick: () => {
+                  void handleSwitchActiveProject(projId, "toast.activeProjectSet");
                 },
               },
               t("project.setActiveBtn")
@@ -5615,15 +6743,22 @@ function renderBillingAccountCard(
           renderDailySparkline(bs.dailySeries, bs.currency),
           renderServiceBreakdownList(bs.topServices.slice(0, 4), bs.currency)
         )
-      : ba.open
+      : ba.open && ba.exportTableId && !state.domainLoaded.spend && state.domainLoading.spend
         ? h(
             "div",
-            { className: "muted-note billing-export-hint" },
-            ba.exportTableId
-              ? t("billing.boundNoRows", { table: ba.exportTableId })
-              : t("billing.linkExportHint")
+            { className: "billing-spend-box", ariaBusy: "true" },
+            renderSectionLoadingPill(t("loading.spend")),
+            h("div", { className: "skeleton sk-hero-amt", ariaHidden: "true" })
           )
-        : null,
+        : ba.open
+          ? h(
+              "div",
+              { className: "muted-note billing-export-hint" },
+              ba.exportTableId
+                ? t("billing.boundNoRows", { table: ba.exportTableId })
+                : t("billing.linkExportHint")
+            )
+          : null,
     ba.budgets.length > 0
       ? h(
           "div",
@@ -5650,7 +6785,13 @@ function renderBillingAccountCard(
             );
           })
         )
-      : null
+      : ba.open && state.domainLoading.budgets && !state.domainLoaded.budgets
+        ? h(
+            "div",
+            { className: "budgets-block" },
+            renderSectionLoadingPill(t("loading.budgets"))
+          )
+        : null
   );
 }
 
@@ -5716,10 +6857,11 @@ function renderBillingExportSetupCard(overview                           )      
                   onClick: async () => {
                     try {
                       state.selectedInvoiceMonth = "";
-                      state.overview = await configureExportTableApi({
+                      const updated = await configureExportTableApi({
                         billingAccountId: m.billingAccountId,
                         remove: true,
                       });
+                      applyFullOverview(updated);
                       renderApp();
                       showToast(t("toast.removedExportMapping"), "info");
                     } catch (err) {
@@ -5749,6 +6891,7 @@ function renderBillingExportSetupCard(overview                           )      
         "div",
         { className: "form-inline-row" },
         h("input", {
+          id: "export-host-input",
           type: "text",
           list: overview.projects.length > 0 ? "host-projects-datalist" : undefined,
           className: "text-input flex-1",
@@ -5831,11 +6974,12 @@ function renderBillingExportSetupCard(overview                           )      
                         state.refreshing = true;
                         renderApp();
                         state.selectedInvoiceMonth = "";
-                        state.overview = await configureExportTableApi({
+                        const updated = await configureExportTableApi({
                           billingAccountId: tbl.inferredBillingAccountId || "*",
                           tableId: tbl.tableId,
                           hostProjectId: tbl.hostProjectId,
                         });
+                        applyFullOverview(updated);
                         showToast(t("toast.connectedExport"), "success");
                       } catch (err) {
                         showToast(
@@ -5871,10 +7015,11 @@ function renderBillingExportSetupCard(overview                           )      
             state.refreshing = true;
             renderApp();
             state.selectedInvoiceMonth = "";
-            state.overview = await configureExportTableApi({
+            const updated = await configureExportTableApi({
               billingAccountId: state.manualBillingAccountId || "*",
               tableId,
             });
+            applyFullOverview(updated);
             state.manualTableId = "";
             showToast(t("toast.savedExportTable"), "success");
           } catch (err) {
@@ -5901,6 +7046,7 @@ function renderBillingExportSetupCard(overview                           )      
         "div",
         { className: "form-inline-row" },
         h("input", {
+          id: "export-manual-table-input",
           type: "text",
           className: "text-input flex-1",
           placeholder: "project_id.dataset.gcp_billing_export_v1_XXXXXX_XXXXXX_XXXXXX",
@@ -5993,7 +7139,8 @@ function renderPluginUpdateSection(overview                           )         
           onChange: async (ev) => {
             const nextAuto = (ev.target                    ).checked;
             try {
-              state.overview = await updateCompanionPreferences({ autoUpdatePlugin: nextAuto });
+              const updated = await updateCompanionPreferences({ autoUpdatePlugin: nextAuto });
+              applyLocalMutationOverview(updated);
               renderApp();
             } catch (err) {
               showToast(
@@ -6039,8 +7186,14 @@ function renderPluginUpdateSection(overview                           )         
 function renderSettingsBodyContent(overview                           )                {
   const currentHours = overview.preferences.cacheTtlHours;
   const mask = overview.preferences.maskEmails;
-  let quotaInputVal = overview.preferences.quotaProjectOverride || "";
-  let gcloudPathVal = overview.preferences.gcloudPathOverride || "";
+  const quotaInputVal =
+    state.settingsQuotaDraft !== null
+      ? state.settingsQuotaDraft
+      : overview.preferences.quotaProjectOverride || "";
+  const gcloudPathVal =
+    state.settingsGcloudDraft !== null
+      ? state.settingsGcloudDraft
+      : overview.preferences.gcloudPathOverride || "";
 
   return [
     h(
@@ -6059,7 +7212,8 @@ function renderSettingsBodyContent(overview                           )         
           className: "compact-select full-width",
           onChange: async (ev) => {
             const hrs = Number((ev.target                     ).value);
-            state.overview = await updateCompanionPreferences({ cacheTtlHours: hrs });
+            const updated = await updateCompanionPreferences({ cacheTtlHours: hrs });
+            applyLocalMutationOverview(updated);
             renderApp();
             showToast(t("toast.cacheTtlSet", { hours: hrs }), "success");
           },
@@ -6091,7 +7245,8 @@ function renderSettingsBodyContent(overview                           )         
           onChange: async (ev) => {
             const nextMask = (ev.target                    ).checked;
             try {
-              state.overview = await updateCompanionPreferences({ maskEmails: nextMask });
+              const updated = await updateCompanionPreferences({ maskEmails: nextMask });
+              applyLocalMutationOverview(updated);
               renderApp();
             } catch (err) {
               showToast(
@@ -6107,12 +7262,9 @@ function renderSettingsBodyContent(overview                           )         
         {
           type: "button",
           className: "btn btn-sm full-width",
-          onClick: async () => {
+          onClick: () => {
             const nextDemo = !overview.preferences.demoMode;
-            state.selectedInvoiceMonth = "";
-            state.overview = await updateCompanionPreferences({ demoMode: nextDemo });
-            renderApp();
-            showToast(nextDemo ? t("toast.demoOn") : t("toast.demoOff"), "info");
+            void handleToggleDemoMode(nextDemo, nextDemo ? t("toast.demoOn") : t("toast.demoOff"));
           },
         },
         overview.preferences.demoMode ? t("settings.switchToLiveBtn") : t("settings.enableDemoBtn")
@@ -6131,12 +7283,13 @@ function renderSettingsBodyContent(overview                           )         
           { className: "field-label" },
           t("settings.quotaProjectLabel"),
           h("input", {
+            id: "settings-quota-input",
             type: "text",
             className: "text-input full-width",
             placeholder: t("settings.quotaProjectPlaceholder"),
             value: quotaInputVal,
             onInput: (ev) => {
-              quotaInputVal = (ev.target                    ).value;
+              state.settingsQuotaDraft = (ev.target                    ).value;
             },
           })
         ),
@@ -6145,12 +7298,13 @@ function renderSettingsBodyContent(overview                           )         
           { className: "field-label" },
           t("settings.gcloudPathLabel"),
           h("input", {
+            id: "settings-gcloud-input",
             type: "text",
             className: "text-input full-width",
             placeholder: "/opt/homebrew/bin/gcloud",
             value: gcloudPathVal,
             onInput: (ev) => {
-              gcloudPathVal = (ev.target                    ).value;
+              state.settingsGcloudDraft = (ev.target                    ).value;
             },
           })
         ),
@@ -6164,12 +7318,26 @@ function renderSettingsBodyContent(overview                           )         
               className: "btn btn-sm btn-primary",
               onClick: async () => {
                 try {
-                  state.overview = await updateCompanionPreferences({
-                    quotaProjectOverride: quotaInputVal.trim() || null,
-                    gcloudPathOverride: gcloudPathVal.trim() || null,
+                  const nextQuota =
+                    (state.settingsQuotaDraft !== null ? state.settingsQuotaDraft : quotaInputVal)
+                      .trim() || null;
+                  const nextGcloud =
+                    (state.settingsGcloudDraft !== null ? state.settingsGcloudDraft : gcloudPathVal)
+                      .trim() || null;
+                  const boot = await updateCloudPreferencesProgressive({
+                    quotaProjectOverride: nextQuota,
+                    gcloudPathOverride: nextGcloud,
                   });
-                  renderApp();
+                  state.settingsQuotaDraft = null;
+                  state.settingsGcloudDraft = null;
+                  state.overview = {
+                    ...state.overview,
+                    auth: boot.auth,
+                    preferences: boot.preferences,
+                    pluginUpdate: boot.pluginUpdate ?? state.overview.pluginUpdate,
+                  };
                   showToast(t("toast.savedSettings"), "success");
+                  await loadData(false, { resetSections: true });
                 } catch (err) {
                   showToast(
                     err instanceof Error ? err.message : t("toast.invalidSettings"),
@@ -6241,7 +7409,8 @@ function renderSettingsDetails(overview                           )             
 }
 
 function renderBillingTab(overview                           )              {
-  const billingApiPrompt = renderBillingApiSetupPrompt(overview);
+  const billingReady = state.domainLoaded.billing;
+  const billingApiPrompt = billingReady ? renderBillingApiSetupPrompt(overview) : null;
   const otherWarnings = getNonBillingApiWarnings(overview);
   const warningSection =
     otherWarnings.length > 0
@@ -6267,37 +7436,90 @@ function renderBillingTab(overview                           )              {
     billingApiPrompt,
     warningSection,
     active.spend.configured && active.hasAnyMonthRows ? renderMonthSwitcher(active) : null,
-    overview.billingAccounts.length > 0
-      ? h(
-           "div",
-          { className: "stack-list" },
-          ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
-          inactiveClosedAccounts.length > 0
-            ? h(
-                "details",
-                {
-                  className: "card closed-accounts-details",
-                  ...(primaryAccounts.length === 0 ? { open: "open" } : {}),
-                }                           ,
-                h(
-                  "summary",
-                  { className: "settings-summary" },
-                  t("billing.closedAccountsSummary", { count: inactiveClosedAccounts.length })
-                ),
-                h(
-                  "div",
-                  { className: "stack-list closed-accounts-list" },
-                  ...inactiveClosedAccounts.map((ba) => renderBillingAccountCard(ba, overview))
+    !billingReady
+      ? state.domainErrors.billing
+        ? renderSectionErrorCard(state.domainErrors.billing, () => {
+            void retryBillingDomain();
+          })
+        : renderBillingCardsSkeleton(2)
+      : overview.billingAccounts.length > 0
+        ? h(
+            "div",
+            { className: "stack-list card-hydrated" },
+            ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
+            inactiveClosedAccounts.length > 0
+              ? h(
+                  "details",
+                  {
+                    className: "card closed-accounts-details",
+                    ...(primaryAccounts.length === 0 ? { open: "open" } : {}),
+                  }                           ,
+                  h(
+                    "summary",
+                    { className: "settings-summary" },
+                    t("billing.closedAccountsSummary", { count: inactiveClosedAccounts.length })
+                  ),
+                  h(
+                    "div",
+                    { className: "stack-list closed-accounts-list" },
+                    ...inactiveClosedAccounts.map((ba) => renderBillingAccountCard(ba, overview))
+                  )
                 )
-              )
-            : null
-        )
-      : billingApiPrompt
-        ? null
-        : h("div", { className: "card muted-note" }, t("billing.noAccountsVisible")),
+              : null
+          )
+        : billingApiPrompt
+          ? null
+          : h("div", { className: "card muted-note" }, t("billing.noAccountsVisible")),
     renderBillingExportSetupCard(overview),
     renderSettingsDetails(overview)
   );
+}
+
+                           
+             
+                                
+                              
+ 
+
+function captureFocusedInput()                         {
+  if (typeof document === "undefined" || !document) return null;
+  const active = (document                               ).activeElement;
+  if (!active || !(active instanceof HTMLInputElement) || !active.id) {
+    return null;
+  }
+  let selectionStart                = null;
+  let selectionEnd                = null;
+  try {
+    selectionStart = typeof active.selectionStart === "number" ? active.selectionStart : null;
+    selectionEnd = typeof active.selectionEnd === "number" ? active.selectionEnd : null;
+  } catch {
+    // Some input types (e.g. checkbox) do not support selectionStart
+  }
+  return { id: active.id, selectionStart, selectionEnd };
+}
+
+function restoreFocusedInput(saved                        )       {
+  if (!saved || typeof document === "undefined" || !document) return;
+  const next = document.getElementById(saved.id);
+  if (!next || !(next instanceof HTMLInputElement)) return;
+  if (typeof next.focus === "function") {
+    try {
+      next.focus({ preventScroll: true });
+    } catch {
+      next.focus();
+    }
+  }
+  if (
+    saved.selectionStart !== null &&
+    saved.selectionEnd !== null &&
+    typeof next.setSelectionRange === "function"
+  ) {
+    try {
+      next.setSelectionRange(saved.selectionStart, saved.selectionEnd);
+    } catch {
+      // Ignore input types that disallow selection ranges
+    }
+  }
 }
 
 function renderApp()       {
@@ -6308,42 +7530,8 @@ function renderApp()       {
 
   const root = document.getElementById("app");
   if (!root) return;
+  const savedFocus = captureFocusedInput();
   clearElement(root);
-
-  if (state.loading && !state.overview) {
-    root.appendChild(
-      h(
-        "div",
-        { className: "boot-loading" },
-        h("div", { className: "spinner" }),
-        h("div", null, t("boot.connecting"))
-      )
-    );
-    return;
-  }
-
-  if (!state.overview) {
-    root.appendChild(
-      h(
-        "div",
-        { className: "card error-card" },
-        h("h2", { className: "card-title" }, t("boot.errorTitle")),
-        h("p", { className: "card-desc" }, state.error || t("boot.unknownError")),
-        h(
-          "button",
-          {
-            type: "button",
-            className: "btn btn-primary",
-            onClick: () => {
-              void loadData(false);
-            },
-          },
-          t("boot.retry")
-        )
-      )
-    );
-    return;
-  }
 
   const overview = state.overview;
   root.appendChild(renderHeader(overview));
@@ -6352,9 +7540,39 @@ function renderApp()       {
     root.appendChild(settingsOverlay);
   }
 
-  if (!overview.auth.authenticated && !overview.preferences.demoMode) {
+  if (state.domainErrors.bootstrap && !state.domainLoaded.bootstrap) {
+    root.appendChild(
+      h(
+        "main",
+        { className: "main-body" },
+        h(
+          "div",
+          { className: "card error-card" },
+          h("h2", { className: "card-title" }, t("boot.errorTitle")),
+          h("p", { className: "card-desc" }, state.domainErrors.bootstrap || t("boot.unknownError")),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "btn btn-primary",
+              onClick: () => {
+                void loadData(false);
+              },
+            },
+            t("boot.retry")
+          )
+        )
+      )
+    );
+    bindLogoSources(root);
+    restoreFocusedInput(savedFocus);
+    return;
+  }
+
+  if (state.domainLoaded.bootstrap && !overview.auth.authenticated && !overview.preferences.demoMode) {
     root.appendChild(h("main", { className: "main-body" }, renderUnauthenticatedView(overview)));
     bindLogoSources(root);
+    restoreFocusedInput(savedFocus);
     return;
   }
 
@@ -6369,8 +7587,18 @@ function renderApp()       {
     activeContent = renderOverviewTab(overview);
   }
 
-  root.appendChild(h("main", { className: "main-body" }, activeContent));
+  root.appendChild(
+    h(
+      "main",
+      {
+        className: "main-body",
+        ariaBusy: isAnyCoreDomainLoading() ? "true" : undefined,
+      },
+      activeContent
+    )
+  );
   bindLogoSources(root);
+  restoreFocusedInput(savedFocus);
 }
 
 if (typeof window !== "undefined" && typeof window.addEventListener === "function") {

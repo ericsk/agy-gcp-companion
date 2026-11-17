@@ -189,6 +189,24 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
 
     let simulateBillingApiDisabled = false;
     let simulatedAuthMode: "normal" | "no_cli" | "no_login" = "normal";
+    let gateInitialBoot = true;
+    let releaseBootGate!: () => void;
+    let releaseProjectsGate!: () => void;
+    let releaseBillingGate!: () => void;
+    let releaseSpendGate!: () => void;
+    const bootGate = new Promise<void>((r) => {
+      releaseBootGate = r;
+    });
+    const projectsGate = new Promise<void>((r) => {
+      releaseProjectsGate = r;
+    });
+    const billingGate = new Promise<void>((r) => {
+      releaseBillingGate = r;
+    });
+    const spendGate = new Promise<void>((r) => {
+      releaseSpendGate = r;
+    });
+
     Object.assign(globalThis, {
       Node: MockNode,
       HTMLAnchorElement: MockAnchorElement,
@@ -232,23 +250,18 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
             { status: 200 }
           );
         }
-        if (url.includes("/api/enable-service")) {
-          simulateBillingApiDisabled = false;
-          const overview = await service.getOverview();
-          return new Response(JSON.stringify({ overview }), { status: 200 });
-        }
-        if (url.includes("/api/auth-login")) {
-          simulatedAuthMode = "normal";
-          const overview = await service.getOverview();
-          return new Response(JSON.stringify({ overview }), { status: 200 });
-        }
-        if (url.includes("/api/overview")) {
-          const overview = await service.getOverview();
+        if (url.includes("/api/bootstrap")) {
+          if (gateInitialBoot) await bootGate;
+          const boot = await service.getBootstrap();
           if (simulatedAuthMode === "no_cli") {
             return new Response(
               JSON.stringify({
-                ...overview,
-                preferences: { ...overview.preferences, demoMode: false },
+                ...boot,
+                csrfToken: "t1",
+                proxyCsrfToken: "t2",
+                expiresInMs: 1800000,
+                preferences: { ...boot.preferences, demoMode: false },
+                spendConfigured: false,
                 auth: {
                   authenticated: false,
                   source: "none",
@@ -267,8 +280,12 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           if (simulatedAuthMode === "no_login") {
             return new Response(
               JSON.stringify({
-                ...overview,
-                preferences: { ...overview.preferences, demoMode: false },
+                ...boot,
+                csrfToken: "t1",
+                proxyCsrfToken: "t2",
+                expiresInMs: 1800000,
+                preferences: { ...boot.preferences, demoMode: false },
+                spendConfigured: false,
                 auth: {
                   authenticated: false,
                   source: "none",
@@ -284,12 +301,53 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
               { status: 200 }
             );
           }
-          if (simulateBillingApiDisabled) {
+          return new Response(
+            JSON.stringify({
+              ...boot,
+              csrfToken: "t1",
+              proxyCsrfToken: "t2",
+              expiresInMs: 1800000,
+              spendConfigured: simulateBillingApiDisabled ? false : boot.spendConfigured,
+              preferences: simulateBillingApiDisabled
+                ? { ...boot.preferences, demoMode: false }
+                : boot.preferences,
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes("/api/projects")) {
+          if (gateInitialBoot) await projectsGate;
+          if (simulatedAuthMode !== "normal") {
+            return new Response(
+              JSON.stringify({ authenticated: false, projects: [], warnings: [] }),
+              { status: 200 }
+            );
+          }
+          const projData = await service.getProjectsSection();
+          return new Response(JSON.stringify(projData), { status: 200 });
+        }
+        if (url.includes("/api/billing") && !url.includes("/api/billing-export")) {
+          if (gateInitialBoot) await billingGate;
+          if (simulatedAuthMode !== "normal") {
             return new Response(
               JSON.stringify({
-                ...overview,
+                authenticated: false,
                 billingAccounts: [],
-                summary: { ...overview.summary, totalBillingAccounts: 0, openBillingAccounts: 0 },
+                projectBillingLinks: {},
+                budgetsLoaded: true,
+                warnings: [],
+              }),
+              { status: 200 }
+            );
+          }
+          if (simulateBillingApiDisabled) {
+            const billData = await service.getBillingSection();
+            return new Response(
+              JSON.stringify({
+                ...billData,
+                billingAccounts: [],
+                projectBillingLinks: {},
+                budgetsLoaded: true,
                 warnings: [
                   "Cloud Billing Accounts list warning: HTTP 403: Cloud Billing API has not been used in project acme-ai-assistant-prod before or it is disabled.",
                 ],
@@ -297,6 +355,42 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
               { status: 200 }
             );
           }
+          const billData = await service.getBillingSection();
+          return new Response(JSON.stringify(billData), { status: 200 });
+        }
+        if (url.includes("/api/budgets")) {
+          const budData = await service.getBudgetsSection();
+          return new Response(JSON.stringify(budData), { status: 200 });
+        }
+        if (url.includes("/api/spend")) {
+          if (gateInitialBoot) await spendGate;
+          if (simulatedAuthMode !== "normal" || simulateBillingApiDisabled) {
+            const overview = await service.getOverview();
+            return new Response(
+              JSON.stringify({
+                authenticated: simulatedAuthMode === "normal",
+                spend: { ...overview.spend, configured: false, totalsByCurrency: [], byProject: {}, byBillingAccount: {} },
+                cache: overview.cache,
+                warnings: [],
+              }),
+              { status: 200 }
+            );
+          }
+          const spendData = await service.getSpendSection();
+          return new Response(JSON.stringify(spendData), { status: 200 });
+        }
+        if (url.includes("/api/enable-service")) {
+          simulateBillingApiDisabled = false;
+          const overview = await service.getOverview();
+          return new Response(JSON.stringify({ overview }), { status: 200 });
+        }
+        if (url.includes("/api/auth-login")) {
+          simulatedAuthMode = "normal";
+          const overview = await service.getOverview();
+          return new Response(JSON.stringify({ overview }), { status: 200 });
+        }
+        if (url.includes("/api/overview")) {
+          const overview = await service.getOverview();
           return new Response(JSON.stringify(overview), { status: 200 });
         }
         if (url.includes("/api/plugin-update/check")) {
@@ -353,7 +447,44 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
 
     try {
       await import("../dist/web/app.js");
-      // Wait for initial async loadData(false) to settle
+
+      // 0a. Shell-first check: BEFORE any API response resolves, Header + Tabs + Settings button are already rendered!
+      assert.ok(appRoot.allText.includes("GCP Companion"), "Expected Header title before data arrives");
+      assert.ok(appRoot.findButtonsByText("Overview").length >= 1, "Expected Overview tab immediately");
+      assert.ok(appRoot.findButtonsByText("Projects").length >= 1, "Expected Projects tab immediately");
+      assert.ok(appRoot.findButtonsByText("Billing").length >= 1, "Expected Billing tab immediately");
+      assert.ok(appRoot.findButtonsByText("⚙").length >= 1, "Expected Settings button immediately");
+
+      // 0b. Bootstrap resolves -> Account & Active Project populate while Projects/Billing/Spend are still loading
+      releaseBootGate();
+      await new Promise((r) => setTimeout(r, 15));
+      assert.ok(appRoot.allText.includes("acme-ai-assistant-prod"), "Expected Active Project from bootstrap");
+      assert.ok(appRoot.allText.includes("Querying BigQuery spend"), "Expected independent BigQuery loading hint");
+      assert.ok(appRoot.allText.includes("Loading projects"), "Expected independent Projects loading hint");
+
+      // 0c. Projects resolves BEFORE Billing and BEFORE Spend -> Projects render immediately without waiting!
+      releaseProjectsGate();
+      await new Promise((r) => setTimeout(r, 15));
+      assert.ok(
+        appRoot.allText.includes("Acme AI Assistant (Prod)"),
+        "Expected Pinned/Active projects to render before Billing & Spend finish"
+      );
+      assert.ok(
+        appRoot.allText.includes("Checking billing"),
+        "Expected neutral billing status check instead of false 'Unbilled' flash while Billing API is still loading"
+      );
+
+      // 0d. Billing resolves BEFORE Spend -> Billing account names enrich projects while Spend is still querying!
+      releaseBillingGate();
+      await new Promise((r) => setTimeout(r, 15));
+      assert.ok(
+        appRoot.allText.includes("Acme Cloud Production Billing"),
+        "Expected Billing Account name on project before BigQuery Spend finishes"
+      );
+
+      // 0e. Spend resolves last -> Hero Spend & Sparkline hydrate smoothly
+      gateInitialBoot = false;
+      releaseSpendGate();
       for (let i = 0; i < 40 && !appRoot.allText.includes("Month-to-Date Net Spend"); i++) {
         await new Promise((r) => setTimeout(r, 15));
       }

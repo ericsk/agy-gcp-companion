@@ -285,8 +285,7 @@ export function createSidecarHttpServer(options                       = {})     
       // Normalize optional proxy subpath prefixes while keeping exact suffix matching for /api/* and assets
       const pathname = parsedUrl.pathname;
 
-      // Session & CSRF bootstrap endpoint
-      if (method === "GET" && pathname.endsWith("/api/session")) {
+      const issueSessionPayload = () => {
         const cookies = parseCookies(req.headers.cookie);
         const sid =
           cookies.agy_sid && /^[a-f0-9]{32}$/.test(cookies.agy_sid)
@@ -300,12 +299,31 @@ export function createSidecarHttpServer(options                       = {})     
           "Set-Cookie",
           `agy_sid=${sid}; HttpOnly; SameSite=Strict; Max-Age=1800; Path=/`
         );
-        sendJson(res, 200, {
-          status: "ok",
-          version: "1.0.0",
+        return {
           csrfToken,
           proxyCsrfToken,
           expiresInMs: SESSION_TTL_MS,
+        };
+      };
+
+      // Session & CSRF bootstrap endpoint
+      if (method === "GET" && pathname.endsWith("/api/session")) {
+        sendJson(res, 200, {
+          status: "ok",
+          version: "1.0.0",
+          ...issueSessionPayload(),
+        });
+        return;
+      }
+
+      // Fast local UI bootstrap endpoint (returns auth, preferences, plugin update status & CSRF session in 1 roundtrip)
+      if (method === "GET" && pathname.endsWith("/api/bootstrap")) {
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
+        const sessionPayload = issueSessionPayload();
+        const bootstrap = await service.getBootstrap({ forceRefresh });
+        sendJson(res, 200, {
+          ...bootstrap,
+          ...sessionPayload,
         });
         return;
       }
@@ -333,7 +351,36 @@ export function createSidecarHttpServer(options                       = {})     
         }
       }
 
-      // API Routes
+      // Independent Progressive Domain Routes
+      if (method === "GET" && pathname.endsWith("/api/projects")) {
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
+        const projectsData = await service.getProjectsSection({ forceRefresh });
+        sendJson(res, 200, projectsData);
+        return;
+      }
+
+      if (method === "GET" && pathname.endsWith("/api/billing")) {
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
+        const billingData = await service.getBillingSection({ forceRefresh });
+        sendJson(res, 200, billingData);
+        return;
+      }
+
+      if (method === "GET" && pathname.endsWith("/api/budgets")) {
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
+        const budgetsData = await service.getBudgetsSection({ forceRefresh });
+        sendJson(res, 200, budgetsData);
+        return;
+      }
+
+      if (method === "GET" && pathname.endsWith("/api/spend")) {
+        const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
+        const spendData = await service.getSpendSection({ forceRefresh });
+        sendJson(res, 200, spendData);
+        return;
+      }
+
+      // Monolithic Overview & Breakdown Routes (MCP / legacy compatibility)
       if (method === "GET" && pathname.endsWith("/api/overview")) {
         const forceRefresh = parsedUrl.searchParams.get("refresh") === "1";
         const overview = await service.getOverview({ forceRefresh });
@@ -351,7 +398,7 @@ export function createSidecarHttpServer(options                       = {})     
       if (method === "POST" && pathname.endsWith("/api/active-project")) {
         const body = await readJsonBody(req);
         const result = await service.setActiveProject(String(body.projectId ?? ""));
-        const overview = await service.getOverview({ forceRefresh: false });
+        const overview = await service.getFastOverviewAfterLocalMutation();
         sendJson(res, 200, { ...result, overview });
         return;
       }
@@ -359,6 +406,10 @@ export function createSidecarHttpServer(options                       = {})     
       if (method === "POST" && pathname.endsWith("/api/active-account")) {
         const body = await readJsonBody(req);
         const result = await service.setActiveAccount(String(body.account ?? ""));
+        if (body.progressive === true) {
+          sendJson(res, 200, result);
+          return;
+        }
         const overview = await service.getOverview({ forceRefresh: false });
         sendJson(res, 200, { ...result, overview });
         return;
@@ -367,13 +418,19 @@ export function createSidecarHttpServer(options                       = {})     
       if (method === "POST" && pathname.endsWith("/api/pin-project")) {
         const body = await readJsonBody(req);
         service.setPinnedProject(String(body.projectId ?? ""), Boolean(body.pinned));
-        const overview = await service.getOverview({ forceRefresh: false });
+        const overview = await service.getFastOverviewAfterLocalMutation();
         sendJson(res, 200, { overview });
         return;
       }
 
       if (method === "POST" && pathname.endsWith("/api/preferences")) {
         const body = await readJsonBody(req);
+        const cloudContextChanged =
+          typeof body.demoMode === "boolean" ||
+          body.gcloudPathOverride === null ||
+          typeof body.gcloudPathOverride === "string" ||
+          body.quotaProjectOverride === null ||
+          typeof body.quotaProjectOverride === "string";
         service.updateSettings({
           maskEmails: typeof body.maskEmails === "boolean" ? body.maskEmails : undefined,
           cacheTtlHours: typeof body.cacheTtlHours === "number" ? body.cacheTtlHours : undefined,
@@ -390,7 +447,14 @@ export function createSidecarHttpServer(options                       = {})     
           autoUpdatePlugin:
             typeof body.autoUpdatePlugin === "boolean" ? body.autoUpdatePlugin : undefined,
         });
-        const overview = await service.getOverview({ forceRefresh: false });
+        if (body.progressive === true && cloudContextChanged) {
+          const bootstrap = await service.getBootstrap({ forceRefresh: false });
+          sendJson(res, 200, { bootstrap });
+          return;
+        }
+        const overview = cloudContextChanged
+          ? await service.getOverview({ forceRefresh: false })
+          : await service.getFastOverviewAfterLocalMutation();
         sendJson(res, 200, { overview });
         return;
       }

@@ -8,8 +8,41 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div id="app" class="app-shell" aria-live="polite">
-      <div class="boot-loading">Loading GCP Companion…</div>
+    <div id="app" class="app-shell">
+      <header class="top-header">
+        <div class="brand-row">
+          <div class="brand-left">
+            <img class="brand-logo" src="./logo.svg" alt="" width="20" height="20" />
+            <span class="brand-title">GCP Companion</span>
+          </div>
+          <div class="brand-right">
+            <span class="skeleton sk-pill-sm" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="context-row" aria-hidden="true">
+          <span class="skeleton sk-pill-lg"></span>
+          <span class="skeleton sk-pill-md"></span>
+        </div>
+      </header>
+      <nav class="tab-bar" aria-hidden="true">
+        <span class="tab-btn tab-btn-active">Overview</span>
+        <span class="tab-btn">Projects</span>
+        <span class="tab-btn">Billing</span>
+      </nav>
+      <main class="main-body" aria-busy="true">
+        <div class="tab-panel">
+          <section class="card skeleton-card" aria-hidden="true">
+            <div class="skeleton sk-line-sm"></div>
+            <div class="skeleton sk-hero-amt"></div>
+            <div class="skeleton sk-chart-box"></div>
+          </section>
+          <section class="card skeleton-card" aria-hidden="true">
+            <div class="skeleton sk-line-md"></div>
+            <div class="skeleton sk-line-lg"></div>
+            <div class="skeleton sk-line-md"></div>
+          </section>
+        </div>
+      </main>
     </div>
     <div id="toast-root" class="toast-stack" role="status" aria-live="polite"></div>
     <script defer src="./bundle.js"></script>

@@ -1296,4 +1296,212 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
     assert.equal(customMissingRes.warnings.length, 1);
     assert.ok(customMissingRes.warnings[0].includes("404"));
   });
+
+  it("loads Projects, Billing, Budgets, and Spend independently without blocking fast sections on slow BigQuery", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-progressive-test-"));
+    const fakeGcloudDir = join(tmpDir, "gcloud-cfg");
+    mkdirSync(join(fakeGcloudDir, "configurations"), { recursive: true });
+    mkdirSync(join(fakeGcloudDir, "legacy_credentials", "dev@example.com"), { recursive: true });
+    writeFileSync(join(fakeGcloudDir, "active_config"), "default");
+    writeFileSync(
+      join(fakeGcloudDir, "configurations", "config_default"),
+      "[core]\naccount = dev@example.com\nproject = fast-proj\n"
+    );
+    writeFileSync(
+      join(fakeGcloudDir, "legacy_credentials", "dev@example.com", "adc.json"),
+      JSON.stringify({
+        type: "authorized_user",
+        client_id: "cid",
+        client_secret: "csecret",
+        refresh_token: "1//fake",
+      })
+    );
+
+    let tokenExchanges = 0;
+    let releaseBudgets!: () => void;
+    let releaseBigQuery!: () => void;
+    const budgetsGate = new Promise<void>((r) => {
+      releaseBudgets = r;
+    });
+    const bigQueryGate = new Promise<void>((r) => {
+      releaseBigQuery = r;
+    });
+
+    const mockFetch: typeof globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url === "https://oauth2.googleapis.com/token") {
+        tokenExchanges++;
+        return new Response(JSON.stringify({ access_token: "ya29.sharedToken" }), { status: 200 });
+      }
+      if (url.startsWith("https://cloudresourcemanager.googleapis.com/v1/projects")) {
+        return new Response(
+          JSON.stringify({
+            projects: [
+              {
+                projectId: "fast-proj",
+                projectNumber: "9001",
+                name: "Fast Project",
+                lifecycleState: "ACTIVE",
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.startsWith("https://cloudbilling.googleapis.com/v1/billingAccounts?")) {
+        return new Response(
+          JSON.stringify({
+            billingAccounts: [
+              {
+                name: "billingAccounts/01BBBB-CCCCCC-DDDDDD",
+                displayName: "Fast Billing",
+                open: true,
+                currencyCode: "USD",
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (
+        url.startsWith(
+          "https://cloudbilling.googleapis.com/v1/billingAccounts/01BBBB-CCCCCC-DDDDDD/projects"
+        )
+      ) {
+        return new Response(
+          JSON.stringify({
+            projectBillingInfo: [
+              {
+                projectId: "fast-proj",
+                billingAccountName: "billingAccounts/01BBBB-CCCCCC-DDDDDD",
+                billingEnabled: true,
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("billingbudgets.googleapis.com")) {
+        await budgetsGate;
+        return new Response(
+          JSON.stringify({
+            budgets: [
+              {
+                name: "b-slow",
+                displayName: "Monthly Cap",
+                amount: { specifiedAmount: { currencyCode: "USD", units: "200" } },
+                thresholdRules: [{ thresholdPercent: 0.9, spendBasis: "CURRENT_SPEND" }],
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("/bigquery/v2/projects/fast-proj/queries")) {
+        await bigQueryGate;
+        return new Response(
+          JSON.stringify({
+            jobComplete: true,
+            rows: [
+              {
+                f: [
+                  { v: "202611" },
+                  { v: "01BBBB-CCCCCC-DDDDDD" },
+                  { v: "fast-proj" },
+                  { v: "Cloud Run" },
+                  { v: "2026-11-12" },
+                  { v: "USD" },
+                  { v: "30" },
+                  { v: "0" },
+                  { v: "30" },
+                ],
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response("{}", { status: 404 });
+    };
+
+    try {
+      const store = new CompanionStore(join(tmpDir, "store"));
+      store.savePreferences({
+        pinnedProjects: [],
+        billingExportTables: {
+          "01BBBB-CCCCCC-DDDDDD": {
+            billingAccountId: "01BBBB-CCCCCC-DDDDDD",
+            tableId: "fast-proj.billing.gcp_billing_export_v1_01BBBB_CCCCCC_DDDDDD",
+            hostProjectId: "fast-proj",
+            exportType: "standard",
+            addedAt: "2026-11-14T00:00:00Z",
+          },
+        },
+        cacheTtlMs: 6 * 3_600_000,
+        maskEmails: false,
+        gcloudPathOverride: null,
+        quotaProjectOverride: null,
+        demoMode: false,
+      });
+
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no cli");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({
+        store,
+        gcloud,
+        fetchFn: mockFetch,
+        nowFn: () => new Date("2026-11-14T10:00:00Z"),
+      });
+
+      // Fire all domain requests concurrently while Budgets & BigQuery are blocked!
+      const bootPromise = service.getBootstrap();
+      const projPromise = service.getProjectsSection();
+      const billPromise = service.getBillingSection();
+      const spendPromise = service.getSpendSection();
+
+      const boot = await bootPromise;
+      assert.equal(boot.auth.activeAccount, "dev@example.com");
+      assert.equal(boot.spendConfigured, true);
+
+      // Projects and Billing MUST resolve immediately even though Budgets and BigQuery are still blocked!
+      const [projRes, billRes] = await Promise.all([projPromise, billPromise]);
+      assert.equal(projRes.projects.length, 1);
+      assert.equal(projRes.projects[0].projectId, "fast-proj");
+      assert.equal(billRes.billingAccounts.length, 1);
+      assert.equal(billRes.billingAccounts[0].displayName, "Fast Billing");
+      assert.equal(billRes.budgetsLoaded, false);
+      // Concurrent domain calls shared a single OAuth token exchange
+      assert.equal(tokenExchanges, 1);
+
+      // Local mutation (pinning a project) while BigQuery is STILL blocked returns immediately without hanging!
+      service.setPinnedProject("fast-proj", true);
+      const fastMutOverview = await service.getFastOverviewAfterLocalMutation();
+      assert.equal(fastMutOverview.projects[0].pinned, true);
+      assert.equal(fastMutOverview.projects[0].billingAccountName, "Fast Billing");
+
+      // Unblock Budgets first, then BigQuery
+      const budgetsPromise = service.getBudgetsSection();
+      releaseBudgets();
+      const budRes = await budgetsPromise;
+      assert.equal(budRes.budgetsByAccount["01BBBB-CCCCCC-DDDDDD"]?.[0]?.displayName, "Monthly Cap");
+
+      releaseBigQuery();
+      const spendRes = await spendPromise;
+      assert.equal(spendRes.spend.totalsByCurrency[0].currentMonthNetCost, 30);
+
+      // Now all sections are cached on disk -> full getOverview() is an instant cache hit!
+      const fullOverview = await service.getOverview({ forceRefresh: false });
+      assert.equal(fullOverview.cache.hit, true);
+      assert.equal(fullOverview.projects[0].billingAccountName, "Fast Billing");
+      assert.equal(fullOverview.billingAccounts[0].budgets.length, 1);
+      assert.equal(fullOverview.spend.totalsByCurrency[0].currentMonthNetCost, 30);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

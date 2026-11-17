@@ -190,6 +190,11 @@ export interface CompanionPreferences {
   autoUpdatePlugin?: boolean;
 }
 
+export interface ProjectBillingLinkInfo {
+  billingAccountId: string;
+  billingEnabled: boolean;
+}
+
 export interface CachedCloudSnapshot {
   version: number;
   accountKey: string;
@@ -216,6 +221,19 @@ export interface CachedCloudSnapshot {
   }>;
   spendReport: SpendReport | null;
   warnings: string[];
+  sectionsFetchedAt?: {
+    projects?: string;
+    billing?: string;
+    budgets?: string;
+    spend?: string;
+  };
+  projectBillingLinks?: Record<string, ProjectBillingLinkInfo>;
+  sectionWarnings?: {
+    projects?: string[];
+    billing?: string[];
+    budgets?: string[];
+    spend?: string[];
+  };
 }
 
 export interface CompanionOverviewResponse {
@@ -251,5 +269,48 @@ export interface CompanionOverviewResponse {
   projects: GcpProject[];
   billingAccounts: BillingAccount[];
   spend: SpendReport;
+  warnings: string[];
+}
+
+export interface CompanionBootstrapResponse {
+  auth: AuthStatus;
+  preferences: CompanionOverviewResponse["preferences"];
+  pluginUpdate?: PluginUpdateStatus;
+  spendConfigured: boolean;
+  cachedOverview: CompanionOverviewResponse | null;
+}
+
+export interface CompanionProjectsResponse {
+  authenticated: boolean;
+  authExpired?: boolean;
+  auth?: AuthStatus;
+  projects: GcpProject[];
+  cache: CompanionOverviewResponse["cache"];
+  warnings: string[];
+}
+
+export interface CompanionBillingResponse {
+  authenticated: boolean;
+  authExpired?: boolean;
+  auth?: AuthStatus;
+  billingAccounts: BillingAccount[];
+  projectBillingLinks: Record<string, ProjectBillingLinkInfo>;
+  budgetsLoaded: boolean;
+  cache: CompanionOverviewResponse["cache"];
+  warnings: string[];
+}
+
+export interface CompanionBudgetsResponse {
+  authenticated: boolean;
+  budgetsByAccount: Record<string, BudgetInfo[]>;
+  warnings: string[];
+}
+
+export interface CompanionSpendResponse {
+  authenticated: boolean;
+  authExpired?: boolean;
+  auth?: AuthStatus;
+  spend: SpendReport;
+  cache: CompanionOverviewResponse["cache"];
   warnings: string[];
 }

@@ -12,6 +12,12 @@ export const KO_MESSAGES: TranslationCatalog = {
   "boot.errorTitle": "GCP Companion을 불러올 수 없습니다",
   "boot.unknownError": "알 수 없는 연결 오류가 발생했습니다.",
   "boot.retry": "다시 시도",
+  "loading.projects": "프로젝트 불러오는 중…",
+  "loading.billing": "결제 계정 불러오는 중…",
+  "loading.budgets": "예산 규칙 불러오는 중…",
+  "loading.spend": "BigQuery 지출 조회 중…",
+  "loading.billingStatus": "결제 상태 확인 중…",
+  "loading.sectionErrorRetry": "↻ 다시 시도",
 
   // Relative sync age
   "age.notSynced": "동기화 안 됨",

@@ -21,6 +21,8 @@ export interface ElementAttrs {
   ariaLabel?: string;
   ariaSelected?: string;
   ariaExpanded?: string;
+  ariaBusy?: string;
+  ariaHidden?: string;
   dataset?: Record<string, string>;
   onClick?: (ev: MouseEvent) => void;
   onInput?: (ev: Event) => void;
@@ -49,6 +51,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(
     if (attrs.ariaLabel) el.setAttribute("aria-label", attrs.ariaLabel);
     if (attrs.ariaSelected) el.setAttribute("aria-selected", attrs.ariaSelected);
     if (attrs.ariaExpanded) el.setAttribute("aria-expanded", attrs.ariaExpanded);
+    if (attrs.ariaBusy) el.setAttribute("aria-busy", attrs.ariaBusy);
+    if (attrs.ariaHidden) el.setAttribute("aria-hidden", attrs.ariaHidden);
 
     if (attrs.href !== undefined && el instanceof HTMLAnchorElement) {
       // Only allow https:// external links or relative internal anchors

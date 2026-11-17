@@ -1,5 +1,5 @@
 import { normalizeBillingAccountId, sanitizeErrorMessage } from "./security.mjs";
-                                                                  
+                                                                                          
                                              
 
                                 
@@ -158,24 +158,45 @@ export async function fetchAllProjects(
   return projects;
 }
 
-export async function fetchBillingAccountsAndProjectLinks(
+export async function fetchBillingAccountsCore(
   accessToken        ,
-  projects                 ,
+  initialProjects                 ,
   quotaProject                ,
   fetchFn            = globalThis.fetch,
-  verifiedFallbackQuotaProject                
+  verifiedFallbackQuotaProject                ,
+  lazyProjectsLoader                                 
 )           
                                        
+                                                              
                      
                                   
    {
   const warnings           = [];
   const rawAccounts                      = [];
+  const projectBillingLinks                                         = {};
+
+  let loadedProjects = initialProjects;
+  let lazyLoaded = initialProjects.length > 0 || !lazyProjectsLoader;
+  const ensureProjects = async ()                           => {
+    if (!lazyLoaded && lazyProjectsLoader) {
+      lazyLoaded = true;
+      try {
+        loadedProjects = await lazyProjectsLoader();
+      } catch {
+        loadedProjects = [];
+      }
+    }
+    return loadedProjects;
+  };
+
+  if (!quotaProject && !verifiedFallbackQuotaProject && loadedProjects.length === 0 && lazyProjectsLoader) {
+    await ensureProjects();
+  }
 
   // Try `targetQuotaProject` (user's Active Project / override) first, then `verifiedFallbackQuotaProject`
   // (a project previously confirmed to have Cloud Billing API enabled so switching Active Project never loses
   // Billing Accounts), and finally `null` (no header). Any diagnostic error strictly reports `targetQuotaProject`.
-  const targetQuotaProject = quotaProject || projects[0]?.projectId || null;
+  const targetQuotaProject = quotaProject || loadedProjects[0]?.projectId || null;
   let resolvedQuotaProj                            = undefined;
   let resolvedQuotaConfirmed = false;
   let billingApiDisabledOnAllCandidates = false;
@@ -191,39 +212,30 @@ export async function fetchBillingAccountsAndProjectLinks(
       return res;
     }
 
-    const candidates                       = [];
-    const pushUnique = (id                           ) => {
+    const primaryCandidates                       = [];
+    const pushUnique = (list                      , id                           ) => {
       if (id === undefined) return;
-      if (!candidates.includes(id)) candidates.push(id);
+      if (!list.includes(id)) list.push(id);
     };
 
-    pushUnique(targetQuotaProject);
+    pushUnique(primaryCandidates, targetQuotaProject);
     if (
       verifiedFallbackQuotaProject &&
-      projects.some((p) => p.projectId === verifiedFallbackQuotaProject)
+      (loadedProjects.length === 0 ||
+        loadedProjects.some((p) => p.projectId === verifiedFallbackQuotaProject))
     ) {
-      pushUnique(verifiedFallbackQuotaProject);
+      pushUnique(primaryCandidates, verifiedFallbackQuotaProject);
     }
-    // Probe at most 2 additional fallback projects so discovery does not stall on accounts with many projects
-    let extraFallbackCount = 0;
-    for (const p of projects) {
-      if (extraFallbackCount >= 2) break;
-      if (!candidates.includes(p.projectId)) {
-        candidates.push(p.projectId);
-        extraFallbackCount++;
-      }
-    }
-    pushUnique(null);
 
     let preferredErr          = null;
     let allCandidatesQuotaOrDisabled = true;
 
-    for (const candidate of candidates) {
+    const tryCandidate = async (candidate               )                                                    => {
       try {
         const res = await gcpGetJson   (url, accessToken, candidate, fetchFn);
         resolvedQuotaProj = candidate;
         resolvedQuotaConfirmed = true;
-        return res;
+        return { hit: true, value: res };
       } catch (err) {
         if (candidate === targetQuotaProject || !preferredErr) {
           preferredErr = err;
@@ -240,10 +252,35 @@ export async function fetchBillingAccountsAndProjectLinks(
           resolvedQuotaProj = targetQuotaProject;
           throw preferredErr;
         }
-        // For any fallback candidate failure (including IAM/permission denials on shared projects), silently continue
-        continue;
+        return { hit: false };
+      }
+    };
+
+    for (const candidate of primaryCandidates) {
+      const attempt = await tryCandidate(candidate);
+      if (attempt.hit) return attempt.value;
+    }
+
+    // Lazily await projects only if primary quota candidates failed with quota/disabled errors
+    const fallbackProjects = await ensureProjects();
+    const extraCandidates                       = [];
+    let extraFallbackCount = 0;
+    for (const p of fallbackProjects) {
+      if (extraFallbackCount >= 2) break;
+      if (!primaryCandidates.includes(p.projectId) && !extraCandidates.includes(p.projectId)) {
+        extraCandidates.push(p.projectId);
+        extraFallbackCount++;
       }
     }
+    if (!primaryCandidates.includes(null)) {
+      pushUnique(extraCandidates, null);
+    }
+
+    for (const candidate of extraCandidates) {
+      const attempt = await tryCandidate(candidate);
+      if (attempt.hit) return attempt.value;
+    }
+
     // Only skip the project/*/billingInfo fallback loop when every candidate failed with a quota/disabled error
     // (avoiding skipping fallback on transient 5xx or network timeouts).
     billingApiDisabledOnAllCandidates = allCandidatesQuotaOrDisabled;
@@ -297,7 +334,7 @@ export async function fetchBillingAccountsAndProjectLinks(
   }
 
   const projectById = new Map                       ();
-  for (const p of projects) {
+  for (const p of loadedProjects) {
     projectById.set(p.projectId, p);
   }
 
@@ -326,6 +363,10 @@ export async function fetchBillingAccountsAndProjectLinks(
           if (enabled) {
             acct.linkedProjectIds.push(info.projectId);
           }
+          projectBillingLinks[info.projectId] = {
+            billingAccountId: acct.id,
+            billingEnabled: enabled,
+          };
           const proj = projectById.get(info.projectId);
           if (proj) {
             proj.billingAccountId = acct.id;
@@ -344,95 +385,154 @@ export async function fetchBillingAccountsAndProjectLinks(
 
   // Fallback path: if user lacks org-level billingAccounts.list permission, check project-level billingInfo
   // Skip when Cloud Billing API failed across all quota project candidates, as project/*/billingInfo hits the same disabled API.
-  if (rawAccounts.length === 0 && projects.length > 0 && !billingApiDisabledOnAllCandidates) {
-    const discoveredAccountMap = new Map                           ();
-    const sampleProjects = projects.slice(0, 25);
-    await runWithConcurrency(sampleProjects, 5, async (proj) => {
-      try {
-        const url = `https://cloudbilling.googleapis.com/v1/projects/${encodeURIComponent(proj.projectId)}/billingInfo`;
-        const info = await billingGetJson  
-                                      
-                                   
-          (url);
-        if (info.billingAccountName) {
-          const id = normalizeBillingAccountId(info.billingAccountName);
-          proj.billingAccountId = id;
-          proj.billingEnabled = Boolean(info.billingEnabled);
-          let acct = discoveredAccountMap.get(id);
-          if (!acct) {
-            acct = {
-              id,
-              resourceName: `billingAccounts/${id}`,
-              displayName: `Billing Account (${id})`,
-              open: Boolean(info.billingEnabled),
-              linkedProjectIds: [],
-              budgets: [],
+  if (rawAccounts.length === 0 && !billingApiDisabledOnAllCandidates) {
+    const fallbackProjects = await ensureProjects();
+    if (fallbackProjects.length > 0) {
+      const discoveredAccountMap = new Map                           ();
+      const sampleProjects = fallbackProjects.slice(0, 25);
+      await runWithConcurrency(sampleProjects, 5, async (proj) => {
+        try {
+          const url = `https://cloudbilling.googleapis.com/v1/projects/${encodeURIComponent(proj.projectId)}/billingInfo`;
+          const info = await billingGetJson  
+                                        
+                                     
+            (url);
+          if (info.billingAccountName) {
+            const id = normalizeBillingAccountId(info.billingAccountName);
+            const enabled = Boolean(info.billingEnabled);
+            proj.billingAccountId = id;
+            proj.billingEnabled = enabled;
+            projectBillingLinks[proj.projectId] = {
+              billingAccountId: id,
+              billingEnabled: enabled,
             };
-            discoveredAccountMap.set(id, acct);
+            let acct = discoveredAccountMap.get(id);
+            if (!acct) {
+              acct = {
+                id,
+                resourceName: `billingAccounts/${id}`,
+                displayName: `Billing Account (${id})`,
+                open: enabled,
+                linkedProjectIds: [],
+                budgets: [],
+              };
+              discoveredAccountMap.set(id, acct);
+            }
+            if (enabled) {
+              acct.linkedProjectIds.push(proj.projectId);
+            }
           }
-          if (proj.billingEnabled) {
-            acct.linkedProjectIds.push(proj.projectId);
-          }
+        } catch {
+          // Ignore per-project permission denials
         }
-      } catch {
-        // Ignore per-project permission denials
-      }
-    });
-    rawAccounts.push(...discoveredAccountMap.values());
-  }
-
-  // Optional enrichment: Cloud Billing Budgets API
-  if (rawAccounts.length > 0) {
-    await runWithConcurrency(rawAccounts, 4, async (acct) => {
-      try {
-        const url = `https://billingbudgets.googleapis.com/v1/${acct.resourceName}/budgets?pageSize=50`;
-        const data = await gcpGetJson  
-                           
-                          
-                                 
-                                                   
-                      
-                                                                                          
-                                                         
-              
-                                                                                       
-             
-          (url, accessToken, resolvedQuotaProj ?? quotaProject, fetchFn);
-
-        acct.budgets = (data.budgets ?? []).map((b)             => {
-          const specified = b.amount?.specifiedAmount;
-          const units = specified
-            ? Number(specified.units || 0) + Number(specified.nanos || 0) / 1e9
-            : null;
-          const thresholds                        = (b.thresholdRules ?? []).map((r) => ({
-            thresholdPercent: Number(r.thresholdPercent ?? 0),
-            spendBasis: r.spendBasis || "CURRENT_SPEND",
-          }));
-          return {
-            name: b.name || "",
-            displayName: b.displayName || "Unnamed Budget",
-            billingAccountId: acct.id,
-            amountUnits: Number.isFinite(units) ? units : null,
-            currencyCode: specified?.currencyCode || acct.currencyCode || null,
-            lastPeriodAmount: Boolean(b.amount?.lastPeriodAmount),
-            projectFilterIds: b.budgetFilter?.projects ?? [],
-            thresholds,
-          };
-        });
-      } catch (err) {
-        // Budgets API requires a quota project or billing.budgets.list; silently skip 403/404 without breaking UX
-        if (!(err instanceof GcpHttpError && (err.status === 403 || err.status === 404))) {
-          warnings.push(
-            `Budgets lookup skipped for ${acct.displayName}: ${sanitizeErrorMessage(err)}`
-          );
-        }
-      }
-    });
+      });
+      rawAccounts.push(...discoveredAccountMap.values());
+    }
   }
 
   return {
     billingAccounts: rawAccounts,
+    projectBillingLinks,
     warnings,
     usedQuotaProject: resolvedQuotaConfirmed ? (resolvedQuotaProj ?? null) : null,
+  };
+}
+
+export async function fetchBudgetsForBillingAccounts(
+  accessToken        ,
+  billingAccounts                     ,
+  quotaProject                ,
+  fetchFn            = globalThis.fetch
+)           
+                                                 
+                     
+   {
+  const budgetsByAccount                               = {};
+  const warnings           = [];
+
+  if (billingAccounts.length === 0) {
+    return { budgetsByAccount, warnings };
+  }
+
+  await runWithConcurrency(billingAccounts, 4, async (acct) => {
+    try {
+      const url = `https://billingbudgets.googleapis.com/v1/${acct.resourceName}/budgets?pageSize=50`;
+      const data = await gcpGetJson  
+                         
+                        
+                               
+                                                 
+                    
+                                                                                        
+                                                       
+            
+                                                                                     
+           
+        (url, accessToken, quotaProject, fetchFn);
+
+      const parsed = (data.budgets ?? []).map((b)             => {
+        const specified = b.amount?.specifiedAmount;
+        const units = specified
+          ? Number(specified.units || 0) + Number(specified.nanos || 0) / 1e9
+          : null;
+        const thresholds                        = (b.thresholdRules ?? []).map((r) => ({
+          thresholdPercent: Number(r.thresholdPercent ?? 0),
+          spendBasis: r.spendBasis || "CURRENT_SPEND",
+        }));
+        return {
+          name: b.name || "",
+          displayName: b.displayName || "Unnamed Budget",
+          billingAccountId: acct.id,
+          amountUnits: Number.isFinite(units) ? units : null,
+          currencyCode: specified?.currencyCode || acct.currencyCode || null,
+          lastPeriodAmount: Boolean(b.amount?.lastPeriodAmount),
+          projectFilterIds: b.budgetFilter?.projects ?? [],
+          thresholds,
+        };
+      });
+      acct.budgets = parsed;
+      budgetsByAccount[acct.id] = parsed;
+    } catch (err) {
+      budgetsByAccount[acct.id] = [];
+      // Budgets API requires a quota project or billing.budgets.list; silently skip 403/404 without breaking UX
+      if (!(err instanceof GcpHttpError && (err.status === 403 || err.status === 404))) {
+        warnings.push(
+          `Budgets lookup skipped for ${acct.displayName}: ${sanitizeErrorMessage(err)}`
+        );
+      }
+    }
+  });
+
+  return { budgetsByAccount, warnings };
+}
+
+export async function fetchBillingAccountsAndProjectLinks(
+  accessToken        ,
+  projects                 ,
+  quotaProject                ,
+  fetchFn            = globalThis.fetch,
+  verifiedFallbackQuotaProject                
+)           
+                                       
+                     
+                                  
+   {
+  const core = await fetchBillingAccountsCore(
+    accessToken,
+    projects,
+    quotaProject,
+    fetchFn,
+    verifiedFallbackQuotaProject
+  );
+  const budgetsRes = await fetchBudgetsForBillingAccounts(
+    accessToken,
+    core.billingAccounts,
+    core.usedQuotaProject ?? quotaProject,
+    fetchFn
+  );
+  return {
+    billingAccounts: core.billingAccounts,
+    warnings: [...core.warnings, ...budgetsRes.warnings],
+    usedQuotaProject: core.usedQuotaProject,
   };
 }

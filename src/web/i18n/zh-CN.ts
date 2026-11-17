@@ -12,6 +12,12 @@ export const ZH_CN_MESSAGES: TranslationCatalog = {
   "boot.errorTitle": "无法加载 GCP Companion",
   "boot.unknownError": "未知连接错误。",
   "boot.retry": "重试",
+  "loading.projects": "正在加载项目…",
+  "loading.billing": "正在加载结算账户…",
+  "loading.budgets": "正在加载预算规则…",
+  "loading.spend": "正在查询 BigQuery 支出…",
+  "loading.billingStatus": "查询计费状态…",
+  "loading.sectionErrorRetry": "↻ 重试此区域",
 
   // Relative sync age
   "age.notSynced": "未同步",

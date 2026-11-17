@@ -1,5 +1,10 @@
 import type {
+  CompanionBillingResponse,
+  CompanionBootstrapResponse,
+  CompanionBudgetsResponse,
   CompanionOverviewResponse,
+  CompanionProjectsResponse,
+  CompanionSpendResponse,
   DiscoveredBillingTable,
   GcpProject,
   LocalePreference,
@@ -118,6 +123,179 @@ async function apiPost<T>(
     throw new Error(payload.error || `Request failed (HTTP ${res.status})`);
   }
   return payload;
+}
+
+export async function fetchBootstrap(
+  forceRefresh = false
+): Promise<CompanionBootstrapResponse> {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/bootstrap${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    // Graceful fallback if sidecar process has not restarted onto the progressive API routes yet
+    return {} as CompanionBootstrapResponse;
+  }
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    csrfToken?: string;
+    proxyCsrfToken?: string;
+    expiresInMs?: number;
+  } & CompanionBootstrapResponse;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to initialize GCP Companion (HTTP ${res.status})`);
+  }
+  if (payload.csrfToken && payload.proxyCsrfToken) {
+    activeSession = {
+      csrfToken: payload.csrfToken,
+      proxyCsrfToken: payload.proxyCsrfToken,
+      expiresAt: Date.now() + Number(payload.expiresInMs || 1_800_000),
+    };
+  }
+  return payload;
+}
+
+export async function fetchProjectsSection(
+  forceRefresh = false
+): Promise<CompanionProjectsResponse> {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/projects${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return { authenticated: false, projects: [], cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 }, warnings: [] };
+  }
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+  } & CompanionProjectsResponse;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load GCP projects (HTTP ${res.status})`);
+  }
+  return payload;
+}
+
+export async function fetchBillingSection(
+  forceRefresh = false
+): Promise<CompanionBillingResponse> {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/billing${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return {
+      authenticated: false,
+      billingAccounts: [],
+      projectBillingLinks: {},
+      budgetsLoaded: true,
+      cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 },
+      warnings: [],
+    };
+  }
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+  } & CompanionBillingResponse;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load billing accounts (HTTP ${res.status})`);
+  }
+  return payload;
+}
+
+export async function fetchBudgetsSection(
+  forceRefresh = false
+): Promise<CompanionBudgetsResponse> {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/budgets${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return { authenticated: false, budgetsByAccount: {}, warnings: [] };
+  }
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+  } & CompanionBudgetsResponse;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load billing budgets (HTTP ${res.status})`);
+  }
+  return payload;
+}
+
+export async function fetchSpendSection(
+  forceRefresh = false
+): Promise<CompanionSpendResponse> {
+  const query = forceRefresh ? "?refresh=1" : "";
+  const res = await fetchEndpoint(`api/spend${query}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  if (res.status === 404) {
+    return {
+      authenticated: false,
+      spend: {
+        configured: false,
+        invoiceMonth: "",
+        previousInvoiceMonth: "",
+        queriedTables: [],
+        queriedAt: "",
+        totalsByCurrency: [],
+        byBillingAccount: {},
+        byProject: {},
+      },
+      cache: { hit: false, stale: false, fetchedAt: null, ageMs: null, ttlMs: 0 },
+      warnings: [],
+    };
+  }
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+  } & CompanionSpendResponse;
+  if (!res.ok) {
+    throw new Error(payload.error || `Failed to load BigQuery spend (HTTP ${res.status})`);
+  }
+  return payload;
+}
+
+export async function switchActiveAccountProgressive(
+  account: string
+): Promise<{ activeAccount: string }> {
+  return apiPost<{ activeAccount: string }>("./api/active-account", {
+    account,
+    progressive: true,
+  });
+}
+
+export async function updateCloudPreferencesProgressive(prefs: {
+  gcloudPathOverride?: string | null;
+  quotaProjectOverride?: string | null;
+  demoMode?: boolean;
+}): Promise<CompanionBootstrapResponse> {
+  const data = await apiPost<{
+    bootstrap?: CompanionBootstrapResponse;
+    overview?: CompanionOverviewResponse;
+  }>("./api/preferences", {
+    ...prefs,
+    progressive: true,
+  });
+  if (data.bootstrap) {
+    return data.bootstrap;
+  }
+  if (data.overview) {
+    return {
+      auth: data.overview.auth,
+      preferences: data.overview.preferences,
+      pluginUpdate: data.overview.pluginUpdate,
+      spendConfigured: data.overview.summary.spendConfigured,
+      cachedOverview: data.overview,
+    };
+  }
+  throw new Error("Unexpected response from preferences update.");
 }
 
 export async function fetchOverview(forceRefresh = false): Promise<CompanionOverviewResponse> {
