@@ -6,8 +6,10 @@
                          
              
                    
+                             
                          
                       
+                       
               
                           
 import {
@@ -1767,6 +1769,59 @@ function renderHeroStatusBadge(
   return statusBadge;
 }
 
+function renderForecastSummaryBlock(
+  forecast                                  ,
+  currency        
+)                     {
+  if (!forecast || forecast.status !== "estimated") return null;
+  const hasNeg = forecast.warnings.includes("negative-adjustments");
+  const basisLabel = t("spend.forecastBasis", {
+    days: forecast.elapsedCalendarDays,
+    total: forecast.daysInMonth,
+    date: forecast.rateThroughDate ? forecast.rateThroughDate.slice(5) : "—",
+  });
+  const basisFull = forecast.excludedTodayUtc
+    ? `${basisLabel} · ${t("spend.forecastExcludedToday")}`
+    : basisLabel;
+
+  return h(
+    "div",
+    { className: "forecast-summary-strip" },
+    h(
+      "div",
+      { className: "forecast-main-row" },
+      h(
+        "span",
+        { className: "forecast-pill-metric" },
+        t("spend.projectedNet", {
+          amount:
+            forecast.monthEndNetCost !== null
+              ? formatMoney(forecast.monthEndNetCost, currency)
+              : "—",
+        })
+      ),
+      h(
+        "span",
+        { className: "forecast-pill-metric" },
+        t("spend.projectedGross", {
+          amount:
+            forecast.monthEndGrossCost !== null
+              ? formatMoney(forecast.monthEndGrossCost, currency)
+              : "—",
+        })
+      )
+    ),
+    h("div", { className: "forecast-meta-line" }, basisFull),
+    hasNeg || forecast.creditsNotGuaranteed
+      ? h(
+          "div",
+          { className: "forecast-caution-line" },
+          hasNeg ? t("spend.forecastNegativeCaution") : t("spend.forecastCreditsCaution")
+        )
+      : null
+  );
+}
+
 function isCreditCoveredZeroNet(netCost        , grossCost        )          {
   return netCost <= 0.005 && grossCost >= 0.005;
 }
@@ -2071,7 +2126,8 @@ function renderOverviewTab(overview                           )              {
                     })
               )
             ),
-            renderDailySparkline(total.dailySeries, total.currency)
+            renderForecastSummaryBlock(total.forecast, total.currency),
+            renderDailySparkline(total.dailySeries, total.currency, undefined, total.forecast)
           )
         );
       }
@@ -2259,6 +2315,11 @@ function renderOverviewTab(overview                           )              {
     } else {
       const fallbackCurrency =
         overview.billingAccounts.find((b) => b.currencyCode)?.currencyCode || "USD";
+      const priorRefs = active.isCurrentMonth
+        ? spend.totalsByCurrency
+            .map((item) => item.priorMonthRunRateReference)
+            .filter((r)                                  => Boolean(r))
+        : [];
       sections.push(
         h(
           "section",
@@ -2283,6 +2344,18 @@ function renderOverviewTab(overview                           )              {
             "p",
             { className: "month-no-rows-note" },
             t("overview.monthNoRowsYet", { month: formatMonthLabel(active.selectedMonth) })
+          ),
+          ...priorRefs.map((ref) =>
+            h(
+              "p",
+              { className: "prior-month-ref-note" },
+              t("spend.priorMonthRunRateRef", {
+                month: formatMonthLabel(ref.sourceInvoiceMonth),
+                days: ref.coveredDays,
+                net: formatMoney(ref.netPerCoveredDay, ref.currency),
+                gross: formatMoney(ref.grossPerCoveredDay, ref.currency),
+              })
+            )
           )
         )
       );
@@ -3420,7 +3493,7 @@ function renderBillingAccountCard(
               })
             )
           ),
-          renderDailySparkline(bs.dailySeries, bs.currency),
+          renderDailySparkline(bs.dailySeries, bs.currency, undefined, bs.forecast),
           renderServiceBreakdownList(bs.topServices.slice(0, 4), bs.currency)
         )
       : ba.open && ba.exportTableId && !state.domainLoaded.spend && state.domainLoading.spend

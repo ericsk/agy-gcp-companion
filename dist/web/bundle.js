@@ -118,10 +118,21 @@ const EN_MESSAGES = {
   "spend.monthTotalLabel": "{month} total: {amount}",
   "spend.settledBadge": "✓ Archived · No BQ rescan",
   "spend.backfillingBadge": "⏳ Backfilling ({days}d)",
+  "spend.projectedNet": "Projected EOM Net: {amount}",
+  "spend.projectedGross": "Projected Gross: {amount}",
+  "spend.forecastBasis": "Based on {days}/{total} complete days (thru {date})",
+  "spend.forecastExcludedToday": "excl. partial today",
+  "spend.forecastCreditsCaution": "Linear pace estimate; credits exhaustion & EOM adjustments not included",
+  "spend.forecastNegativeCaution": "Negative adjustments detected; net forecast paused",
+  "spend.priorMonthRunRateRef":
+    "Prior ({month}, {days}d exported) avg: {net}/day ({gross} gross/day) · Forecast enables after 2+ current-month days",
   "spend.lastMonthShort": "Last mo: {amount}",
   "chart.noDailyUsage": "No daily usage rows for this month yet",
   "chart.dailyTrendAria": "Daily net spend trend ({days} days)",
   "chart.dailyGrossTrendAria": "Daily gross usage trend ({days} days, covered by credits)",
+  "chart.dailyTrendWithForecastAria": "Daily net spend trend ({days} days) with month-end linear forecast",
+  "chart.dailyGrossTrendWithForecastAria": "Daily gross usage trend ({days} days) with month-end linear forecast",
+  "chart.forecastCaption": "Dashed: {rate}/d pace → {monthEnd}",
   "chart.peakPerDay": "Peak {amount}/d",
   "chart.peakGrossPerDay": "Peak gross {amount}/d",
   "chart.noBillableServices": "No billable service usage recorded this month.",
@@ -462,10 +473,21 @@ const ES_MESSAGES                     = {
   "spend.monthTotalLabel": "Total de {month}: {amount}",
   "spend.settledBadge": "✓ Archivado · Sin reescaneo BQ",
   "spend.backfillingBadge": "⏳ Rellenando ({days} d)",
+  "spend.projectedNet": "Neto proyectado fin de mes: {amount}",
+  "spend.projectedGross": "Bruto proyectado: {amount}",
+  "spend.forecastBasis": "Basado en {days}/{total} días completos (hasta {date})",
+  "spend.forecastExcludedToday": "excl. día parcial de hoy",
+  "spend.forecastCreditsCaution": "Estimación lineal; no incluye agotamiento de créditos ni ajustes de fin de mes",
+  "spend.forecastNegativeCaution": "Ajustes negativos detectados; proyección lineal pausada",
+  "spend.priorMonthRunRateRef":
+    "Ref. mes ant. ({month}, {days} d exportados): {net}/día neto ({gross}/día bruto) · La proyección inicia con 2+ días del mes actual",
   "spend.lastMonthShort": "Mes ant.: {amount}",
   "chart.noDailyUsage": "Aún no hay registros de uso diario este mes",
   "chart.dailyTrendAria": "Tendencia de gasto neto diario ({days} días)",
   "chart.dailyGrossTrendAria": "Tendencia de uso bruto diario ({days} días, cubierto por créditos)",
+  "chart.dailyTrendWithForecastAria": "Tendencia de gasto neto diario ({days} días) con proyección lineal de fin de mes",
+  "chart.dailyGrossTrendWithForecastAria": "Tendencia de uso bruto diario ({days} días) con proyección lineal de fin de mes",
+  "chart.forecastCaption": "Punteado: ritmo {rate}/d → {monthEnd}",
   "chart.peakPerDay": "Máx. {amount}/día",
   "chart.peakGrossPerDay": "Máx. bruto {amount}/día",
   "chart.noBillableServices": "No se registró uso de servicios facturables este mes.",
@@ -805,10 +827,21 @@ const FR_MESSAGES                     = {
   "spend.monthTotalLabel": "Total {month} : {amount}",
   "spend.settledBadge": "✓ Archivé · Sans réanalyse BQ",
   "spend.backfillingBadge": "⏳ Synchronisation ({days} j)",
+  "spend.projectedNet": "Net prévu fin de mois : {amount}",
+  "spend.projectedGross": "Brut prévu : {amount}",
+  "spend.forecastBasis": "Basé sur {days}/{total} jours complets (au {date})",
+  "spend.forecastExcludedToday": "hors journée partielle",
+  "spend.forecastCreditsCaution": "Estimation linéaire ; n'inclut pas l'épuisement des crédits ni les ajustements",
+  "spend.forecastNegativeCaution": "Ajustements négatifs détectés ; prévision en pause",
+  "spend.priorMonthRunRateRef":
+    "Réf. mois préc. ({month}, {days} j exportés) : {net}/j net ({gross}/j brut) · Prévision active après 2+ jours du mois en cours",
   "spend.lastMonthShort": "Mois dern. : {amount}",
   "chart.noDailyUsage": "Aucune donnée d'utilisation quotidienne ce mois-ci",
   "chart.dailyTrendAria": "Tendance des dépenses nettes quotidiennes ({days} jours)",
   "chart.dailyGrossTrendAria": "Tendance d'utilisation brute quotidienne ({days} jours, couverte par crédits)",
+  "chart.dailyTrendWithForecastAria": "Tendance des dépenses nettes quotidiennes ({days} jours) avec prévision linéaire de fin de mois",
+  "chart.dailyGrossTrendWithForecastAria": "Tendance d'utilisation brute quotidienne ({days} jours) avec prévision linéaire de fin de mois",
+  "chart.forecastCaption": "Pointillés : rythme {rate}/j → {monthEnd}",
   "chart.peakPerDay": "Pic {amount}/j",
   "chart.peakGrossPerDay": "Pic brut {amount}/j",
   "chart.noBillableServices": "Aucune utilisation de service facturable enregistrée ce mois-ci.",
@@ -1148,10 +1181,21 @@ const JA_MESSAGES                     = {
   "spend.monthTotalLabel": "{month} 合計: {amount}",
   "spend.settledBadge": "✓ アーカイブ済み · BQ 再スキャン不要",
   "spend.backfillingBadge": "⏳ バックフィル同期中 ({days}日)",
+  "spend.projectedNet": "月末予測純支出: {amount}",
+  "spend.projectedGross": "予測割引前金額: {amount}",
+  "spend.forecastBasis": "完了日 {days}/{total} 日基準（{date} まで）",
+  "spend.forecastExcludedToday": "本日の未確定分を除外",
+  "spend.forecastCreditsCaution": "現行ペースによる推計（クレジット上限超過や月末調整は未反映）",
+  "spend.forecastNegativeCaution": "マイナス調整を検出したため線形予測を停止しました",
+  "spend.priorMonthRunRateRef":
+    "前月 ({month}・{days}日分) 日次平均参考: 純支出 {net}/日（割引前 {gross}/日）· 当月データが2日以上揃うと予測が有効になります",
   "spend.lastMonthShort": "前月: {amount}",
   "chart.noDailyUsage": "今月の日別利用データはまだありません",
   "chart.dailyTrendAria": "日別純支出トレンド（{days}日間）",
   "chart.dailyGrossTrendAria": "日別割引前利用トレンド（{days}日間・クレジット相殺済み）",
+  "chart.dailyTrendWithForecastAria": "日別純支出トレンド（{days}日間）と月末線形予測",
+  "chart.dailyGrossTrendWithForecastAria": "日別割引前利用トレンド（{days}日間）と月末線形予測",
+  "chart.forecastCaption": "破線: {rate}/日ペース → {monthEnd}",
   "chart.peakPerDay": "最大 {amount}/日",
   "chart.peakGrossPerDay": "割引前最大 {amount}/日",
   "chart.noBillableServices": "今月記録された課金対象サービスの利用はありません。",
@@ -1490,10 +1534,21 @@ const KO_MESSAGES                     = {
   "spend.monthTotalLabel": "{month} 합계: {amount}",
   "spend.settledBadge": "✓ 보관됨 · BQ 재스캔 생략",
   "spend.backfillingBadge": "⏳ 백필 동기화 중 ({days}일)",
+  "spend.projectedNet": "월말 예상 순지출: {amount}",
+  "spend.projectedGross": "예상 총비용: {amount}",
+  "spend.forecastBasis": "완료된 {days}/{total}일 기준 ({date}까지)",
+  "spend.forecastExcludedToday": "금일 부분 집계 제외",
+  "spend.forecastCreditsCaution": "선형 추세 추정치 (크레딧 소진 및 월말 조정 미반영)",
+  "spend.forecastNegativeCaution": "음수 조정이 감지되어 순지출 예측을 중지했습니다",
+  "spend.priorMonthRunRateRef":
+    "전월 ({month}, {days}일 내보내기) 일평균 참고: 순지출 {net}/일 (총비용 {gross}/일) · 당월 2일 이상 수집 후 월말 예측 자동 활성화",
   "spend.lastMonthShort": "전월: {amount}",
   "chart.noDailyUsage": "이번 달 일별 사용량 데이터가 아직 없습니다",
   "chart.dailyTrendAria": "일별 순지출 추이 ({days}일)",
   "chart.dailyGrossTrendAria": "일별 총사용량 추이 ({days}일, 크레딧으로 상쇄됨)",
+  "chart.dailyTrendWithForecastAria": "일별 순지출 추이 ({days}일) 및 월말 선형 예측",
+  "chart.dailyGrossTrendWithForecastAria": "일별 총사용량 추이 ({days}일) 및 월말 선형 예측",
+  "chart.forecastCaption": "점선: 일평균 {rate}/일 → {monthEnd}",
   "chart.peakPerDay": "최고 {amount}/일",
   "chart.peakGrossPerDay": "총비용 최고 {amount}/일",
   "chart.noBillableServices": "이번 달 기록된 청구 대상 서비스 사용량이 없습니다.",
@@ -1830,10 +1885,21 @@ const ZH_CN_MESSAGES                     = {
   "spend.monthTotalLabel": "{month} 总计: {amount}",
   "spend.settledBadge": "✓ 已封存缓存 · 免重扫 BQ",
   "spend.backfillingBadge": "⏳ 回填同步中 ({days} 天)",
+  "spend.projectedNet": "月底预估净支出: {amount}",
+  "spend.projectedGross": "预估毛费用: {amount}",
+  "spend.forecastBasis": "按前 {days}/{total} 个完整日历天推算（截至 {date}）",
+  "spend.forecastExcludedToday": "已排除今日部分写入",
+  "spend.forecastCreditsCaution": "按当前用量推算；未包含抵扣额度耗尽或月末调账风险",
+  "spend.forecastNegativeCaution": "检测到负数调账或退款，暂停该项线性预估",
+  "spend.priorMonthRunRateRef":
+    "上月 ({month}) 已导出 {days} 天日均参考：净额 {net}/天（毛费用 {gross}/天）· 待本月数据进表满 2 天后自动启用月底预估",
   "spend.lastMonthShort": "上月: {amount}",
   "chart.noDailyUsage": "本月暂无每日用量记录",
   "chart.dailyTrendAria": "每日净支出趋势（{days} 天）",
   "chart.dailyGrossTrendAria": "每日毛用量趋势（{days} 天，已由抵扣额全额抵扣）",
+  "chart.dailyTrendWithForecastAria": "每日净支出趋势（{days} 天）含月底线性预估虚线",
+  "chart.dailyGrossTrendWithForecastAria": "每日毛用量趋势（{days} 天）含月底线性预估虚线",
+  "chart.forecastCaption": "虚线: 日均 {rate}/天 → {monthEnd}",
   "chart.peakPerDay": "峰值 {amount}/天",
   "chart.peakGrossPerDay": "毛用量峰值 {amount}/天",
   "chart.noBillableServices": "本月暂无产生费用的服务记录。",
@@ -2166,10 +2232,21 @@ const ZH_TW_MESSAGES                     = {
   "spend.monthTotalLabel": "{month} 總計: {amount}",
   "spend.settledBadge": "✓ 已封存快取 · 免重掃 BQ",
   "spend.backfillingBadge": "⏳ 回填同步中 ({days} 天)",
+  "spend.projectedNet": "月底預估淨支出: {amount}",
+  "spend.projectedGross": "預估未折抵毛額: {amount}",
+  "spend.forecastBasis": "依前 {days}/{total} 個完整日曆天推算（截至 {date}）",
+  "spend.forecastExcludedToday": "已排除今日部分寫入",
+  "spend.forecastCreditsCaution": "依目前用量推算；預估未計入未來抵免額可能用罄或月底調帳",
+  "spend.forecastNegativeCaution": "偵測到負數調帳或退費，暫停該項線性預估",
+  "spend.priorMonthRunRateRef":
+    "上月 ({month}) 已匯出 {days} 天日均參考：淨額 {net}/日（未折抵 {gross}/日）· 待本月資料進表滿 2 天後自動啟用月底預估",
   "spend.lastMonthShort": "上月: {amount}",
   "chart.noDailyUsage": "本月尚無每日用量紀錄",
   "chart.dailyTrendAria": "每日淨支出趨勢（{days} 天）",
   "chart.dailyGrossTrendAria": "每日未折抵用量趨勢（{days} 天，已由抵免額折抵）",
+  "chart.dailyTrendWithForecastAria": "每日淨支出趨勢（{days} 天）含月底線性預估虛線",
+  "chart.dailyGrossTrendWithForecastAria": "每日未折抵用量趨勢（{days} 天）含月底線性預估虛線",
+  "chart.forecastCaption": "虛線: 日均 {rate}/日 → {monthEnd}",
   "chart.peakPerDay": "最高 {amount}/日",
   "chart.peakGrossPerDay": "最高未折抵 {amount}/日",
   "chart.noBillableServices": "本月尚無計費服務用量紀錄。",
@@ -2731,7 +2808,8 @@ async function copyToClipboard(text        )                   {
 function renderDailySparkline(
   series                            ,
   currency        ,
-  emptyMessage         
+  emptyMessage         ,
+  forecast                       
 )              {
   if (series.length === 0) {
     return h("div", { className: "sparkline-empty" }, emptyMessage || t("chart.noDailyUsage"));
@@ -2748,20 +2826,60 @@ function renderDailySparkline(
   const maxGross = Math.max(...grossValues, 0);
   const useGrossSeries = maxNet <= 0.005 && maxGross > 0.005;
   const values = useGrossSeries ? grossValues : netValues;
-  const maxVal = Math.max(...values, 0.01);
   const minVal = 0;
   const innerW = width - padX * 2;
   const innerH = height - padTop - padBottom;
 
-  const points = series.map((pt, idx) => {
-    const x =
-      series.length === 1
-        ? width / 2
-        : padX + (idx / (series.length - 1)) * innerW;
-    const rawVal = useGrossSeries ? pt.grossCost : pt.netCost;
+  const monthPrefix =
+    forecast?.invoiceMonth?.length === 6
+      ? `${forecast.invoiceMonth.slice(0, 4)}-${forecast.invoiceMonth.slice(4, 6)}-`
+      : "";
+  const lastActualDate = series[series.length - 1]?.date ?? "";
+  const lastActualDay = Number(lastActualDate.slice(8, 10)) || series.length;
+  const forecastRate =
+    forecast && forecast.status === "estimated"
+      ? useGrossSeries
+        ? forecast.grossDailyRunRate
+        : forecast.netDailyRunRate
+      : null;
+  const forecastEomTotal =
+    forecast && forecast.status === "estimated"
+      ? useGrossSeries
+        ? forecast.monthEndGrossCost
+        : forecast.monthEndNetCost
+      : null;
+  const hasForecastProjection = Boolean(
+    forecast &&
+      forecast.status === "estimated" &&
+      forecast.daysInMonth > 1 &&
+      monthPrefix &&
+      lastActualDate.startsWith(monthPrefix) &&
+      lastActualDay < forecast.daysInMonth &&
+      forecastRate !== null &&
+      forecastEomTotal !== null
+  );
+
+  const maxVal = Math.max(...values, hasForecastProjection ? Math.max(0, forecastRate ?? 0) : 0, 0.01);
+  const dayToX = (dayNum        )         => {
+    const totalDays = forecast?.daysInMonth ?? 30;
+    const clamped = Math.max(1, Math.min(totalDays, dayNum));
+    const ratio = totalDays > 1 ? (clamped - 1) / (totalDays - 1) : 0.5;
+    return Math.round((padX + ratio * innerW) * 10) / 10;
+  };
+  const valToY = (rawVal        )         => {
     const ratio = (Math.max(0, rawVal) - minVal) / (maxVal - minVal || 1);
-    const y = padTop + innerH - ratio * innerH;
-    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, pt };
+    return Math.round((padTop + innerH - ratio * innerH) * 10) / 10;
+  };
+
+  const points = series.map((pt, idx) => {
+    const x = hasForecastProjection
+      ? dayToX(Number(pt.date.slice(8, 10)) || idx + 1)
+      : Math.round(
+          (series.length === 1 ? width / 2 : padX + (idx / (series.length - 1)) * innerW) * 10
+        ) / 10;
+    const rawVal = useGrossSeries ? pt.grossCost : pt.netCost;
+    const y = valToY(rawVal);
+    return { x, y, pt };
   });
 
   const linePath = points
@@ -2801,6 +2919,31 @@ function renderDailySparkline(
 
   const last = points[points.length - 1];
   if (last) {
+    if (hasForecastProjection && forecast && forecastRate !== null) {
+      const rateY = valToY(forecastRate);
+      const nextX = dayToX(Math.min(forecast.daysInMonth, lastActualDay + 1));
+      const endX = dayToX(forecast.daysInMonth);
+      const forecastPath = `M${last.x},${last.y} L${nextX},${rateY} L${endX},${rateY}`;
+      children.push(
+        svgEl("path", {
+          d: forecastPath,
+          class: "sparkline-forecast",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-dasharray": "4 3",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        }),
+        svgEl("circle", {
+          cx: endX,
+          cy: rateY,
+          r: 2.6,
+          class: "sparkline-forecast-dot",
+          fill: "currentColor",
+        })
+      );
+    }
     children.push(
       svgEl("circle", {
         cx: last.x,
@@ -2811,21 +2954,30 @@ function renderDailySparkline(
     );
   }
 
+  const ariaLabel = hasForecastProjection
+    ? useGrossSeries
+      ? t("chart.dailyGrossTrendWithForecastAria", { days: series.length })
+      : t("chart.dailyTrendWithForecastAria", { days: series.length })
+    : useGrossSeries
+      ? t("chart.dailyGrossTrendAria", { days: series.length })
+      : t("chart.dailyTrendAria", { days: series.length });
+
   const svg = svgEl(
     "svg",
     {
       viewBox: `0 0 ${width} ${height}`,
       class: "sparkline-svg",
       role: "img",
-      "aria-label": useGrossSeries
-        ? t("chart.dailyGrossTrendAria", { days: series.length })
-        : t("chart.dailyTrendAria", { days: series.length }),
+      "aria-label": ariaLabel,
     },
     ...children
   );
 
   const firstDate = series[0]?.date.slice(5) ?? "";
-  const lastDate = series[series.length - 1]?.date.slice(5) ?? "";
+  const monthEndDate =
+    hasForecastProjection && forecast
+      ? `${forecast.invoiceMonth.slice(4)}-${String(forecast.daysInMonth).padStart(2, "0")}`
+      : (series[series.length - 1]?.date.slice(5) ?? "");
   const peakCost = Math.max(...values);
 
   return h(
@@ -2839,11 +2991,16 @@ function renderDailySparkline(
       h(
         "span",
         null,
-        useGrossSeries
-          ? t("chart.peakGrossPerDay", { amount: formatMoney(peakCost, currency) })
-          : t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })
+        hasForecastProjection && forecastRate !== null && forecastEomTotal !== null
+          ? t("chart.forecastCaption", {
+              rate: formatMoney(forecastRate, currency),
+              monthEnd: formatMoney(forecastEomTotal, currency),
+            })
+          : useGrossSeries
+            ? t("chart.peakGrossPerDay", { amount: formatMoney(peakCost, currency) })
+            : t("chart.peakPerDay", { amount: formatMoney(peakCost, currency) })
       ),
-      h("span", null, lastDate)
+      h("span", null, monthEndDate)
     )
   );
 }
@@ -5087,6 +5244,59 @@ function renderHeroStatusBadge(
   return statusBadge;
 }
 
+function renderForecastSummaryBlock(
+  forecast                                  ,
+  currency        
+)                     {
+  if (!forecast || forecast.status !== "estimated") return null;
+  const hasNeg = forecast.warnings.includes("negative-adjustments");
+  const basisLabel = t("spend.forecastBasis", {
+    days: forecast.elapsedCalendarDays,
+    total: forecast.daysInMonth,
+    date: forecast.rateThroughDate ? forecast.rateThroughDate.slice(5) : "—",
+  });
+  const basisFull = forecast.excludedTodayUtc
+    ? `${basisLabel} · ${t("spend.forecastExcludedToday")}`
+    : basisLabel;
+
+  return h(
+    "div",
+    { className: "forecast-summary-strip" },
+    h(
+      "div",
+      { className: "forecast-main-row" },
+      h(
+        "span",
+        { className: "forecast-pill-metric" },
+        t("spend.projectedNet", {
+          amount:
+            forecast.monthEndNetCost !== null
+              ? formatMoney(forecast.monthEndNetCost, currency)
+              : "—",
+        })
+      ),
+      h(
+        "span",
+        { className: "forecast-pill-metric" },
+        t("spend.projectedGross", {
+          amount:
+            forecast.monthEndGrossCost !== null
+              ? formatMoney(forecast.monthEndGrossCost, currency)
+              : "—",
+        })
+      )
+    ),
+    h("div", { className: "forecast-meta-line" }, basisFull),
+    hasNeg || forecast.creditsNotGuaranteed
+      ? h(
+          "div",
+          { className: "forecast-caution-line" },
+          hasNeg ? t("spend.forecastNegativeCaution") : t("spend.forecastCreditsCaution")
+        )
+      : null
+  );
+}
+
 function isCreditCoveredZeroNet(netCost        , grossCost        )          {
   return netCost <= 0.005 && grossCost >= 0.005;
 }
@@ -5391,7 +5601,8 @@ function renderOverviewTab(overview                           )              {
                     })
               )
             ),
-            renderDailySparkline(total.dailySeries, total.currency)
+            renderForecastSummaryBlock(total.forecast, total.currency),
+            renderDailySparkline(total.dailySeries, total.currency, undefined, total.forecast)
           )
         );
       }
@@ -5579,6 +5790,11 @@ function renderOverviewTab(overview                           )              {
     } else {
       const fallbackCurrency =
         overview.billingAccounts.find((b) => b.currencyCode)?.currencyCode || "USD";
+      const priorRefs = active.isCurrentMonth
+        ? spend.totalsByCurrency
+            .map((item) => item.priorMonthRunRateReference)
+            .filter((r)                                  => Boolean(r))
+        : [];
       sections.push(
         h(
           "section",
@@ -5603,6 +5819,18 @@ function renderOverviewTab(overview                           )              {
             "p",
             { className: "month-no-rows-note" },
             t("overview.monthNoRowsYet", { month: formatMonthLabel(active.selectedMonth) })
+          ),
+          ...priorRefs.map((ref) =>
+            h(
+              "p",
+              { className: "prior-month-ref-note" },
+              t("spend.priorMonthRunRateRef", {
+                month: formatMonthLabel(ref.sourceInvoiceMonth),
+                days: ref.coveredDays,
+                net: formatMoney(ref.netPerCoveredDay, ref.currency),
+                gross: formatMoney(ref.grossPerCoveredDay, ref.currency),
+              })
+            )
           )
         )
       );
@@ -6740,7 +6968,7 @@ function renderBillingAccountCard(
               })
             )
           ),
-          renderDailySparkline(bs.dailySeries, bs.currency),
+          renderDailySparkline(bs.dailySeries, bs.currency, undefined, bs.forecast),
           renderServiceBreakdownList(bs.topServices.slice(0, 4), bs.currency)
         )
       : ba.open && ba.exportTableId && !state.domainLoaded.spend && state.domainLoading.spend

@@ -7,7 +7,7 @@ import type { CachedCloudSnapshot, CompanionPreferences, LocalePreference } from
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const MIN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const SNAPSHOT_SCHEMA_VERSION = 7;
+const SNAPSHOT_SCHEMA_VERSION = 8;
 
 export const VALID_LOCALE_PREFERENCES: ReadonlySet<LocalePreference> = new Set<LocalePreference>([
   "auto",
