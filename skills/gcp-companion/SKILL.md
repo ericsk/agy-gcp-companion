@@ -41,3 +41,8 @@ Actual dollar spend (`gross_cost`, `credits`, `net_cost`, daily trend, and per-s
 3. **Switching Local Context Safely**:
    - Use `gcp_set_active_project` or `gcp_set_active_account` to switch the local `gcloud` default project or account.
    - Cloud billing bindings are intentionally read-only to prevent accidental service outages. Direct the user to the Console links returned by the tools if they want to modify billing account attachments or budget rules.
+4. **Interactive Selection (`ask_question`)**:
+   - Whenever presenting options or next-step choices to the user, **use `ask_question` instead of listing numbered options (`1.`, `2.`, `3.`, ...) in plain text** and waiting for the user to type a number.
+   - When `/gcp-companion` is invoked without a specific task (or after reporting `gcp_companion_status`), call `ask_question` with state-appropriate actions (e.g., list projects and billing bindings, inspect billing accounts and budgets, connect BigQuery Billing Export when `spendConfigured: false` or view month-to-date spend when `spendConfigured: true`, switch active `gcloud` project or account).
+   - When a step requires picking from known candidates (such as a `projectId` for `gcp_get_project_cost_breakdown` or `gcp_set_active_project`, a host project or discovered `gcp_billing_export_*` table for `gcp_configure_billing_export`, or an `account` / filter), present the candidates through `ask_question`.
+   - Fallback: Only fall back to plain-text options if `ask_question` is unavailable in the current client environment.
