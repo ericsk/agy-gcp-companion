@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CompanionService } from "../core/companion-service.mjs";
 import { sanitizeErrorMessage } from "../core/security.mjs";
+import { getPluginVersion } from "../core/updater.mjs";
 
                                  
                  
@@ -281,7 +282,7 @@ export class GcpCompanionMcpHandler {
               },
               serverInfo: {
                 name: "agy-gcp-companion",
-                version: "1.0.0",
+                version: getPluginVersion(),
               },
             },
           };

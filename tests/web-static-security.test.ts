@@ -73,10 +73,13 @@ describe("Frontend Security Static Audit & Plugin Packaging Verification", () =>
     for (const base of [ROOT, join(ROOT, ".agents", "plugins", "agy-gcp-companion")]) {
       const pluginJson = JSON.parse(readFileSync(join(base, "plugin.json"), "utf-8")) as {
         name: string;
+        version: string;
         logo: string;
       };
       assert.equal(pluginJson.name, "agy-gcp-companion");
+      assert.equal(pluginJson.version, "1.2.0");
       assert.ok(existsSync(join(base, pluginJson.logo)));
+      assert.ok(existsSync(join(base, "LICENSE")));
 
       const mcpJson = JSON.parse(readFileSync(join(base, "mcp_config.json"), "utf-8")) as {
         mcpServers: Record<string, { command: string; args: string[]; cwd: string }>;

@@ -136,7 +136,7 @@ function build() {
   // Stage workspace-local plugin copy under .agents/plugins/agy-gcp-companion for instant workspace discovery
   rmSync(WORKSPACE_PLUGIN_DIR, { recursive: true, force: true });
   mkdirSync(WORKSPACE_PLUGIN_DIR, { recursive: true });
-  for (const item of ["plugin.json", "mcp_config.json", "assets", "sidecars", "skills", "dist"]) {
+  for (const item of ["plugin.json", "mcp_config.json", "LICENSE", "README.md", "assets", "sidecars", "skills", "dist"]) {
     const srcItem = join(ROOT, item);
     if (existsSync(srcItem)) {
       cpSync(srcItem, join(WORKSPACE_PLUGIN_DIR, item), { recursive: true });

@@ -10,13 +10,14 @@
 
 - **Auxiliary Side Pane UI (`GCP Companion`)**:
   - **Sticky Context Header**: View/switch your active `gcloud` account (with 1-click PII email masking) and copy/switch your default `gcloud` project.
-  - **Overview Tab**: Month-to-date net spend (after credits & free-tier discounts), gross vs. credits breakdown, comparison vs. previous month same-day spend, daily SVG spend sparkline, breakdown toggle (**By Project** / **By Billing Account**), and pinned projects.
+  - **Overview Tab**: Month-to-date net spend (after credits & free-tier discounts), gross vs. credits breakdown, comparison vs. previous month same-day spend, **month-end spend forecast & dashed sparkline projection**, **6-month historical billing archive**, breakdown toggle (**By Project** / **By Billing Account**), and pinned projects.
   - **Projects Tab**: Search by name, project ID, project number, or label; filter by Billing Account, Pinned, or Unbilled; expand any project to inspect top GCP Services (`Vertex AI`, `Cloud Run`, `BigQuery`, etc.) and jump directly to Console dashboards.
   - **Billing Tab**: Inspect open/closed Cloud Billing Accounts, configured Budget alert thresholds, and connect **BigQuery Cloud Billing Export** tables via 1-click dataset auto-discovery or manual `project.dataset.table` binding.
+  - **Progressive Instant-Shell Loading**: Renders UI shell and fast GCP metadata immediately while loading slower BigQuery spend scans independently in parallel.
   - **Multi-Language Support (`i18n`)**: Automatic system/browser locale detection plus 1-click switching in **⚙ Settings** between **English (`en`)**, **Español (`es`)**, **Français (`fr`)**, **日本語 (`ja`)**, **한국어 (`ko`)**, **简体中文 (`zh-CN`)**, and **繁體中文 (`zh-TW`)**, persisted locally across sessions.
   - **Built-In Automatic Updates**: Periodically checks GitHub for newer `plugin.json` semantic versions (`vX.Y.Z`) and automatically updates `~/.gemini/config/plugins/agy-gcp-companion` in the background (or 1-click manual update via **⚙ Settings**).
 - **Agent Chat Integration (`mcp_config.json` + `SKILL.md`)**:
-  - Exposes 8 structured MCP tools (`gcp_companion_status`, `gcp_list_projects`, `gcp_list_billing_accounts`, `gcp_get_billing_summary`, `gcp_get_project_cost_breakdown`, `gcp_set_active_project`, `gcp_set_active_account`, `gcp_configure_billing_export`) sharing the same 6-hour local cache (`~/.gemini/agy-gcp-companion/`) as the panel.
+  - Exposes 8 structured MCP tools (`gcp_companion_status`, `gcp_list_projects`, `gcp_list_billing_accounts`, `gcp_get_billing_summary`, `gcp_get_project_cost_breakdown`, `gcp_set_active_project`, `gcp_set_active_account`, `gcp_configure_billing_export`) and 3 MCP resources sharing the same 6-hour local cache (`~/.gemini/agy-gcp-companion/`) as the panel, with interactive `ask_question` guided selection flows.
 - **Zero External Runtime Dependencies**:
   - Pre-compiled to pure ES Modules (`dist/`) that run directly on Antigravity's bundled Node.js runtime without requiring `npm install`.
 
@@ -84,3 +85,7 @@ npm run dev:sidecar
 - **Strict CSP & Zero `innerHTML`**: Served with `script-src 'self'; style-src 'self'; object-src 'none'`. All UI elements and SVG charts are constructed via `document.createElement` / `createElementNS` and `textContent`.
 - **Synchronizer CSRF & Origin Guard**: All `POST` endpoints validate `Origin`, custom preflight-gated `X-AGY-Companion` header, and HMAC-signed session CSRF tokens.
 - **Read-Only Cloud Posture & Partition Pruning**: Cloud billing attachments are read-only; BigQuery queries use named parameters and `_PARTITIONTIME` pruning with a 6-hour local cache (`0600` permissions).
+
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE).

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { CompanionService } from "../core/companion-service.ts";
 import { sanitizeErrorMessage } from "../core/security.ts";
 import type { LocalePreference } from "../core/types.ts";
+import { getPluginVersion } from "../core/updater.ts";
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB max JSON payload
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30-minute CSRF/session lifetime
@@ -310,7 +311,7 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
       if (method === "GET" && pathname.endsWith("/api/session")) {
         sendJson(res, 200, {
           status: "ok",
-          version: "1.0.0",
+          version: getPluginVersion(),
           ...issueSessionPayload(),
         });
         return;

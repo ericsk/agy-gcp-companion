@@ -77,10 +77,11 @@ describe("Compiled Stdio MCP Server (dist/mcp-server.mjs)", () => {
         clientInfo: { name: "test-client", version: "1.0.0" },
       });
       const initRes = (await waitForId(1)) as {
-        result: { protocolVersion: string; serverInfo: { name: string } };
+        result: { protocolVersion: string; serverInfo: { name: string; version: string } };
       };
       assert.equal(initRes.result.protocolVersion, "2025-03-26");
       assert.equal(initRes.result.serverInfo.name, "agy-gcp-companion");
+      assert.equal(initRes.result.serverInfo.version, "1.2.0");
 
       // Notification without id should not produce a response
       proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);

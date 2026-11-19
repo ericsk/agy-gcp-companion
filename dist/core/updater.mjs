@@ -108,6 +108,10 @@ function readManifestVersion(dir        )                {
   }
 }
 
+export function getPluginVersion(pluginRootDir         )         {
+  return readManifestVersion(resolve(pluginRootDir ?? resolveDefaultPluginRoot())) ?? "1.2.0";
+}
+
 function findExecutable(binaryName        , extraDirs                   )                {
   const isWin = process.platform === "win32";
   const suffixes = isWin ? [".exe", ".cmd", ""] : [""];
@@ -167,7 +171,7 @@ export class PluginUpdater {
     this.checkTtlMs = options.checkTtlMs ?? DEFAULT_UPDATE_CHECK_TTL_MS;
     this.agyBinaryOverride = options.agyBinaryPath;
     this.gitBinaryOverride = options.gitBinaryPath;
-    this.bootVersion = readManifestVersion(this.pluginRootDir) ?? "1.0.0";
+    this.bootVersion = readManifestVersion(this.pluginRootDir) ?? "1.2.0";
   }
 
           getTargetInstallDir()         {

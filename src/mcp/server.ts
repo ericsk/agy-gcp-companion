@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CompanionService } from "../core/companion-service.ts";
 import { sanitizeErrorMessage } from "../core/security.ts";
+import { getPluginVersion } from "../core/updater.ts";
 
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -281,7 +282,7 @@ export class GcpCompanionMcpHandler {
               },
               serverInfo: {
                 name: "agy-gcp-companion",
-                version: "1.0.0",
+                version: getPluginVersion(),
               },
             },
           };
