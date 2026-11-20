@@ -81,7 +81,7 @@ describe("Compiled Stdio MCP Server (dist/mcp-server.mjs)", () => {
       };
       assert.equal(initRes.result.protocolVersion, "2025-03-26");
       assert.equal(initRes.result.serverInfo.name, "agy-gcp-companion");
-      assert.equal(initRes.result.serverInfo.version, "1.2.0");
+      assert.equal(initRes.result.serverInfo.version, "1.3.0");
 
       // Notification without id should not produce a response
       proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);

@@ -109,7 +109,7 @@ function readManifestVersion(dir: string): string | null {
 }
 
 export function getPluginVersion(pluginRootDir?: string): string {
-  return readManifestVersion(resolve(pluginRootDir ?? resolveDefaultPluginRoot())) ?? "1.2.0";
+  return readManifestVersion(resolve(pluginRootDir ?? resolveDefaultPluginRoot())) ?? "1.3.0";
 }
 
 function findExecutable(binaryName: string, extraDirs: readonly string[]): string | null {
@@ -171,7 +171,7 @@ export class PluginUpdater {
     this.checkTtlMs = options.checkTtlMs ?? DEFAULT_UPDATE_CHECK_TTL_MS;
     this.agyBinaryOverride = options.agyBinaryPath;
     this.gitBinaryOverride = options.gitBinaryPath;
-    this.bootVersion = readManifestVersion(this.pluginRootDir) ?? "1.2.0";
+    this.bootVersion = readManifestVersion(this.pluginRootDir) ?? "1.3.0";
   }
 
   private getTargetInstallDir(): string {

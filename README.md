@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License" /></a>
-  <img src="https://img.shields.io/badge/version-1.2.0-1a73e8.svg" alt="Version 1.2.0" />
+  <img src="https://img.shields.io/badge/version-1.3.0-1a73e8.svg" alt="Version 1.3.0" />
   <img src="https://img.shields.io/badge/runtime_dependencies-0-34a853.svg" alt="Zero Runtime Dependencies" />
   <img src="https://img.shields.io/badge/i18n-7_languages-fbbc04.svg" alt="7 Languages Supported" />
 </p>
@@ -29,9 +29,9 @@
 
 | Primitive | Path | Capability |
 | :--- | :--- | :--- |
-| **Manifest** | [`plugin.json`](./plugin.json) | Declares metadata, semantic version (`1.2.0`), icon, and starter prompts. |
+| **Manifest** | [`plugin.json`](./plugin.json) | Declares metadata, semantic version (`1.3.0`), icon, and starter prompts. |
 | **Web UI Sidecar** | [`sidecars/gcp-companion/sidecar.json`](./sidecars/gcp-companion/sidecar.json) | Interactive 3-tab Auxiliary Pane (`Overview`, `Projects`, `Billing`) mounted via `SIDECAR_UI_ENTRYPOINT_AUX_PANE`. |
-| **MCP Server** | [`mcp_config.json`](./mcp_config.json) | Local `stdio` server (`dist/mcp-server.mjs`) exposing **8 tools** and **3 JSON resources**. |
+| **MCP Server** | [`mcp_config.json`](./mcp_config.json) | Local `stdio` server (`dist/mcp-server.mjs`) exposing **9 tools** and **3 JSON resources**. |
 | **Agent Skill** | [`skills/gcp-companion/SKILL.md`](./skills/gcp-companion/SKILL.md) | Progressive FinOps & `gcloud` context workflow (`/gcp-companion`) using interactive `ask_question` prompts. |
 
 ---
@@ -45,8 +45,8 @@
   - **Month-End Spend Forecast & Sparkline Projection**: Zero-extra-scan end-of-month cost projections blending recent 7-day run rate (excluding partial current-day skew) with dashed projection curves on daily SVG spend sparklines.
   - **6-Month Historical Billing Archive**: Switch across recent invoice months; settled historical months automatically freeze in cache (`✓ Archived · No BQ rescan`) to eliminate redundant BigQuery scans.
   - **Flexible Breakdowns**: Toggle spend rankings **By Project**, **By Billing Account**, or **By Service**, and star (`★`) favorite projects for 1-click context switching.
-- **Projects Tab**: Search by project name, ID, number, or label; filter by `Active & Pinned`, `All`, `Pinned`, or `Unbilled`; inspect per-project top GCP services (`Vertex AI`, `Cloud Run`, `BigQuery`, etc.) and open deep links to GCP Console dashboards.
-- **Billing Tab**: Inspect open/closed Cloud Billing Accounts, linked project counts, configured **Budget alert thresholds**, and connect **BigQuery Cloud Billing Export** tables via 1-click dataset auto-discovery (`Scan Datasets`) or manual `project.dataset.table` binding.
+- **Projects Tab**: Search active GCP projects by name, ID, number, or label; filter by `Active & Pinned`, `All`, `Pinned`, or `Unbilled`; inspect per-project top GCP services (`Vertex AI`, `Cloud Run`, `BigQuery`, etc.); **link or switch open Cloud Billing Accounts** with Before → After confirmation; or trigger **Danger Zone Project Deletion** (Web UI only, requiring exact Project ID entry with 30-day Pending Deletion recovery guidance).
+- **Billing Tab**: Inspect active (open) Cloud Billing Accounts, linked active project counts, configured **Budget alert thresholds**, and connect **BigQuery Cloud Billing Export** tables via 1-click dataset auto-discovery (`Scan Datasets`) or manual `project.dataset.table` binding.
 - **Progressive Instant-Shell Architecture**: Renders the UI shell immediately and loads Projects, Billing Accounts, Budgets, and BigQuery Spend independently in parallel so fast metadata never waits on BigQuery queries.
 - **7-Language Internationalization (`i18n`)**: Automatic system/browser locale detection plus 1-click switching in **⚙ Settings** across **English (`en`)**, **Español (`es`)**, **Français (`fr`)**, **日本語 (`ja`)**, **한국어 (`ko`)**, **简体中文 (`zh-CN`)**, and **繁體中文 (`zh-TW`, with explicit `NT$` formatting)**.
 - **Zero-Credential Demo Mode**: Click **`Preview Demo Dashboard`**, **`Preview Sample Spend`**, or **`⚙ Settings → Enable Demo Preview Mode`** to explore realistic multi-project, budget, and 6-month BigQuery spend data without connecting live cloud credentials.
@@ -62,12 +62,13 @@ Google Cloud's REST APIs expose projects, billing account bindings, and budget t
 
 - **Antigravity**: Google Antigravity App, IDE, or CLI (`agy`) — runs directly on Antigravity's bundled Node.js (`>= 18.0.0`) with **zero `npm install` step**.
 - **Google Cloud CLI (`gcloud`)**: Recommended for browser sign-in (`gcloud auth login`) and local project/account switching. *(If `gcloud` is not installed yet, the panel provides guided installation links and a 1-click Demo Mode).*
-- **GCP APIs & Read-Only IAM Roles** *(evaluated under your existing user credentials)*:
+- **GCP APIs & IAM Roles** *(evaluated under your existing user credentials)*:
 
-| Mode | GCP APIs Used | Minimum Read-Only Permissions / Roles |
+| Mode | GCP APIs Used | Minimum Permissions / Roles |
 | :--- | :--- | :--- |
 | **Base Mode** *(Projects, Billing Links & Budgets)* | `cloudresourcemanager.googleapis.com`<br/>`cloudbilling.googleapis.com`<br/>`billingbudgets.googleapis.com` | • `resourcemanager.projects.get` *(e.g. Viewer / Browser)*<br/>• `billing.accounts.get`, `billing.accounts.list` *(Billing Account Viewer)*<br/>• `billing.budgets.list` *(optional, for budget thresholds)* |
 | **Spend Mode** *(Optional — Exact Dollar Spend)* | `bigquery.googleapis.com` | • `bigquery.jobs.create` *(BigQuery Job User on quota/host project)*<br/>• `bigquery.tables.getData` *(BigQuery Data Viewer on the billing export dataset)* |
+| **Guarded Actions** *(Optional — Switch Billing / UI Project Delete)* | `cloudbilling.googleapis.com`<br/>`cloudresourcemanager.googleapis.com` | • **Switch Project Billing**: `Project Billing Manager` on project + `Billing Account User` on target open billing account<br/>• **Delete Project (Web UI only)**: `resourcemanager.projects.delete` *(Project Deleter / Owner)* |
 
 ---
 
@@ -115,6 +116,7 @@ Ask the Antigravity chat agent naturally or invoke `/gcp-companion`:
 - `"Show me my current Google Cloud month-to-date spend, month-end forecast, and top spending projects"`
 - `"Which GCP services are driving costs in my active project this month?"`
 - `"List my unbilled or sandbox GCP projects and switch my active gcloud project"`
+- `"Switch my staging project to my team's active Cloud Billing Account"`
 - `"Check if I have any BigQuery billing export tables in my billing admin project and connect them"`
 - `"/gcp-companion"` *(launches an interactive menu to inspect status, compare spend, or switch context)*
 
@@ -122,17 +124,18 @@ Ask the Antigravity chat agent naturally or invoke `/gcp-companion`:
 
 ## MCP Server Reference (`gcp-companion`)
 
-### Tools (8)
+### Tools (9)
 
 | Tool Name | Mode | Description |
 | :--- | :---: | :--- |
 | `gcp_companion_status` | Read-Only | Returns local `gcloud` auth state, active account/project, pinned projects, BigQuery export bindings, and cache freshness. |
-| `gcp_list_projects` | Read-Only | Lists accessible GCP projects enriched with billing account status, pin flag, and MTD net spend; supports `query`, `billingAccountId`, `pinnedOnly`, and `unbilledOnly` filters. |
-| `gcp_list_billing_accounts` | Read-Only | Lists Cloud Billing Accounts, open/closed state, linked project counts, budget alert rules, and MTD net/gross/credit totals. |
+| `gcp_list_projects` | Read-Only | Lists active GCP projects enriched with active billing account status, pin flag, and MTD net spend; supports `query`, `billingAccountId`, `pinnedOnly`, and `unbilledOnly` filters. |
+| `gcp_list_billing_accounts` | Read-Only | Lists active (open) Cloud Billing Accounts, linked active project counts, budget alert rules, and MTD net/gross/credit totals. |
 | `gcp_get_billing_summary` | Read-Only | Returns MTD net spend, gross cost, credits, previous-month same-day comparison, month-end forecast, daily spend series, and top projects. |
 | `gcp_get_project_cost_breakdown` | Read-Only | Returns per-service cost breakdown (`Vertex AI`, `Cloud Run`, `BigQuery`, etc.), daily trend, credits, and Console deep links for a `projectId`. |
 | `gcp_set_active_project` | Local Config | Runs validated `gcloud config set project <projectId>` (and optionally pins the project), syncing immediately with the side panel. |
 | `gcp_set_active_account` | Local Config | Switches the active local `gcloud` account among accounts already authenticated on the workstation. |
+| `gcp_set_project_billing_account` | Guarded Cloud | Links or switches a project to an open Cloud Billing Account (`PUT .../billingInfo`) via a mandatory two-step `confirm: true` preview-then-apply gate (unlinking billing is blocked). |
 | `gcp_configure_billing_export` | Local Config | Auto-discovers `gcp_billing_export_*` tables in a `hostProjectId` (`discoverOnly: true`) or binds/unlinks a `project.dataset.table` reference. |
 
 ### Resources (3)
@@ -150,7 +153,10 @@ Ask the Antigravity chat agent naturally or invoke `/gcp-companion`:
 GCP Companion is engineered with defense-in-depth guardrails for local agentic environments:
 
 - **Zero Stored Credentials or Secrets**: Authenticates exclusively through the user's existing local `gcloud` CLI / Application Default Credentials (ADC). The plugin never collects, logs, or writes OAuth client secrets, raw access/refresh tokens, or API keys to disk.
-- **Strictly Read-Only Cloud Governance**: All Google Cloud API calls (`cloudresourcemanager`, `cloudbilling`, `billingbudgets`, `bigquery`) are read-only. Cloud billing account attachments and budgets can never be modified or detached by the plugin, preventing accidental production outages.
+- **Guarded Cloud Governance & Blast-Radius Controls**:
+  - All discovery and spend queries (`cloudresourcemanager`, `cloudbilling`, `billingbudgets`, `bigquery`) are read-only by default, automatically filtering out closed billing accounts and pending-deletion projects.
+  - Switching a project's billing account is restricted strictly to **open** Cloud Billing Accounts with explicit Before → After confirmation in the UI and a mandatory two-step `confirm: true` gate in MCP; **unlinking/disabling billing and modifying budget rules remain strictly blocked** to prevent accidental production outages.
+  - **Project Deletion** (`DELETE /v3/projects/{projectId}`) is **isolated exclusively to the Web UI** (never exposed as an MCP tool to AI agents) and requires typing the exact `projectId` inside a Danger Zone drawer with impact warnings and 30-day GCP Pending Deletion recovery links.
 - **Command & SQL Injection Prevention**:
   - Subprocess invocations (`gcloud`, `agy`, `git`) execute strictly via `execFile` with `shell: false` and regex allowlist validation on project IDs, account emails, billing IDs, and table identifiers (blocking `--flag` injection).
   - BigQuery spend queries use parameterized query arguments (`@minInvoiceMonth`, etc.), strict identifier validation, and `_PARTITIONTIME` partition pruning bounded to active billing windows.
@@ -196,7 +202,7 @@ By default, results are cached locally for **6 hours** (configurable from 1 hour
 ## Local Development & Validation
 
 ```bash
-# 1. Compile TypeScript (Node built-in type stripping) & run all 43 security/unit/UI tests
+# 1. Compile TypeScript (Node built-in type stripping) & run all 47 security/unit/UI tests
 npm test
 
 # 2. Validate plugin manifest, MCP config, sidecar, and skill strictly via Antigravity CLI

@@ -8460,7 +8460,7 @@ function renderBillingExportSetupCard(overview                           )      
 
 function renderPluginUpdateSection(overview                           )              {
   const upd = overview.pluginUpdate;
-  const currentVersion = upd?.currentVersion || "1.2.0";
+  const currentVersion = upd?.currentVersion || "1.3.0";
   const autoUpdate = overview.preferences.autoUpdatePlugin !== false;
 
   const statusBadge =

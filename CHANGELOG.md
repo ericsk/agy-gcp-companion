@@ -2,6 +2,15 @@
 
 All notable changes to **GCP Companion (`agy-gcp-companion`)** are documented in this file.
 
+## [1.3.0] - 2026-11-20
+
+### Added
+- **Project Billing Account Switching (UI & MCP)**: Link unbilled GCP projects to open Cloud Billing Accounts or switch billing accounts via Cloud Billing REST API (`PUT /v1/projects/{projectId}/billingInfo`), featuring Before → After inline confirmation in the Projects drawer, a mandatory two-step `confirm: true` preview-then-apply safety gate in MCP (`gcp_set_project_billing_account`), Demo Mode simulation, and instant local cache reconciliation without redundant BigQuery rescans. Unlinking/disabling billing remains blocked to prevent accidental outages.
+- **Guarded Project Deletion Flow (Web UI Only)**: Added a Danger Zone **Delete Project** flow inside the Projects drawer (`DELETE /v3/projects/{projectId}`) requiring exact `projectId` entry, dynamic impact warnings (active `gcloud` project, quota override project, BigQuery export host), actionable IAM (`403`) and Lien (`400`) guidance, automatic local preference/cache cleanup, and a dismissible 30-day Pending Deletion recovery banner. Intentionally excluded from MCP tools so AI agents can never delete projects.
+
+### Changed
+- **Active-Only Resource Filtering**: Automatically filters out closed Cloud Billing Accounts and non-active GCP projects (`DELETE_REQUESTED`, etc.) across live APIs, linked project counts, legacy cache snapshots, Web UI, and MCP outputs while preserving historical BigQuery spend reconciliation.
+
 ## [1.2.0] - 2026-11-19
 
 ### Added

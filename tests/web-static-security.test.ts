@@ -77,7 +77,7 @@ describe("Frontend Security Static Audit & Plugin Packaging Verification", () =>
         logo: string;
       };
       assert.equal(pluginJson.name, "agy-gcp-companion");
-      assert.equal(pluginJson.version, "1.2.0");
+      assert.equal(pluginJson.version, "1.3.0");
       assert.ok(existsSync(join(base, pluginJson.logo)));
       assert.ok(existsSync(join(base, "LICENSE")));
 
