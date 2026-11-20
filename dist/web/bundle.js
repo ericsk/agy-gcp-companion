@@ -244,6 +244,29 @@ const EN_MESSAGES = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Logs ↗",
+  "project.dangerZoneLabel": "Danger Zone",
+  "project.deleteBtn": "Delete Project",
+  "project.deleteConfirmTitle": "Shut Down & Delete Project",
+  "project.deleteConfirmDesc":
+    "Deleting {project} immediately stops all services and billing. The project enters a 30-day recovery window in Google Cloud Console before permanent deletion.",
+  "project.deleteWarnActive":
+    "This is currently your active gcloud project. You will need to switch to another project after deletion.",
+  "project.deleteWarnQuota":
+    "This project is set as your Quota Project Override. The override will be cleared automatically.",
+  "project.deleteWarnBqExport":
+    "This project hosts a linked BigQuery Billing Export table. Spend queries using this project will stop working if it is deleted.",
+  "project.deleteTypePrompt": "Type {project} to confirm deletion:",
+  "project.deleteInputAria": "Confirm project ID to delete",
+  "project.deleteConfirmSubmitBtn": "Shut Down & Delete",
+  "project.deleteDeletingBtn": "Deleting…",
+  "project.deleteOpenConsoleLink": "Open Project Settings in GCP Console ↗",
+  "project.deletedBannerTitle": "Project {project} scheduled for deletion",
+  "project.deletedBannerDesc":
+    "You can restore this project within 30 days from Pending Deletion in Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Demo Mode simulation only — no real Google Cloud project was affected. Toggle Demo Mode or restart to reset.",
+  "project.deletedBannerConsoleLink": "Open Pending Deletion ↗",
+  "project.dismissBannerAria": "Dismiss notification",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "OPEN",
@@ -268,7 +291,6 @@ const EN_MESSAGES = {
   "billing.budgetCustomTarget": "Custom target",
   "billing.budgetNoThresholds": "No threshold rules",
   "billing.diagnosticsTitle": "Billing API Diagnostics",
-  "billing.closedAccountsSummary": "Closed / Inactive Billing Accounts ({count})",
   "billing.noAccountsVisible":
     "No Cloud Billing accounts visible to the active Google account (requires `billing.accounts.get` or `billing.accounts.list`).",
 
@@ -338,6 +360,9 @@ const EN_MESSAGES = {
   "toast.switchProjectFailed": "Failed to switch project",
   "toast.switchedBillingAccount": "Linked {project} to {account}",
   "toast.switchBillingFailed": "Failed to switch billing account",
+  "toast.deletedProject": "Project {project} scheduled for deletion",
+  "toast.deletedProjectDemo": "Demo Mode: simulated deletion of {project}",
+  "toast.deleteProjectFailed": "Failed to delete project",
   "toast.pinUpdateFailed": "Failed to update pin",
   "toast.removedExportMapping": "Removed export table mapping",
   "toast.removeExportFailed": "Failed to remove mapping",
@@ -624,6 +649,29 @@ const ES_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Registros ↗",
+  "project.dangerZoneLabel": "Zona de peligro",
+  "project.deleteBtn": "Eliminar proyecto",
+  "project.deleteConfirmTitle": "Cerrar y eliminar proyecto",
+  "project.deleteConfirmDesc":
+    "Eliminar {project} detiene de inmediato todos los servicios y la facturación. El proyecto entra en un período de recuperación de 30 días en Google Cloud Console antes de su eliminación permanente.",
+  "project.deleteWarnActive":
+    "Este es actualmente tu proyecto activo de gcloud. Deberás cambiar a otro proyecto después de eliminarlo.",
+  "project.deleteWarnQuota":
+    "Este proyecto está configurado como Quota Project Override y se limpiará automáticamente.",
+  "project.deleteWarnBqExport":
+    "Este proyecto aloja una tabla vinculada de exportación de facturación de BigQuery. Las consultas de gasto dejarán de funcionar si se elimina.",
+  "project.deleteTypePrompt": "Escribe {project} para confirmar la eliminación:",
+  "project.deleteInputAria": "Confirmar ID del proyecto a eliminar",
+  "project.deleteConfirmSubmitBtn": "Cerrar y eliminar",
+  "project.deleteDeletingBtn": "Eliminando…",
+  "project.deleteOpenConsoleLink": "Abrir configuración del proyecto en GCP Console ↗",
+  "project.deletedBannerTitle": "Proyecto {project} programado para eliminación",
+  "project.deletedBannerDesc":
+    "Puedes restaurar este proyecto dentro de los próximos 30 días desde Recursos pendientes de eliminación en Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Simulación en modo demostración: no se afectó ningún proyecto real de GCP. Cambia el modo o reinicia para restablecer.",
+  "project.deletedBannerConsoleLink": "Abrir pendientes de eliminación ↗",
+  "project.dismissBannerAria": "Descartar notificación",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "ABIERTA",
@@ -648,7 +696,6 @@ const ES_MESSAGES                     = {
   "billing.budgetCustomTarget": "Objetivo personalizado",
   "billing.budgetNoThresholds": "Sin reglas de umbral",
   "billing.diagnosticsTitle": "Diagnóstico de Billing API",
-  "billing.closedAccountsSummary": "Cuentas de facturación cerradas / inactivas ({count})",
   "billing.noAccountsVisible":
     "No hay cuentas de facturación de Cloud visibles para la cuenta activa (requiere `billing.accounts.get` o `billing.accounts.list`).",
 
@@ -718,6 +765,9 @@ const ES_MESSAGES                     = {
   "toast.switchProjectFailed": "Error al cambiar de proyecto",
   "toast.switchedBillingAccount": "{project} vinculado a {account}",
   "toast.switchBillingFailed": "Error al cambiar la cuenta de facturación",
+  "toast.deletedProject": "Proyecto {project} programado para eliminación",
+  "toast.deletedProjectDemo": "Modo demostración: eliminación simulada de {project}",
+  "toast.deleteProjectFailed": "Error al eliminar el proyecto",
   "toast.pinUpdateFailed": "Error al actualizar fijación",
   "toast.removedExportMapping": "Vinculación de tabla de exportación eliminada",
   "toast.removeExportFailed": "Error al eliminar la vinculación",
@@ -1002,6 +1052,29 @@ const FR_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Journaux ↗",
+  "project.dangerZoneLabel": "Zone de danger",
+  "project.deleteBtn": "Supprimer le projet",
+  "project.deleteConfirmTitle": "Arrêter et supprimer le projet",
+  "project.deleteConfirmDesc":
+    "La suppression de {project} arrête immédiatement tous les services et la facturation. Le projet dispose d'une période de récupération de 30 jours dans Google Cloud Console avant suppression définitive.",
+  "project.deleteWarnActive":
+    "C'est actuellement votre projet gcloud actif. Vous devrez basculer vers un autre projet après la suppression.",
+  "project.deleteWarnQuota":
+    "Ce projet est défini comme Quota Project Override et sera effacé automatiquement.",
+  "project.deleteWarnBqExport":
+    "Ce projet héberge une table d'exportation de facturation BigQuery liée. Les requêtes de dépenses cesseront de fonctionner s'il est supprimé.",
+  "project.deleteTypePrompt": "Saisissez {project} pour confirmer la suppression :",
+  "project.deleteInputAria": "Confirmer l'ID du projet à supprimer",
+  "project.deleteConfirmSubmitBtn": "Arrêter et supprimer",
+  "project.deleteDeletingBtn": "Suppression…",
+  "project.deleteOpenConsoleLink": "Ouvrir les paramètres du projet dans GCP Console ↗",
+  "project.deletedBannerTitle": "Suppression programmée pour le projet {project}",
+  "project.deletedBannerDesc":
+    "Vous pouvez restaurer ce projet sous 30 jours depuis les ressources en attente de suppression dans Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Simulation en mode démo uniquement : aucun projet GCP réel n'a été affecté. Basculez le mode ou redémarrez pour réinitialiser.",
+  "project.deletedBannerConsoleLink": "Ouvrir les suppressions en attente ↗",
+  "project.dismissBannerAria": "Fermer la notification",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "OUVERT",
@@ -1026,7 +1099,6 @@ const FR_MESSAGES                     = {
   "billing.budgetCustomTarget": "Cible personnalisée",
   "billing.budgetNoThresholds": "Aucune règle de seuil",
   "billing.diagnosticsTitle": "Diagnostics de l'API Billing",
-  "billing.closedAccountsSummary": "Comptes de facturation fermés / inactifs ({count})",
   "billing.noAccountsVisible":
     "Aucun compte de facturation Cloud visible pour le compte actif (autorisation `billing.accounts.get` ou `billing.accounts.list` requise).",
 
@@ -1096,6 +1168,9 @@ const FR_MESSAGES                     = {
   "toast.switchProjectFailed": "Échec du changement de projet",
   "toast.switchedBillingAccount": "{project} associé à {account}",
   "toast.switchBillingFailed": "Échec du changement de compte de facturation",
+  "toast.deletedProject": "Suppression programmée pour le projet {project}",
+  "toast.deletedProjectDemo": "Mode démo : suppression simulée de {project}",
+  "toast.deleteProjectFailed": "Échec de la suppression du projet",
   "toast.pinUpdateFailed": "Échec de la mise à jour de l'épingle",
   "toast.removedExportMapping": "Association de table d'exportation supprimée",
   "toast.removeExportFailed": "Échec de la suppression de l'association",
@@ -1379,6 +1454,29 @@ const JA_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "ログ ↗",
+  "project.dangerZoneLabel": "危険な操作",
+  "project.deleteBtn": "プロジェクトを削除",
+  "project.deleteConfirmTitle": "プロジェクトのシャットダウンと削除",
+  "project.deleteConfirmDesc":
+    "{project} を削除すると、すべてのサービスと課金が直ちに停止されます。完全削除まで Google Cloud コンソールで 30 日間の復元猶予期間があります。",
+  "project.deleteWarnActive":
+    "これは現在アクティブな gcloud プロジェクトです。削除後は別のプロジェクトに切り替える必要があります。",
+  "project.deleteWarnQuota":
+    "このプロジェクトは Quota Project Override に設定されています。削除後に設定は自動クリアされます。",
+  "project.deleteWarnBqExport":
+    "このプロジェクトには連携済みの BigQuery 請求エクスポートテーブルがあります。削除すると支出クエリが動作しなくなります。",
+  "project.deleteTypePrompt": "削除を確認するには {project} と入力してください：",
+  "project.deleteInputAria": "削除確認用のプロジェクト ID を入力",
+  "project.deleteConfirmSubmitBtn": "シャットダウンして削除",
+  "project.deleteDeletingBtn": "削除中…",
+  "project.deleteOpenConsoleLink": "GCP コンソールでプロジェクト設定を開く ↗",
+  "project.deletedBannerTitle": "プロジェクト {project} の削除を予約しました",
+  "project.deletedBannerDesc":
+    "30 日以内であれば、Google Cloud コンソールの「削除保留中のリソース」から復元できます。",
+  "project.deletedBannerDemoDesc":
+    "デモモードのシミュレーションです（実際の GCP プロジェクトには影響しません）。デモモードの切替または再起動で復元されます。",
+  "project.deletedBannerConsoleLink": "削除保留中ページを開く ↗",
+  "project.dismissBannerAria": "通知を閉じる",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "有効",
@@ -1403,7 +1501,6 @@ const JA_MESSAGES                     = {
   "billing.budgetCustomTarget": "カスタム目標",
   "billing.budgetNoThresholds": "しきい値ルールなし",
   "billing.diagnosticsTitle": "Billing API 診断情報",
-  "billing.closedAccountsSummary": "閉鎖・非アクティブな請求先アカウント ({count})",
   "billing.noAccountsVisible":
     "現在の Google アカウントで表示できる Cloud 請求先アカウントがありません（`billing.accounts.get` または `billing.accounts.list` 権限が必要です）。",
 
@@ -1473,6 +1570,9 @@ const JA_MESSAGES                     = {
   "toast.switchProjectFailed": "プロジェクトの切り替えに失敗しました",
   "toast.switchedBillingAccount": "{project} を {account} にリンクしました",
   "toast.switchBillingFailed": "請求先アカウントの変更に失敗しました",
+  "toast.deletedProject": "プロジェクト {project} の削除を予約しました",
+  "toast.deletedProjectDemo": "デモモード：{project} の削除をシミュレートしました",
+  "toast.deleteProjectFailed": "プロジェクトの削除に失敗しました",
   "toast.pinUpdateFailed": "ピン留めの更新に失敗しました",
   "toast.removedExportMapping": "エクスポートテーブル連携を解除しました",
   "toast.removeExportFailed": "連携の解除に失敗しました",
@@ -1756,6 +1856,29 @@ const KO_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "로그 ↗",
+  "project.dangerZoneLabel": "위험 작업",
+  "project.deleteBtn": "프로젝트 삭제",
+  "project.deleteConfirmTitle": "프로젝트 종료 및 삭제",
+  "project.deleteConfirmDesc":
+    "{project}을(를) 삭제하면 모든 서비스와 결제가 즉시 중지됩니다. 영구 삭제 전 Google Cloud 콘솔에서 30일 동안 복원할 수 있습니다.",
+  "project.deleteWarnActive":
+    "현재 활성 gcloud 프로젝트입니다. 삭제 후 다른 프로젝트로 전환해야 합니다.",
+  "project.deleteWarnQuota":
+    "이 프로젝트는 할당량 프로젝트 재정의(Quota Project Override)로 설정되어 있으며 삭제 후 자동으로 해제됩니다.",
+  "project.deleteWarnBqExport":
+    "이 프로젝트에는 연결된 BigQuery 결제 내보내기 테이블이 있습니다. 삭제 시 비용 조회가 중단됩니다.",
+  "project.deleteTypePrompt": "삭제를 확인하려면 {project}을(를) 입력하세요:",
+  "project.deleteInputAria": "삭제할 프로젝트 ID 확인 입력",
+  "project.deleteConfirmSubmitBtn": "종료 및 삭제",
+  "project.deleteDeletingBtn": "삭제 중…",
+  "project.deleteOpenConsoleLink": "GCP 콘솔에서 프로젝트 설정 열기 ↗",
+  "project.deletedBannerTitle": "프로젝트 {project} 삭제 예약됨",
+  "project.deletedBannerDesc":
+    "30일 이내에 Google Cloud 콘솔의 삭제 대기 중인 리소스에서 이 프로젝트를 복원할 수 있습니다.",
+  "project.deletedBannerDemoDesc":
+    "데모 모드 시뮬레이션이며 실제 GCP 프로젝트에는 영향을 주지 않습니다. 데모 모드를 전환하거나 재시작하면 초기화됩니다.",
+  "project.deletedBannerConsoleLink": "삭제 대기 페이지 열기 ↗",
+  "project.dismissBannerAria": "알림 닫기",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "사용 가능",
@@ -1780,7 +1903,6 @@ const KO_MESSAGES                     = {
   "billing.budgetCustomTarget": "맞춤 목표",
   "billing.budgetNoThresholds": "임계값 규칙 없음",
   "billing.diagnosticsTitle": "Billing API 진단",
-  "billing.closedAccountsSummary": "종료됨 / 비활성 결제 계정 ({count})",
   "billing.noAccountsVisible":
     "현재 Google 계정에서 볼 수 있는 Cloud 결제 계정이 없습니다 (`billing.accounts.get` 또는 `billing.accounts.list` 권한 필요).",
 
@@ -1850,6 +1972,9 @@ const KO_MESSAGES                     = {
   "toast.switchProjectFailed": "프로젝트 전환 실패",
   "toast.switchedBillingAccount": "{project} 프로젝트를 {account} 계정에 연결했습니다",
   "toast.switchBillingFailed": "결제 계정 변경 실패",
+  "toast.deletedProject": "프로젝트 {project} 삭제가 예약되었습니다",
+  "toast.deletedProjectDemo": "데모 모드: {project} 삭제를 시뮬레이션했습니다",
+  "toast.deleteProjectFailed": "프로젝트 삭제 실패",
   "toast.pinUpdateFailed": "고정 상태 업데이트 실패",
   "toast.removedExportMapping": "내보내기 테이블 연결을 해제했습니다",
   "toast.removeExportFailed": "연결 해제 실패",
@@ -2129,6 +2254,29 @@ const ZH_CN_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "日志 ↗",
+  "project.dangerZoneLabel": "危险操作",
+  "project.deleteBtn": "删除项目",
+  "project.deleteConfirmTitle": "关停并删除项目",
+  "project.deleteConfirmDesc":
+    "删除 {project} 会立即停止所有服务和计费，并进入 30 天恢复期（可在 Google Cloud 控制台还原），期满后永久删除。",
+  "project.deleteWarnActive":
+    "此项目为当前使用的 gcloud 项目，删除后需切换到其他活跃项目。",
+  "project.deleteWarnQuota":
+    "此项目当前设为配额项目覆盖 (Quota Project Override)，删除后将自动清除该设置。",
+  "project.deleteWarnBqExport":
+    "此项目承载已关联的 BigQuery 账单导出表，删除后相关费用查询将停止工作。",
+  "project.deleteTypePrompt": "请输入 {project} 以确认删除：",
+  "project.deleteInputAria": "输入要删除的项目 ID 以确认",
+  "project.deleteConfirmSubmitBtn": "确认关停并删除",
+  "project.deleteDeletingBtn": "删除中…",
+  "project.deleteOpenConsoleLink": "在 GCP 控制台打开项目设置 ↗",
+  "project.deletedBannerTitle": "项目 {project} 已安排删除",
+  "project.deletedBannerDesc":
+    "您可以在 30 天内前往 Google Cloud 控制台的“待删除资源”恢复此项目。",
+  "project.deletedBannerDemoDesc":
+    "仅为演示模式模拟删除，不会影响真实 GCP 项目。切换演示模式或重启后即可重置。",
+  "project.deletedBannerConsoleLink": "打开待删除资源页面 ↗",
+  "project.dismissBannerAria": "关闭通知",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "有效",
@@ -2152,7 +2300,6 @@ const ZH_CN_MESSAGES                     = {
   "billing.budgetCustomTarget": "自定义目标",
   "billing.budgetNoThresholds": "无阈值规则",
   "billing.diagnosticsTitle": "Billing API 诊断信息",
-  "billing.closedAccountsSummary": "已关闭 / 非活跃结算账号 ({count})",
   "billing.noAccountsVisible":
     "当前 Google 账号下没有可见的 Cloud 结算账号（需要 `billing.accounts.get` 或 `billing.accounts.list` 权限）。",
 
@@ -2222,6 +2369,9 @@ const ZH_CN_MESSAGES                     = {
   "toast.switchProjectFailed": "切换项目失败",
   "toast.switchedBillingAccount": "已将 {project} 关联至 {account}",
   "toast.switchBillingFailed": "切换结算账号失败",
+  "toast.deletedProject": "已安排删除项目 {project}",
+  "toast.deletedProjectDemo": "演示模式：已模拟删除项目 {project}",
+  "toast.deleteProjectFailed": "删除项目失败",
   "toast.pinUpdateFailed": "更新星标状态失败",
   "toast.removedExportMapping": "已移除导出表绑定",
   "toast.removeExportFailed": "移除绑定失败",
@@ -2500,6 +2650,29 @@ const ZH_TW_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "紀錄 (Logs) ↗",
+  "project.dangerZoneLabel": "危險操作",
+  "project.deleteBtn": "刪除專案",
+  "project.deleteConfirmTitle": "關閉並刪除專案",
+  "project.deleteConfirmDesc":
+    "刪除 {project} 會立即停用所有服務與計費，並進入 30 天緩衝期（可於 Google Cloud 控制台還原），期滿後永久刪除。",
+  "project.deleteWarnActive":
+    "此專案為目前使用中的 gcloud 專案，刪除後需切換至其他啟用中的專案。",
+  "project.deleteWarnQuota":
+    "此專案目前設為配額專案覆寫 (Quota Project Override)，刪除後將自動清除此設定。",
+  "project.deleteWarnBqExport":
+    "此專案承載已連結的 BigQuery 帳單匯出資料表，刪除後相關費用查詢將無法運作。",
+  "project.deleteTypePrompt": "請輸入 {project} 以確認刪除：",
+  "project.deleteInputAria": "輸入要刪除的專案 ID 以確認",
+  "project.deleteConfirmSubmitBtn": "確認關閉並刪除",
+  "project.deleteDeletingBtn": "刪除中…",
+  "project.deleteOpenConsoleLink": "在 GCP 控制台開啟專案設定 ↗",
+  "project.deletedBannerTitle": "專案 {project} 已排定刪除",
+  "project.deletedBannerDesc":
+    "您可以在 30 天內前往 Google Cloud 控制台的「待刪除資源」還原此專案。",
+  "project.deletedBannerDemoDesc":
+    "此為展示模式模擬刪除，不會影響真實 GCP 專案。切換模式或重啟後即自動恢復。",
+  "project.deletedBannerConsoleLink": "開啟待刪除資源頁面 ↗",
+  "project.dismissBannerAria": "關閉通知",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "啟用中",
@@ -2523,7 +2696,6 @@ const ZH_TW_MESSAGES                     = {
   "billing.budgetCustomTarget": "自訂目標",
   "billing.budgetNoThresholds": "無門檻規則",
   "billing.diagnosticsTitle": "Billing API 診斷資訊",
-  "billing.closedAccountsSummary": "已關閉 / 非作用中帳單帳戶 ({count})",
   "billing.noAccountsVisible":
     "目前 Google 帳號下沒有可見的 Cloud 帳單帳戶（需要 `billing.accounts.get` 或 `billing.accounts.list` 權限）。",
 
@@ -2593,6 +2765,9 @@ const ZH_TW_MESSAGES                     = {
   "toast.switchProjectFailed": "切換專案失敗",
   "toast.switchedBillingAccount": "已將 {project} 連結至 {account}",
   "toast.switchBillingFailed": "切換帳單帳戶失敗",
+  "toast.deletedProject": "已排定刪除專案 {project}",
+  "toast.deletedProjectDemo": "展示模式：已模擬刪除專案 {project}",
+  "toast.deleteProjectFailed": "刪除專案失敗",
   "toast.pinUpdateFailed": "更新釘選狀態失敗",
   "toast.removedExportMapping": "已移除匯出資料表連結",
   "toast.removeExportFailed": "移除連結失敗",
@@ -2794,6 +2969,8 @@ function localizeSetupHint(hint               )                {
                  
                        
                 
+                        
+                       
                      
                     
                      
@@ -2852,6 +3029,12 @@ function h                                       (
     }
     if (attrs.list && el instanceof HTMLInputElement) {
       el.setAttribute("list", attrs.list);
+    }
+    if (attrs.autocomplete && el instanceof HTMLInputElement) {
+      el.setAttribute("autocomplete", attrs.autocomplete);
+    }
+    if (attrs.spellcheck !== undefined && el instanceof HTMLInputElement) {
+      el.spellcheck = Boolean(attrs.spellcheck);
     }
     if (attrs.disabled !== undefined && "disabled" in el) {
       (el                                                            ).disabled = Boolean(
@@ -3272,6 +3455,7 @@ function renderServiceBreakdownList(
                    
                              
                       
+                      
                           
 
                         
@@ -3600,6 +3784,18 @@ async function setProjectBillingAccountApi(
     }
   );
 }
+async function deleteProjectApi(
+  projectId        ,
+  confirmProjectId        
+)                                                                         {
+  return apiPost                                                               (
+    "./api/delete-project",
+    {
+      projectId,
+      confirmProjectId,
+    }
+  );
+}
 async function updateCompanionPreferences(prefs   
                        
                          
@@ -3843,6 +4039,16 @@ function createInitialOverviewShell()                            {
                              
                                            
                                                                     
+                                          
+                             
+                                   
+                                                                    
+                                  
+                      
+                        
+                                      
+                           
+     
  
 
 const BILLING_MANUAL_SENTINEL = "__manual__";
@@ -3914,6 +4120,11 @@ const state          = {
   billingManualInput: "",
   switchingBillingProjectId: null,
   billingSwitchError: null,
+  deletingConfirmProjectId: null,
+  deleteConfirmInput: "",
+  deletingProjectId: null,
+  deleteProjectError: null,
+  recentlyDeletedProjects: [],
 };
 
 function isSpendExpected(overview                           )          {
@@ -3958,18 +4169,30 @@ function recomputeDerivedOverview()       {
   const ov = state.overview;
   const pinnedSet = new Set(ov.preferences.pinnedProjects);
   const globalExport = ov.preferences.billingExportTables["*"]?.tableId ?? null;
+  const activeSourceProjects = ov.projects.filter(
+    (p) => (p.lifecycleState || "ACTIVE").toUpperCase() === "ACTIVE"
+  );
+  const activeProjectIdSet = new Set(activeSourceProjects.map((p) => p.projectId));
+  const openSourceAccounts = ov.billingAccounts.filter((ba) => ba.open);
   const baDisplayMap = new Map                ();
-  for (const ba of ov.billingAccounts) {
+  for (const ba of openSourceAccounts) {
     baDisplayMap.set(ba.id, ba.displayName);
   }
 
   const spend = ov.spend;
-  const nextAccounts                   = ov.billingAccounts.map((ba) => ({
-    ...ba,
-    exportTableId: ov.preferences.billingExportTables[ba.id]?.tableId ?? globalExport,
-  }));
+  const nextAccounts                   = openSourceAccounts.map((ba) => {
+    const linkedProjectIds = state.domainLoaded.projects
+      ? ba.linkedProjectIds.filter((pid) => activeProjectIdSet.has(pid))
+      : [...ba.linkedProjectIds];
+    return {
+      ...ba,
+      open: true,
+      linkedProjectIds,
+      linkedProjectCount: linkedProjectIds.length,
+      exportTableId: ov.preferences.billingExportTables[ba.id]?.tableId ?? globalExport,
+    };
+  });
   nextAccounts.sort((a, b) => {
-    if (a.open !== b.open) return a.open ? -1 : 1;
     if (a.linkedProjectCount !== b.linkedProjectCount) {
       return b.linkedProjectCount - a.linkedProjectCount;
     }
@@ -3979,7 +4202,7 @@ function recomputeDerivedOverview()       {
     return a.displayName.localeCompare(b.displayName);
   });
 
-  const nextProjects               = ov.projects.map((p) => {
+  const nextProjects               = activeSourceProjects.map((p) => {
     const link = state.domainLoaded.billing ? state.projectBillingLinks[p.projectId] : undefined;
     const billingAccountId = link !== undefined ? link.billingAccountId : p.billingAccountId;
     const billingEnabled = link !== undefined ? link.billingEnabled : p.billingEnabled;
@@ -4026,7 +4249,7 @@ function recomputeDerivedOverview()       {
       unbilledProjects: nextProjects.filter((p) => !p.billingEnabled).length,
       pinnedProjectsCount: nextProjects.filter((p) => p.pinned).length,
       totalBillingAccounts: nextAccounts.length,
-      openBillingAccounts: nextAccounts.filter((b) => b.open).length,
+      openBillingAccounts: nextAccounts.length,
       spendConfigured,
     },
     warnings: combinedWarnings,
@@ -4073,21 +4296,22 @@ function applyFullOverview(data                           )       {
     spend: null,
   };
   state.overview = data;
-  reconcileSpendSelection(data.spend);
-  if (data.preferences.locale) {
-    setLocalePreference(data.preferences.locale);
+  recomputeDerivedOverview();
+  reconcileSpendSelection(state.overview.spend);
+  if (state.overview.preferences.locale) {
+    setLocalePreference(state.overview.preferences.locale);
   }
-  if (!state.discoverHostProject && data.auth.activeProject) {
-    state.discoverHostProject = data.auth.activeProject;
+  if (!state.discoverHostProject && state.overview.auth.activeProject) {
+    state.discoverHostProject = state.overview.auth.activeProject;
   }
   if (
     state.enableTargetProject &&
-    !data.projects.some((p) => p.projectId === state.enableTargetProject)
+    !state.overview.projects.some((p) => p.projectId === state.enableTargetProject)
   ) {
     state.enableTargetProject = "";
   }
-  if (state.manualBillingAccountId === "*" && data.billingAccounts.length === 1) {
-    state.manualBillingAccountId = data.billingAccounts[0].id;
+  if (state.manualBillingAccountId === "*" && state.overview.billingAccounts.length === 1) {
+    state.manualBillingAccountId = state.overview.billingAccounts[0].id;
   }
 }
 
@@ -4119,6 +4343,46 @@ function applyProjectBillingUpdate(
     ...state.overview,
     auth: res.overview.auth,
     preferences: res.overview.preferences,
+    billingAccounts: nextBillingAccounts,
+    pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
+  };
+  recomputeDerivedOverview();
+}
+
+function applyProjectDeleteUpdate(
+  res                                                               
+)       {
+  delete state.projectBillingLinks[res.projectId];
+  state.expandedProjectIds.delete(res.projectId);
+  if (state.editingBillingProjectId === res.projectId) {
+    state.editingBillingProjectId = null;
+    state.billingPickerValue = "";
+    state.billingManualInput = "";
+    state.billingSwitchError = null;
+  }
+  const remainingProjects = state.overview.projects.filter((p) => p.projectId !== res.projectId);
+  const nextBillingAccounts =
+    res.overview.billingAccounts.length > 0
+      ? res.overview.billingAccounts
+      : state.overview.billingAccounts.map((ba) => {
+          const filteredLinked = ba.linkedProjectIds.filter((id) => id !== res.projectId);
+          return {
+            ...ba,
+            linkedProjectIds: filteredLinked,
+            linkedProjectCount: filteredLinked.length,
+          };
+        });
+  if (res.wasActiveProject) {
+    const staleWarn = `Active gcloud project "${res.projectId}" is deleted or inaccessible. Consider switching to an active project.`;
+    if (!state.sectionWarnings.projects.includes(staleWarn)) {
+      state.sectionWarnings.projects = [...state.sectionWarnings.projects, staleWarn];
+    }
+  }
+  state.overview = {
+    ...state.overview,
+    auth: res.overview.auth,
+    preferences: res.overview.preferences,
+    projects: remainingProjects,
     billingAccounts: nextBillingAccounts,
     pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
   };
@@ -4322,6 +4586,11 @@ async function loadData(
   if (options.resetSections) {
     state.projectBillingLinks = {};
     state.sectionWarnings = { projects: [], billing: [], budgets: [], spend: [] };
+    state.deletingConfirmProjectId = null;
+    state.deleteConfirmInput = "";
+    state.deletingProjectId = null;
+    state.deleteProjectError = null;
+    state.recentlyDeletedProjects = [];
     state.overview = {
       ...state.overview,
       projects: [],
@@ -5742,6 +6011,45 @@ async function handleSwitchProjectBilling(
   }
 }
 
+async function handleDeleteProject(
+  projectId        ,
+  confirmProjectId        
+)                {
+  if (state.deletingProjectId) return;
+  state.deletingProjectId = projectId;
+  state.deleteProjectError = null;
+  renderApp();
+  try {
+    const res = await deleteProjectApi(projectId, confirmProjectId);
+    applyProjectDeleteUpdate(res);
+    state.deletingConfirmProjectId = null;
+    state.deleteConfirmInput = "";
+    state.deleteProjectError = null;
+    state.recentlyDeletedProjects = [
+      {
+        projectId: res.projectId,
+        projectName: res.projectName,
+        pendingDeletionConsoleUrl: res.pendingDeletionConsoleUrl,
+        demoSimulated: res.demoSimulated,
+      },
+      ...state.recentlyDeletedProjects.filter((item) => item.projectId !== res.projectId),
+    ];
+    showToast(
+      t(res.demoSimulated ? "toast.deletedProjectDemo" : "toast.deletedProject", {
+        project: res.projectId,
+      }),
+      "success"
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : t("toast.deleteProjectFailed");
+    state.deleteProjectError = { projectId, message };
+    showToast(t("toast.deleteProjectFailed"), "error");
+  } finally {
+    state.deletingProjectId = null;
+    renderApp();
+  }
+}
+
 function renderOverviewTab(overview                           )              {
   const active = getActiveSpend(overview);
   const spend = active.spend;
@@ -5986,58 +6294,91 @@ function renderOverviewTab(overview                           )              {
                 )
               : !state.domainLoaded.billing
                 ? renderSectionLoadingPill(t("loading.billing"))
-                : h(
-                    "div",
-                    { className: "compact-list" },
-                    ...overview.billingAccounts.map((ba) => {
-                      const bs = spend.byBillingAccount[ba.id];
-                      return h(
-                        "div",
-                        {
-                          className: "compact-row clickable-row",
-                          onClick: () => {
-                            state.activeTab = "billing";
-                            renderApp();
+                : (() => {
+                    const activeBaIds = new Set(overview.billingAccounts.map((ba) => ba.id));
+                    const historicalSpendOnlyAccounts = Object.values(spend.byBillingAccount)
+                      .filter((bs) => !activeBaIds.has(bs.billingAccountId))
+                      .sort((a, b) => b.currentMonthNetCost - a.currentMonthNetCost);
+                    return h(
+                      "div",
+                      { className: "compact-list" },
+                      ...overview.billingAccounts.map((ba) => {
+                        const bs = spend.byBillingAccount[ba.id];
+                        return h(
+                          "div",
+                          {
+                            className: "compact-row clickable-row",
+                            onClick: () => {
+                              state.activeTab = "billing";
+                              renderApp();
+                            },
                           },
-                        },
-                        h(
-                          "div",
-                          { className: "compact-row-main" },
-                          h("span", { className: "row-primary-text" }, ba.displayName),
                           h(
-                            "span",
-                            { className: "row-mono" },
-                            `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
+                            "div",
+                            { className: "compact-row-main" },
+                            h("span", { className: "row-primary-text" }, ba.displayName),
+                            h(
+                              "span",
+                              { className: "row-mono" },
+                              `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
+                            )
+                          ),
+                          h(
+                            "div",
+                            { className: "compact-row-right" },
+                            bs
+                              ? h(
+                                  "span",
+                                  { className: "amount-strong" },
+                                  formatMoney(bs.currentMonthNetCost, bs.currency)
+                                )
+                              : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
+                            bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                              ? h(
+                                  "span",
+                                  { className: "muted-micro" },
+                                  t("chart.grossShort", {
+                                    amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                                  })
+                                )
+                              : null,
+                            h("span", { className: "status-dot-open" }, t("billing.statusOpen"))
                           )
-                        ),
+                        );
+                      }),
+                      ...historicalSpendOnlyAccounts.map((bs) =>
                         h(
                           "div",
-                          { className: "compact-row-right" },
-                          bs
-                            ? h(
-                                "span",
-                                { className: "amount-strong" },
-                                formatMoney(bs.currentMonthNetCost, bs.currency)
-                              )
-                            : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
-                          bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
-                            ? h(
-                                "span",
-                                { className: "muted-micro" },
-                                t("chart.grossShort", {
-                                  amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
-                                })
-                              )
-                            : null,
+                          { className: "compact-row" },
                           h(
-                            "span",
-                            { className: ba.open ? "status-dot-open" : "status-dot-closed" },
-                            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
+                            "div",
+                            { className: "compact-row-main" },
+                            h("span", { className: "row-primary-text" }, bs.billingAccountId),
+                            h("span", { className: "row-mono" }, bs.billingAccountId)
+                          ),
+                          h(
+                            "div",
+                            { className: "compact-row-right" },
+                            h(
+                              "span",
+                              { className: "amount-strong" },
+                              formatMoney(bs.currentMonthNetCost, bs.currency)
+                            ),
+                            isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                              ? h(
+                                  "span",
+                                  { className: "muted-micro" },
+                                  t("chart.grossShort", {
+                                    amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                                  })
+                                )
+                              : null,
+                            h("span", { className: "status-dot-closed" }, t("billing.statusClosed"))
                           )
                         )
-                      );
-                    })
-                  )
+                      )
+                    );
+                  })()
         )
       );
     } else {
@@ -6317,7 +6658,9 @@ function renderQuickProjectItem(
   const ps = getActiveSpend(overview).spend.byProject[proj.projectId];
   const billingSubtext = !state.domainLoaded.billing
     ? t("loading.billingStatus")
-    : proj.billingAccountName || t("project.unbilledTag");
+    : proj.billingEnabled && proj.billingAccountName
+      ? proj.billingAccountName
+      : t("project.unbilledTag");
   const spendPending = !ps && isSpendExpected(overview) && !state.domainLoaded.spend;
 
   return h(
@@ -6480,9 +6823,68 @@ function renderProjectsTab(overview                           )              {
   const monthSwitcher =
     active.spend.configured && active.hasAnyMonthRows ? renderMonthSwitcher(active) : null;
 
+  const deletedBanners = state.recentlyDeletedProjects.map((entry) =>
+    h(
+      "section",
+      {
+        className: "card deleted-project-banner",
+        role: "status",
+      },
+      h(
+        "div",
+        { className: "deleted-project-banner-body" },
+        h(
+          "div",
+          { className: "deleted-project-banner-title" },
+          t("project.deletedBannerTitle", { project: entry.projectId })
+        ),
+        h(
+          "div",
+          { className: "deleted-project-banner-desc" },
+          entry.demoSimulated
+            ? t("project.deletedBannerDemoDesc")
+            : t("project.deletedBannerDesc")
+        ),
+        !entry.demoSimulated
+          ? h(
+              "div",
+              { className: "deleted-project-banner-actions" },
+              h(
+                "a",
+                {
+                  className: "link-external",
+                  href: entry.pendingDeletionConsoleUrl,
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                },
+                t("project.deletedBannerConsoleLink")
+              )
+            )
+          : null
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "icon-btn deleted-banner-dismiss-btn",
+          ariaLabel: t("project.dismissBannerAria"),
+          title: t("project.dismissBannerAria"),
+          onClick: () => {
+            state.recentlyDeletedProjects = state.recentlyDeletedProjects.filter(
+              (item) => item.projectId !== entry.projectId
+            );
+            renderApp();
+          },
+        },
+        "×"
+      )
+    )
+  );
+
   return h(
     "div",
     { className: "tab-panel" },
+    ...deletedBanners,
     monthSwitcher,
     h(
       "section",
@@ -6830,13 +7232,18 @@ function renderProjectBillingDrawerSection(
         {
           type: "button",
           className: "btn btn-xs billing-edit-toggle-btn",
-          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId),
+          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId) || Boolean(state.deletingProjectId),
           onClick: (ev) => {
             ev.stopPropagation();
             state.editingBillingProjectId = proj.projectId;
             state.billingPickerValue = "";
             state.billingManualInput = "";
             state.billingSwitchError = null;
+            if (state.deletingConfirmProjectId === proj.projectId) {
+              state.deletingConfirmProjectId = null;
+              state.deleteConfirmInput = "";
+              state.deleteProjectError = null;
+            }
             renderApp();
           },
         },
@@ -6980,6 +7387,184 @@ function renderProjectBillingDrawerSection(
   );
 }
 
+function renderProjectDeleteDrawerSection(
+  proj            ,
+  overview                           
+)              {
+  const isConfirming = state.deletingConfirmProjectId === proj.projectId;
+  const isDeleting = state.deletingProjectId === proj.projectId;
+
+  if (!isConfirming) {
+    return h(
+      "div",
+      {
+        className: "drawer-danger-row",
+        onClick: (ev) => ev.stopPropagation(),
+      },
+      h("span", { className: "muted-micro" }, t("project.dangerZoneLabel")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-danger-outline project-delete-toggle-btn",
+          disabled: Boolean(state.deletingProjectId) || Boolean(state.switchingBillingProjectId),
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = proj.projectId;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            if (state.editingBillingProjectId === proj.projectId) {
+              state.editingBillingProjectId = null;
+              state.billingPickerValue = "";
+              state.billingManualInput = "";
+              state.billingSwitchError = null;
+            }
+            renderApp();
+          },
+        },
+        t("project.deleteBtn")
+      )
+    );
+  }
+
+  const encodedId = encodeURIComponent(proj.projectId);
+  const confirmBtnId = `project-delete-submit-${proj.projectId}`;
+  const isMatched = state.deleteConfirmInput.trim() === proj.projectId;
+  const deleteError =
+    state.deleteProjectError?.projectId === proj.projectId ? state.deleteProjectError.message : null;
+
+  const extraWarnings           = [];
+  if (proj.isActiveProject) {
+    extraWarnings.push(t("project.deleteWarnActive"));
+  }
+  if (overview.preferences.quotaProjectOverride === proj.projectId) {
+    extraWarnings.push(t("project.deleteWarnQuota"));
+  }
+  const hostsBqExport = Object.values(overview.preferences.billingExportTables).some(
+    (m) => m.hostProjectId === proj.projectId || m.tableId.startsWith(`${proj.projectId}.`)
+  );
+  if (hostsBqExport) {
+    extraWarnings.push(t("project.deleteWarnBqExport"));
+  }
+
+  return h(
+    "div",
+    {
+      className: "project-delete-box",
+      onClick: (ev) => ev.stopPropagation(),
+    },
+    h(
+      "div",
+      { className: "project-delete-header" },
+      h("span", { className: "project-delete-title" }, t("project.deleteConfirmTitle")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isDeleting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = null;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    h(
+      "p",
+      { className: "project-delete-desc" },
+      t("project.deleteConfirmDesc", { project: proj.projectId })
+    ),
+    extraWarnings.length > 0
+      ? h(
+          "ul",
+          { className: "project-delete-warnings" },
+          ...extraWarnings.map((w) => h("li", null, w))
+        )
+      : null,
+    h(
+      "div",
+      { className: "project-delete-prompt" },
+      t("project.deleteTypePrompt", { project: proj.projectId })
+    ),
+    h("input", {
+      type: "text",
+      className: "text-input project-delete-input",
+      ariaLabel: t("project.deleteInputAria"),
+      placeholder: proj.projectId,
+      value: state.deleteConfirmInput,
+      autocomplete: "off",
+      spellcheck: false,
+      disabled: isDeleting,
+      onInput: (ev) => {
+        state.deleteConfirmInput = (ev.target                    ).value;
+        state.deleteProjectError = null;
+        const submitBtn = document.getElementById(confirmBtnId)                            ;
+        if (submitBtn) {
+          submitBtn.disabled =
+            Boolean(state.deletingProjectId) ||
+            state.deleteConfirmInput.trim() !== proj.projectId;
+        }
+      },
+    }),
+    h(
+      "div",
+      { className: "action-row" },
+      h(
+        "button",
+        {
+          id: confirmBtnId,
+          type: "button",
+          className: "btn btn-xs btn-danger-solid project-delete-submit-btn",
+          disabled: Boolean(state.deletingProjectId) || !isMatched,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            void handleDeleteProject(proj.projectId, state.deleteConfirmInput);
+          },
+        },
+        isDeleting ? t("project.deleteDeletingBtn") : t("project.deleteConfirmSubmitBtn")
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isDeleting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = null;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    deleteError
+      ? h(
+          "div",
+          { className: "project-delete-error" },
+          h("div", { className: "billing-switch-error-text" }, deleteError),
+          h(
+            "a",
+            {
+              className: "link-external",
+              href: `https://console.cloud.google.com/iam-admin/settings?project=${encodedId}`,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            t("project.deleteOpenConsoleLink")
+          )
+        )
+      : null
+  );
+}
+
 function buildProjectCards(
   projects                       ,
   overview                           
@@ -7009,6 +7594,11 @@ function buildProjectCards(
           state.billingPickerValue = "";
           state.billingManualInput = "";
           state.billingSwitchError = null;
+        }
+        if (state.deletingConfirmProjectId === proj.projectId) {
+          state.deletingConfirmProjectId = null;
+          state.deleteConfirmInput = "";
+          state.deleteProjectError = null;
         }
       } else {
         state.expandedProjectIds.add(proj.projectId);
@@ -7247,7 +7837,8 @@ function buildProjectCards(
                 },
                 t("project.linkLogs")
               )
-            )
+            ),
+            renderProjectDeleteDrawerSection(proj, overview)
           )
         : null
     );
@@ -7413,7 +8004,7 @@ function renderBillingAccountCard(
 
   return h(
     "article",
-    { className: ba.open ? "card billing-card" : "card billing-card billing-card-closed" },
+    { className: "card billing-card" },
     h(
       "div",
       { className: "billing-header-row" },
@@ -7424,11 +8015,7 @@ function renderBillingAccountCard(
           "div",
           { className: "inline-badges" },
           h("h3", { className: "section-title" }, ba.displayName),
-          h(
-            "span",
-            { className: ba.open ? "badge badge-active" : "badge badge-neutral" },
-            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
-          ),
+          h("span", { className: "badge badge-active" }, t("billing.statusOpen")),
           ba.currencyCode
             ? h("span", { className: "badge badge-neutral" }, ba.currencyCode)
             : null
@@ -8202,12 +8789,7 @@ function renderBillingTab(overview                           )              {
       : null;
 
   const active = getActiveSpend(overview);
-  const primaryAccounts = overview.billingAccounts.filter(
-    (ba) => ba.open || ba.linkedProjectCount > 0 || Boolean(active.spend.byBillingAccount[ba.id])
-  );
-  const inactiveClosedAccounts = overview.billingAccounts.filter(
-    (ba) => !ba.open && ba.linkedProjectCount === 0 && !active.spend.byBillingAccount[ba.id]
-  );
+  const activeAccounts = overview.billingAccounts.filter((ba) => ba.open);
 
   return h(
     "div",
@@ -8221,30 +8803,11 @@ function renderBillingTab(overview                           )              {
             void retryBillingDomain();
           })
         : renderBillingCardsSkeleton(2)
-      : overview.billingAccounts.length > 0
+      : activeAccounts.length > 0
         ? h(
             "div",
             { className: "stack-list card-hydrated" },
-            ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
-            inactiveClosedAccounts.length > 0
-              ? h(
-                  "details",
-                  {
-                    className: "card closed-accounts-details",
-                    ...(primaryAccounts.length === 0 ? { open: "open" } : {}),
-                  }                           ,
-                  h(
-                    "summary",
-                    { className: "settings-summary" },
-                    t("billing.closedAccountsSummary", { count: inactiveClosedAccounts.length })
-                  ),
-                  h(
-                    "div",
-                    { className: "stack-list closed-accounts-list" },
-                    ...inactiveClosedAccounts.map((ba) => renderBillingAccountCard(ba, overview))
-                  )
-                )
-              : null
+            ...activeAccounts.map((ba) => renderBillingAccountCard(ba, overview))
           )
         : billingApiPrompt
           ? null

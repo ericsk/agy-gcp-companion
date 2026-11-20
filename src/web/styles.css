@@ -928,6 +928,118 @@ body {
   word-break: break-word;
 }
 
+.drawer-danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.project-delete-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+  margin-top: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+}
+
+.project-delete-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.project-delete-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.project-delete-desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.project-delete-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 8px 6px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--danger);
+}
+
+.project-delete-prompt {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.project-delete-input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.project-delete-error {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--bg-card);
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.deleted-project-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border-left: 3px solid var(--danger);
+}
+
+.deleted-project-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.deleted-project-banner-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.deleted-project-banner-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.deleted-project-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .label-chip {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;
@@ -1125,6 +1237,25 @@ body {
 .btn-danger-outline {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.btn-danger-solid {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.btn-danger-solid:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn-danger-solid:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .icon-btn,
@@ -1348,14 +1479,6 @@ body {
 }
 
 .billing-export-hint {
-  margin-top: 10px;
-}
-
-.billing-card-closed {
-  opacity: 0.88;
-}
-
-.closed-accounts-list {
   margin-top: 10px;
 }
 

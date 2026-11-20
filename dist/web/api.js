@@ -10,6 +10,7 @@
                    
                              
                       
+                      
                           
 
                         
@@ -348,6 +349,19 @@ export async function setProjectBillingAccountApi(
     {
       projectId,
       billingAccountId,
+    }
+  );
+}
+
+export async function deleteProjectApi(
+  projectId        ,
+  confirmProjectId        
+)                                                                         {
+  return apiPost                                                               (
+    "./api/delete-project",
+    {
+      projectId,
+      confirmProjectId,
     }
   );
 }

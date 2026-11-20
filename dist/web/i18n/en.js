@@ -237,6 +237,29 @@ export const EN_MESSAGES = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Logs ↗",
+  "project.dangerZoneLabel": "Danger Zone",
+  "project.deleteBtn": "Delete Project",
+  "project.deleteConfirmTitle": "Shut Down & Delete Project",
+  "project.deleteConfirmDesc":
+    "Deleting {project} immediately stops all services and billing. The project enters a 30-day recovery window in Google Cloud Console before permanent deletion.",
+  "project.deleteWarnActive":
+    "This is currently your active gcloud project. You will need to switch to another project after deletion.",
+  "project.deleteWarnQuota":
+    "This project is set as your Quota Project Override. The override will be cleared automatically.",
+  "project.deleteWarnBqExport":
+    "This project hosts a linked BigQuery Billing Export table. Spend queries using this project will stop working if it is deleted.",
+  "project.deleteTypePrompt": "Type {project} to confirm deletion:",
+  "project.deleteInputAria": "Confirm project ID to delete",
+  "project.deleteConfirmSubmitBtn": "Shut Down & Delete",
+  "project.deleteDeletingBtn": "Deleting…",
+  "project.deleteOpenConsoleLink": "Open Project Settings in GCP Console ↗",
+  "project.deletedBannerTitle": "Project {project} scheduled for deletion",
+  "project.deletedBannerDesc":
+    "You can restore this project within 30 days from Pending Deletion in Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Demo Mode simulation only — no real Google Cloud project was affected. Toggle Demo Mode or restart to reset.",
+  "project.deletedBannerConsoleLink": "Open Pending Deletion ↗",
+  "project.dismissBannerAria": "Dismiss notification",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "OPEN",
@@ -261,7 +284,6 @@ export const EN_MESSAGES = {
   "billing.budgetCustomTarget": "Custom target",
   "billing.budgetNoThresholds": "No threshold rules",
   "billing.diagnosticsTitle": "Billing API Diagnostics",
-  "billing.closedAccountsSummary": "Closed / Inactive Billing Accounts ({count})",
   "billing.noAccountsVisible":
     "No Cloud Billing accounts visible to the active Google account (requires `billing.accounts.get` or `billing.accounts.list`).",
 
@@ -331,6 +353,9 @@ export const EN_MESSAGES = {
   "toast.switchProjectFailed": "Failed to switch project",
   "toast.switchedBillingAccount": "Linked {project} to {account}",
   "toast.switchBillingFailed": "Failed to switch billing account",
+  "toast.deletedProject": "Project {project} scheduled for deletion",
+  "toast.deletedProjectDemo": "Demo Mode: simulated deletion of {project}",
+  "toast.deleteProjectFailed": "Failed to delete project",
   "toast.pinUpdateFailed": "Failed to update pin",
   "toast.removedExportMapping": "Removed export table mapping",
   "toast.removeExportFailed": "Failed to remove mapping",

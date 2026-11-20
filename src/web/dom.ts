@@ -13,6 +13,8 @@ export interface ElementAttrs {
   value?: string;
   placeholder?: string;
   list?: string;
+  autocomplete?: string;
+  spellcheck?: boolean;
   disabled?: boolean;
   checked?: boolean;
   selected?: boolean;
@@ -71,6 +73,12 @@ export function h<K extends keyof HTMLElementTagNameMap>(
     }
     if (attrs.list && el instanceof HTMLInputElement) {
       el.setAttribute("list", attrs.list);
+    }
+    if (attrs.autocomplete && el instanceof HTMLInputElement) {
+      el.setAttribute("autocomplete", attrs.autocomplete);
+    }
+    if (attrs.spellcheck !== undefined && el instanceof HTMLInputElement) {
+      el.spellcheck = Boolean(attrs.spellcheck);
     }
     if (attrs.disabled !== undefined && "disabled" in el) {
       (el as HTMLButtonElement | HTMLInputElement | HTMLSelectElement).disabled = Boolean(

@@ -150,11 +150,13 @@ export async function fetchAllProjects(
 
     for (const p of data.projects ?? []) {
       if (!p.projectId) continue;
+      const lifecycleState = (p.lifecycleState || "ACTIVE").toUpperCase();
+      if (lifecycleState !== "ACTIVE") continue;
       projects.push({
         projectId: p.projectId,
         projectNumber: String(p.projectNumber ?? ""),
         name: p.name || p.projectId,
-        lifecycleState: p.lifecycleState || "ACTIVE",
+        lifecycleState,
         createTime: p.createTime,
         labels: p.labels,
         billingAccountId: null,
@@ -178,12 +180,14 @@ export async function fetchBillingAccountsCore(
   lazyProjectsLoader                                 
 )           
                                        
+                                                
                                                               
                      
                                   
    {
   const warnings           = [];
   const rawAccounts                      = [];
+  const closedBillingAccounts                         = {};
   const projectBillingLinks                                         = {};
 
   let loadedProjects = initialProjects;
@@ -318,11 +322,16 @@ export async function fetchBillingAccountsCore(
         if (!acct.name) continue;
         try {
           const id = normalizeBillingAccountId(acct.name);
+          const displayName = acct.displayName || id;
+          if (!acct.open) {
+            closedBillingAccounts[id] = displayName;
+            continue;
+          }
           rawAccounts.push({
             id,
             resourceName: `billingAccounts/${id}`,
-            displayName: acct.displayName || id,
-            open: Boolean(acct.open),
+            displayName,
+            open: true,
             masterBillingAccount: acct.masterBillingAccount || undefined,
             currencyCode: acct.currencyCode || undefined,
             linkedProjectIds: [],
@@ -391,8 +400,13 @@ export async function fetchBillingAccountsCore(
   });
 
   // Fallback path: if user lacks org-level billingAccounts.list permission, check project-level billingInfo
-  // Skip when Cloud Billing API failed across all quota project candidates, as project/*/billingInfo hits the same disabled API.
-  if (rawAccounts.length === 0 && !billingApiDisabledOnAllCandidates) {
+  // Skip when Cloud Billing API failed across all quota project candidates, or when billingAccounts.list
+  // already returned accounts (even if all of them are closed).
+  if (
+    rawAccounts.length === 0 &&
+    Object.keys(closedBillingAccounts).length === 0 &&
+    !billingApiDisabledOnAllCandidates
+  ) {
     const fallbackProjects = await ensureProjects();
     if (fallbackProjects.length > 0) {
       const discoveredAccountMap = new Map                           ();
@@ -407,11 +421,15 @@ export async function fetchBillingAccountsCore(
           if (info.billingAccountName) {
             const id = normalizeBillingAccountId(info.billingAccountName);
             const enabled = Boolean(info.billingEnabled);
+            if (!enabled) {
+              closedBillingAccounts[id] = `Billing Account (${id})`;
+              return;
+            }
             proj.billingAccountId = id;
-            proj.billingEnabled = enabled;
+            proj.billingEnabled = true;
             projectBillingLinks[proj.projectId] = {
               billingAccountId: id,
-              billingEnabled: enabled,
+              billingEnabled: true,
             };
             let acct = discoveredAccountMap.get(id);
             if (!acct) {
@@ -419,15 +437,13 @@ export async function fetchBillingAccountsCore(
                 id,
                 resourceName: `billingAccounts/${id}`,
                 displayName: `Billing Account (${id})`,
-                open: enabled,
+                open: true,
                 linkedProjectIds: [],
                 budgets: [],
               };
               discoveredAccountMap.set(id, acct);
             }
-            if (enabled) {
-              acct.linkedProjectIds.push(proj.projectId);
-            }
+            acct.linkedProjectIds.push(proj.projectId);
           }
         } catch {
           // Ignore per-project permission denials
@@ -439,6 +455,7 @@ export async function fetchBillingAccountsCore(
 
   return {
     billingAccounts: rawAccounts,
+    closedBillingAccounts,
     projectBillingLinks,
     warnings,
     usedQuotaProject: resolvedQuotaConfirmed ? (resolvedQuotaProj ?? null) : null,
@@ -457,11 +474,12 @@ export async function fetchBudgetsForBillingAccounts(
   const budgetsByAccount                               = {};
   const warnings           = [];
 
-  if (billingAccounts.length === 0) {
+  const openAccounts = billingAccounts.filter((acct) => acct.open);
+  if (openAccounts.length === 0) {
     return { budgetsByAccount, warnings };
   }
 
-  await runWithConcurrency(billingAccounts, 4, async (acct) => {
+  await runWithConcurrency(openAccounts, 4, async (acct) => {
     try {
       const url = `https://billingbudgets.googleapis.com/v1/${acct.resourceName}/budgets?pageSize=50`;
       const data = await gcpGetJson  
@@ -521,6 +539,7 @@ export async function fetchBillingAccountsAndProjectLinks(
   verifiedFallbackQuotaProject                
 )           
                                        
+                                                
                      
                                   
    {
@@ -539,6 +558,7 @@ export async function fetchBillingAccountsAndProjectLinks(
   );
   return {
     billingAccounts: core.billingAccounts,
+    closedBillingAccounts: core.closedBillingAccounts,
     warnings: [...core.warnings, ...budgetsRes.warnings],
     usedQuotaProject: core.usedQuotaProject,
   };
@@ -682,4 +702,91 @@ export async function fetchBillingAccountMetadata(
   } catch {
     return null;
   }
+}
+
+async function gcpDeleteJson(
+  url        ,
+  accessToken        ,
+  quotaProject                ,
+  fetchFn            = globalThis.fetch
+)                {
+  const headers                         = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  };
+  if (quotaProject) {
+    headers["x-goog-user-project"] = quotaProject;
+  }
+
+  const res = await fetchFn(url, {
+    method: "DELETE",
+    headers,
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const errBody = (await res.json())                                                     ;
+      if (errBody?.error?.status && errBody?.error?.message) {
+        detail = `${detail} (${errBody.error.status}): ${errBody.error.message}`;
+      } else if (errBody?.error?.message) {
+        detail = `${detail}: ${errBody.error.message}`;
+      }
+    } catch {
+      // Ignore non-JSON error body
+    }
+    throw new GcpHttpError(res.status, sanitizeErrorMessage(detail));
+  }
+}
+
+export async function deleteGcpProject(
+  accessToken        ,
+  projectId        ,
+  quotaProject                ,
+  fetchFn            = globalThis.fetch,
+  verifiedFallbackQuotaProject                
+)           
+                    
+                                  
+   {
+  const validProjectId = validateProjectId(projectId);
+  const url = `https://cloudresourcemanager.googleapis.com/v1/projects/${encodeURIComponent(validProjectId)}`;
+
+  // Try without x-goog-user-project first (matches fetchAllProjects and works directly with first-party gcloud OAuth tokens).
+  // Fall back to quota project candidates only when ADC/user credentials require x-goog-user-project.
+  const candidates                       = [null];
+  const pushUnique = (id                           ) => {
+    if (id === undefined || id === null) return;
+    if (!candidates.includes(id)) candidates.push(id);
+  };
+  if (quotaProject && quotaProject !== validProjectId) {
+    pushUnique(quotaProject);
+  }
+  if (verifiedFallbackQuotaProject && verifiedFallbackQuotaProject !== validProjectId) {
+    pushUnique(verifiedFallbackQuotaProject);
+  }
+  pushUnique(validProjectId);
+
+  let preferredErr          = null;
+  for (const candidate of candidates) {
+    try {
+      await gcpDeleteJson(url, accessToken, candidate, fetchFn);
+      return {
+        projectId: validProjectId,
+        usedQuotaProject: candidate,
+      };
+    } catch (err) {
+      if (!preferredErr) {
+        preferredErr = err;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      // Fail fast on genuine IAM 403, Lien / precondition 400, 404, or auth 401 errors.
+      if (!isQuotaOrApiDisabledMessage(msg)) {
+        throw err;
+      }
+    }
+  }
+
+  throw preferredErr ?? new Error(`Unable to delete project "${validProjectId}".`);
 }

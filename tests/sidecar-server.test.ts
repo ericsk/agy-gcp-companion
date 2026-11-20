@@ -372,6 +372,66 @@ describe("Sidecar HTTP Server Security & API Integration", () => {
       "01F4D9-22B801-55CA09"
     );
 
+    // 4d. Project deletion endpoint: enforces CSRF, rejects mismatched confirmProjectId, succeeds on exact match
+    const deleteNoCsrf = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/delete-project",
+      headers: {
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+      },
+      body: JSON.stringify({
+        projectId: "legacy-hackathon-2025",
+        confirmProjectId: "legacy-hackathon-2025",
+      }),
+    });
+    assert.equal(deleteNoCsrf.status, 403);
+
+    const deleteMismatch = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/delete-project",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "legacy-hackathon-2025",
+        confirmProjectId: "wrong-project-id",
+      }),
+    });
+    assert.equal(deleteMismatch.status, 400);
+
+    const deleteOk = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/delete-project",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "legacy-hackathon-2025",
+        confirmProjectId: "legacy-hackathon-2025",
+      }),
+    });
+    assert.equal(deleteOk.status, 200);
+    const deleteJson = JSON.parse(deleteOk.body) as {
+      projectId: string;
+      demoSimulated: boolean;
+      pendingDeletionConsoleUrl: string;
+      overview: { projects: Array<{ projectId: string }> };
+    };
+    assert.equal(deleteJson.projectId, "legacy-hackathon-2025");
+    assert.equal(deleteJson.demoSimulated, true);
+    assert.ok(deleteJson.pendingDeletionConsoleUrl.includes("pendingDeletion=true"));
+    assert.equal(
+      deleteJson.overview.projects.some((p) => p.projectId === "legacy-hackathon-2025"),
+      false
+    );
+
     // 5. Project cost breakdown endpoint -> 200
     const breakdownRes = await sendRawHttpRequest(server, {
       path: "/api/project-breakdown?projectId=acme-ai-assistant-prod",

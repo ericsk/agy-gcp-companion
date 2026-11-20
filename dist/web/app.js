@@ -10,6 +10,7 @@
                          
                              
                       
+                      
                        
               
                           
@@ -17,6 +18,7 @@ import {
   applyPluginUpdateApi,
   checkPluginUpdateApi,
   configureExportTableApi,
+  deleteProjectApi,
   discoverExportTablesApi,
   enableGcpServiceApi,
   fetchBillingSection,
@@ -189,6 +191,16 @@ function createInitialOverviewShell()                            {
                              
                                            
                                                                     
+                                          
+                             
+                                   
+                                                                    
+                                  
+                      
+                        
+                                      
+                           
+     
  
 
 const BILLING_MANUAL_SENTINEL = "__manual__";
@@ -260,6 +272,11 @@ const state          = {
   billingManualInput: "",
   switchingBillingProjectId: null,
   billingSwitchError: null,
+  deletingConfirmProjectId: null,
+  deleteConfirmInput: "",
+  deletingProjectId: null,
+  deleteProjectError: null,
+  recentlyDeletedProjects: [],
 };
 
 function isSpendExpected(overview                           )          {
@@ -304,18 +321,30 @@ function recomputeDerivedOverview()       {
   const ov = state.overview;
   const pinnedSet = new Set(ov.preferences.pinnedProjects);
   const globalExport = ov.preferences.billingExportTables["*"]?.tableId ?? null;
+  const activeSourceProjects = ov.projects.filter(
+    (p) => (p.lifecycleState || "ACTIVE").toUpperCase() === "ACTIVE"
+  );
+  const activeProjectIdSet = new Set(activeSourceProjects.map((p) => p.projectId));
+  const openSourceAccounts = ov.billingAccounts.filter((ba) => ba.open);
   const baDisplayMap = new Map                ();
-  for (const ba of ov.billingAccounts) {
+  for (const ba of openSourceAccounts) {
     baDisplayMap.set(ba.id, ba.displayName);
   }
 
   const spend = ov.spend;
-  const nextAccounts                   = ov.billingAccounts.map((ba) => ({
-    ...ba,
-    exportTableId: ov.preferences.billingExportTables[ba.id]?.tableId ?? globalExport,
-  }));
+  const nextAccounts                   = openSourceAccounts.map((ba) => {
+    const linkedProjectIds = state.domainLoaded.projects
+      ? ba.linkedProjectIds.filter((pid) => activeProjectIdSet.has(pid))
+      : [...ba.linkedProjectIds];
+    return {
+      ...ba,
+      open: true,
+      linkedProjectIds,
+      linkedProjectCount: linkedProjectIds.length,
+      exportTableId: ov.preferences.billingExportTables[ba.id]?.tableId ?? globalExport,
+    };
+  });
   nextAccounts.sort((a, b) => {
-    if (a.open !== b.open) return a.open ? -1 : 1;
     if (a.linkedProjectCount !== b.linkedProjectCount) {
       return b.linkedProjectCount - a.linkedProjectCount;
     }
@@ -325,7 +354,7 @@ function recomputeDerivedOverview()       {
     return a.displayName.localeCompare(b.displayName);
   });
 
-  const nextProjects               = ov.projects.map((p) => {
+  const nextProjects               = activeSourceProjects.map((p) => {
     const link = state.domainLoaded.billing ? state.projectBillingLinks[p.projectId] : undefined;
     const billingAccountId = link !== undefined ? link.billingAccountId : p.billingAccountId;
     const billingEnabled = link !== undefined ? link.billingEnabled : p.billingEnabled;
@@ -372,7 +401,7 @@ function recomputeDerivedOverview()       {
       unbilledProjects: nextProjects.filter((p) => !p.billingEnabled).length,
       pinnedProjectsCount: nextProjects.filter((p) => p.pinned).length,
       totalBillingAccounts: nextAccounts.length,
-      openBillingAccounts: nextAccounts.filter((b) => b.open).length,
+      openBillingAccounts: nextAccounts.length,
       spendConfigured,
     },
     warnings: combinedWarnings,
@@ -419,21 +448,22 @@ function applyFullOverview(data                           )       {
     spend: null,
   };
   state.overview = data;
-  reconcileSpendSelection(data.spend);
-  if (data.preferences.locale) {
-    setLocalePreference(data.preferences.locale);
+  recomputeDerivedOverview();
+  reconcileSpendSelection(state.overview.spend);
+  if (state.overview.preferences.locale) {
+    setLocalePreference(state.overview.preferences.locale);
   }
-  if (!state.discoverHostProject && data.auth.activeProject) {
-    state.discoverHostProject = data.auth.activeProject;
+  if (!state.discoverHostProject && state.overview.auth.activeProject) {
+    state.discoverHostProject = state.overview.auth.activeProject;
   }
   if (
     state.enableTargetProject &&
-    !data.projects.some((p) => p.projectId === state.enableTargetProject)
+    !state.overview.projects.some((p) => p.projectId === state.enableTargetProject)
   ) {
     state.enableTargetProject = "";
   }
-  if (state.manualBillingAccountId === "*" && data.billingAccounts.length === 1) {
-    state.manualBillingAccountId = data.billingAccounts[0].id;
+  if (state.manualBillingAccountId === "*" && state.overview.billingAccounts.length === 1) {
+    state.manualBillingAccountId = state.overview.billingAccounts[0].id;
   }
 }
 
@@ -465,6 +495,46 @@ function applyProjectBillingUpdate(
     ...state.overview,
     auth: res.overview.auth,
     preferences: res.overview.preferences,
+    billingAccounts: nextBillingAccounts,
+    pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
+  };
+  recomputeDerivedOverview();
+}
+
+function applyProjectDeleteUpdate(
+  res                                                               
+)       {
+  delete state.projectBillingLinks[res.projectId];
+  state.expandedProjectIds.delete(res.projectId);
+  if (state.editingBillingProjectId === res.projectId) {
+    state.editingBillingProjectId = null;
+    state.billingPickerValue = "";
+    state.billingManualInput = "";
+    state.billingSwitchError = null;
+  }
+  const remainingProjects = state.overview.projects.filter((p) => p.projectId !== res.projectId);
+  const nextBillingAccounts =
+    res.overview.billingAccounts.length > 0
+      ? res.overview.billingAccounts
+      : state.overview.billingAccounts.map((ba) => {
+          const filteredLinked = ba.linkedProjectIds.filter((id) => id !== res.projectId);
+          return {
+            ...ba,
+            linkedProjectIds: filteredLinked,
+            linkedProjectCount: filteredLinked.length,
+          };
+        });
+  if (res.wasActiveProject) {
+    const staleWarn = `Active gcloud project "${res.projectId}" is deleted or inaccessible. Consider switching to an active project.`;
+    if (!state.sectionWarnings.projects.includes(staleWarn)) {
+      state.sectionWarnings.projects = [...state.sectionWarnings.projects, staleWarn];
+    }
+  }
+  state.overview = {
+    ...state.overview,
+    auth: res.overview.auth,
+    preferences: res.overview.preferences,
+    projects: remainingProjects,
     billingAccounts: nextBillingAccounts,
     pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
   };
@@ -668,6 +738,11 @@ async function loadData(
   if (options.resetSections) {
     state.projectBillingLinks = {};
     state.sectionWarnings = { projects: [], billing: [], budgets: [], spend: [] };
+    state.deletingConfirmProjectId = null;
+    state.deleteConfirmInput = "";
+    state.deletingProjectId = null;
+    state.deleteProjectError = null;
+    state.recentlyDeletedProjects = [];
     state.overview = {
       ...state.overview,
       projects: [],
@@ -2088,6 +2163,45 @@ async function handleSwitchProjectBilling(
   }
 }
 
+async function handleDeleteProject(
+  projectId        ,
+  confirmProjectId        
+)                {
+  if (state.deletingProjectId) return;
+  state.deletingProjectId = projectId;
+  state.deleteProjectError = null;
+  renderApp();
+  try {
+    const res = await deleteProjectApi(projectId, confirmProjectId);
+    applyProjectDeleteUpdate(res);
+    state.deletingConfirmProjectId = null;
+    state.deleteConfirmInput = "";
+    state.deleteProjectError = null;
+    state.recentlyDeletedProjects = [
+      {
+        projectId: res.projectId,
+        projectName: res.projectName,
+        pendingDeletionConsoleUrl: res.pendingDeletionConsoleUrl,
+        demoSimulated: res.demoSimulated,
+      },
+      ...state.recentlyDeletedProjects.filter((item) => item.projectId !== res.projectId),
+    ];
+    showToast(
+      t(res.demoSimulated ? "toast.deletedProjectDemo" : "toast.deletedProject", {
+        project: res.projectId,
+      }),
+      "success"
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : t("toast.deleteProjectFailed");
+    state.deleteProjectError = { projectId, message };
+    showToast(t("toast.deleteProjectFailed"), "error");
+  } finally {
+    state.deletingProjectId = null;
+    renderApp();
+  }
+}
+
 function renderOverviewTab(overview                           )              {
   const active = getActiveSpend(overview);
   const spend = active.spend;
@@ -2332,58 +2446,91 @@ function renderOverviewTab(overview                           )              {
                 )
               : !state.domainLoaded.billing
                 ? renderSectionLoadingPill(t("loading.billing"))
-                : h(
-                    "div",
-                    { className: "compact-list" },
-                    ...overview.billingAccounts.map((ba) => {
-                      const bs = spend.byBillingAccount[ba.id];
-                      return h(
-                        "div",
-                        {
-                          className: "compact-row clickable-row",
-                          onClick: () => {
-                            state.activeTab = "billing";
-                            renderApp();
+                : (() => {
+                    const activeBaIds = new Set(overview.billingAccounts.map((ba) => ba.id));
+                    const historicalSpendOnlyAccounts = Object.values(spend.byBillingAccount)
+                      .filter((bs) => !activeBaIds.has(bs.billingAccountId))
+                      .sort((a, b) => b.currentMonthNetCost - a.currentMonthNetCost);
+                    return h(
+                      "div",
+                      { className: "compact-list" },
+                      ...overview.billingAccounts.map((ba) => {
+                        const bs = spend.byBillingAccount[ba.id];
+                        return h(
+                          "div",
+                          {
+                            className: "compact-row clickable-row",
+                            onClick: () => {
+                              state.activeTab = "billing";
+                              renderApp();
+                            },
                           },
-                        },
-                        h(
-                          "div",
-                          { className: "compact-row-main" },
-                          h("span", { className: "row-primary-text" }, ba.displayName),
                           h(
-                            "span",
-                            { className: "row-mono" },
-                            `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
+                            "div",
+                            { className: "compact-row-main" },
+                            h("span", { className: "row-primary-text" }, ba.displayName),
+                            h(
+                              "span",
+                              { className: "row-mono" },
+                              `${ba.id} · ${formatLinkedProjectCount(ba.linkedProjectCount)}`
+                            )
+                          ),
+                          h(
+                            "div",
+                            { className: "compact-row-right" },
+                            bs
+                              ? h(
+                                  "span",
+                                  { className: "amount-strong" },
+                                  formatMoney(bs.currentMonthNetCost, bs.currency)
+                                )
+                              : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
+                            bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                              ? h(
+                                  "span",
+                                  { className: "muted-micro" },
+                                  t("chart.grossShort", {
+                                    amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                                  })
+                                )
+                              : null,
+                            h("span", { className: "status-dot-open" }, t("billing.statusOpen"))
                           )
-                        ),
+                        );
+                      }),
+                      ...historicalSpendOnlyAccounts.map((bs) =>
                         h(
                           "div",
-                          { className: "compact-row-right" },
-                          bs
-                            ? h(
-                                "span",
-                                { className: "amount-strong" },
-                                formatMoney(bs.currentMonthNetCost, bs.currency)
-                              )
-                            : h("span", { className: "muted-micro" }, t("overview.noBqRows")),
-                          bs && isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
-                            ? h(
-                                "span",
-                                { className: "muted-micro" },
-                                t("chart.grossShort", {
-                                  amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
-                                })
-                              )
-                            : null,
+                          { className: "compact-row" },
                           h(
-                            "span",
-                            { className: ba.open ? "status-dot-open" : "status-dot-closed" },
-                            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
+                            "div",
+                            { className: "compact-row-main" },
+                            h("span", { className: "row-primary-text" }, bs.billingAccountId),
+                            h("span", { className: "row-mono" }, bs.billingAccountId)
+                          ),
+                          h(
+                            "div",
+                            { className: "compact-row-right" },
+                            h(
+                              "span",
+                              { className: "amount-strong" },
+                              formatMoney(bs.currentMonthNetCost, bs.currency)
+                            ),
+                            isCreditCoveredZeroNet(bs.currentMonthNetCost, bs.currentMonthGrossCost)
+                              ? h(
+                                  "span",
+                                  { className: "muted-micro" },
+                                  t("chart.grossShort", {
+                                    amount: formatMoney(bs.currentMonthGrossCost, bs.currency),
+                                  })
+                                )
+                              : null,
+                            h("span", { className: "status-dot-closed" }, t("billing.statusClosed"))
                           )
                         )
-                      );
-                    })
-                  )
+                      )
+                    );
+                  })()
         )
       );
     } else {
@@ -2663,7 +2810,9 @@ function renderQuickProjectItem(
   const ps = getActiveSpend(overview).spend.byProject[proj.projectId];
   const billingSubtext = !state.domainLoaded.billing
     ? t("loading.billingStatus")
-    : proj.billingAccountName || t("project.unbilledTag");
+    : proj.billingEnabled && proj.billingAccountName
+      ? proj.billingAccountName
+      : t("project.unbilledTag");
   const spendPending = !ps && isSpendExpected(overview) && !state.domainLoaded.spend;
 
   return h(
@@ -2826,9 +2975,68 @@ function renderProjectsTab(overview                           )              {
   const monthSwitcher =
     active.spend.configured && active.hasAnyMonthRows ? renderMonthSwitcher(active) : null;
 
+  const deletedBanners = state.recentlyDeletedProjects.map((entry) =>
+    h(
+      "section",
+      {
+        className: "card deleted-project-banner",
+        role: "status",
+      },
+      h(
+        "div",
+        { className: "deleted-project-banner-body" },
+        h(
+          "div",
+          { className: "deleted-project-banner-title" },
+          t("project.deletedBannerTitle", { project: entry.projectId })
+        ),
+        h(
+          "div",
+          { className: "deleted-project-banner-desc" },
+          entry.demoSimulated
+            ? t("project.deletedBannerDemoDesc")
+            : t("project.deletedBannerDesc")
+        ),
+        !entry.demoSimulated
+          ? h(
+              "div",
+              { className: "deleted-project-banner-actions" },
+              h(
+                "a",
+                {
+                  className: "link-external",
+                  href: entry.pendingDeletionConsoleUrl,
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                },
+                t("project.deletedBannerConsoleLink")
+              )
+            )
+          : null
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "icon-btn deleted-banner-dismiss-btn",
+          ariaLabel: t("project.dismissBannerAria"),
+          title: t("project.dismissBannerAria"),
+          onClick: () => {
+            state.recentlyDeletedProjects = state.recentlyDeletedProjects.filter(
+              (item) => item.projectId !== entry.projectId
+            );
+            renderApp();
+          },
+        },
+        "×"
+      )
+    )
+  );
+
   return h(
     "div",
     { className: "tab-panel" },
+    ...deletedBanners,
     monthSwitcher,
     h(
       "section",
@@ -3176,13 +3384,18 @@ function renderProjectBillingDrawerSection(
         {
           type: "button",
           className: "btn btn-xs billing-edit-toggle-btn",
-          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId),
+          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId) || Boolean(state.deletingProjectId),
           onClick: (ev) => {
             ev.stopPropagation();
             state.editingBillingProjectId = proj.projectId;
             state.billingPickerValue = "";
             state.billingManualInput = "";
             state.billingSwitchError = null;
+            if (state.deletingConfirmProjectId === proj.projectId) {
+              state.deletingConfirmProjectId = null;
+              state.deleteConfirmInput = "";
+              state.deleteProjectError = null;
+            }
             renderApp();
           },
         },
@@ -3326,6 +3539,184 @@ function renderProjectBillingDrawerSection(
   );
 }
 
+function renderProjectDeleteDrawerSection(
+  proj            ,
+  overview                           
+)              {
+  const isConfirming = state.deletingConfirmProjectId === proj.projectId;
+  const isDeleting = state.deletingProjectId === proj.projectId;
+
+  if (!isConfirming) {
+    return h(
+      "div",
+      {
+        className: "drawer-danger-row",
+        onClick: (ev) => ev.stopPropagation(),
+      },
+      h("span", { className: "muted-micro" }, t("project.dangerZoneLabel")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-danger-outline project-delete-toggle-btn",
+          disabled: Boolean(state.deletingProjectId) || Boolean(state.switchingBillingProjectId),
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = proj.projectId;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            if (state.editingBillingProjectId === proj.projectId) {
+              state.editingBillingProjectId = null;
+              state.billingPickerValue = "";
+              state.billingManualInput = "";
+              state.billingSwitchError = null;
+            }
+            renderApp();
+          },
+        },
+        t("project.deleteBtn")
+      )
+    );
+  }
+
+  const encodedId = encodeURIComponent(proj.projectId);
+  const confirmBtnId = `project-delete-submit-${proj.projectId}`;
+  const isMatched = state.deleteConfirmInput.trim() === proj.projectId;
+  const deleteError =
+    state.deleteProjectError?.projectId === proj.projectId ? state.deleteProjectError.message : null;
+
+  const extraWarnings           = [];
+  if (proj.isActiveProject) {
+    extraWarnings.push(t("project.deleteWarnActive"));
+  }
+  if (overview.preferences.quotaProjectOverride === proj.projectId) {
+    extraWarnings.push(t("project.deleteWarnQuota"));
+  }
+  const hostsBqExport = Object.values(overview.preferences.billingExportTables).some(
+    (m) => m.hostProjectId === proj.projectId || m.tableId.startsWith(`${proj.projectId}.`)
+  );
+  if (hostsBqExport) {
+    extraWarnings.push(t("project.deleteWarnBqExport"));
+  }
+
+  return h(
+    "div",
+    {
+      className: "project-delete-box",
+      onClick: (ev) => ev.stopPropagation(),
+    },
+    h(
+      "div",
+      { className: "project-delete-header" },
+      h("span", { className: "project-delete-title" }, t("project.deleteConfirmTitle")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isDeleting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = null;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    h(
+      "p",
+      { className: "project-delete-desc" },
+      t("project.deleteConfirmDesc", { project: proj.projectId })
+    ),
+    extraWarnings.length > 0
+      ? h(
+          "ul",
+          { className: "project-delete-warnings" },
+          ...extraWarnings.map((w) => h("li", null, w))
+        )
+      : null,
+    h(
+      "div",
+      { className: "project-delete-prompt" },
+      t("project.deleteTypePrompt", { project: proj.projectId })
+    ),
+    h("input", {
+      type: "text",
+      className: "text-input project-delete-input",
+      ariaLabel: t("project.deleteInputAria"),
+      placeholder: proj.projectId,
+      value: state.deleteConfirmInput,
+      autocomplete: "off",
+      spellcheck: false,
+      disabled: isDeleting,
+      onInput: (ev) => {
+        state.deleteConfirmInput = (ev.target                    ).value;
+        state.deleteProjectError = null;
+        const submitBtn = document.getElementById(confirmBtnId)                            ;
+        if (submitBtn) {
+          submitBtn.disabled =
+            Boolean(state.deletingProjectId) ||
+            state.deleteConfirmInput.trim() !== proj.projectId;
+        }
+      },
+    }),
+    h(
+      "div",
+      { className: "action-row" },
+      h(
+        "button",
+        {
+          id: confirmBtnId,
+          type: "button",
+          className: "btn btn-xs btn-danger-solid project-delete-submit-btn",
+          disabled: Boolean(state.deletingProjectId) || !isMatched,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            void handleDeleteProject(proj.projectId, state.deleteConfirmInput);
+          },
+        },
+        isDeleting ? t("project.deleteDeletingBtn") : t("project.deleteConfirmSubmitBtn")
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isDeleting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.deletingConfirmProjectId = null;
+            state.deleteConfirmInput = "";
+            state.deleteProjectError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    deleteError
+      ? h(
+          "div",
+          { className: "project-delete-error" },
+          h("div", { className: "billing-switch-error-text" }, deleteError),
+          h(
+            "a",
+            {
+              className: "link-external",
+              href: `https://console.cloud.google.com/iam-admin/settings?project=${encodedId}`,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            t("project.deleteOpenConsoleLink")
+          )
+        )
+      : null
+  );
+}
+
 function buildProjectCards(
   projects                       ,
   overview                           
@@ -3355,6 +3746,11 @@ function buildProjectCards(
           state.billingPickerValue = "";
           state.billingManualInput = "";
           state.billingSwitchError = null;
+        }
+        if (state.deletingConfirmProjectId === proj.projectId) {
+          state.deletingConfirmProjectId = null;
+          state.deleteConfirmInput = "";
+          state.deleteProjectError = null;
         }
       } else {
         state.expandedProjectIds.add(proj.projectId);
@@ -3593,7 +3989,8 @@ function buildProjectCards(
                 },
                 t("project.linkLogs")
               )
-            )
+            ),
+            renderProjectDeleteDrawerSection(proj, overview)
           )
         : null
     );
@@ -3759,7 +4156,7 @@ function renderBillingAccountCard(
 
   return h(
     "article",
-    { className: ba.open ? "card billing-card" : "card billing-card billing-card-closed" },
+    { className: "card billing-card" },
     h(
       "div",
       { className: "billing-header-row" },
@@ -3770,11 +4167,7 @@ function renderBillingAccountCard(
           "div",
           { className: "inline-badges" },
           h("h3", { className: "section-title" }, ba.displayName),
-          h(
-            "span",
-            { className: ba.open ? "badge badge-active" : "badge badge-neutral" },
-            ba.open ? t("billing.statusOpen") : t("billing.statusClosed")
-          ),
+          h("span", { className: "badge badge-active" }, t("billing.statusOpen")),
           ba.currencyCode
             ? h("span", { className: "badge badge-neutral" }, ba.currencyCode)
             : null
@@ -4548,12 +4941,7 @@ function renderBillingTab(overview                           )              {
       : null;
 
   const active = getActiveSpend(overview);
-  const primaryAccounts = overview.billingAccounts.filter(
-    (ba) => ba.open || ba.linkedProjectCount > 0 || Boolean(active.spend.byBillingAccount[ba.id])
-  );
-  const inactiveClosedAccounts = overview.billingAccounts.filter(
-    (ba) => !ba.open && ba.linkedProjectCount === 0 && !active.spend.byBillingAccount[ba.id]
-  );
+  const activeAccounts = overview.billingAccounts.filter((ba) => ba.open);
 
   return h(
     "div",
@@ -4567,30 +4955,11 @@ function renderBillingTab(overview                           )              {
             void retryBillingDomain();
           })
         : renderBillingCardsSkeleton(2)
-      : overview.billingAccounts.length > 0
+      : activeAccounts.length > 0
         ? h(
             "div",
             { className: "stack-list card-hydrated" },
-            ...primaryAccounts.map((ba) => renderBillingAccountCard(ba, overview)),
-            inactiveClosedAccounts.length > 0
-              ? h(
-                  "details",
-                  {
-                    className: "card closed-accounts-details",
-                    ...(primaryAccounts.length === 0 ? { open: "open" } : {}),
-                  }                           ,
-                  h(
-                    "summary",
-                    { className: "settings-summary" },
-                    t("billing.closedAccountsSummary", { count: inactiveClosedAccounts.length })
-                  ),
-                  h(
-                    "div",
-                    { className: "stack-list closed-accounts-list" },
-                    ...inactiveClosedAccounts.map((ba) => renderBillingAccountCard(ba, overview))
-                  )
-                )
-              : null
+            ...activeAccounts.map((ba) => renderBillingAccountCard(ba, overview))
           )
         : billingApiPrompt
           ? null

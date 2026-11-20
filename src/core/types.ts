@@ -245,6 +245,15 @@ export interface ProjectBillingUpdateResult {
   unchanged: boolean;
 }
 
+export interface ProjectDeleteResult {
+  projectId: string;
+  projectName: string;
+  wasActiveProject: boolean;
+  hadBillingEnabled: boolean;
+  demoSimulated: boolean;
+  pendingDeletionConsoleUrl: string;
+}
+
 export interface ProjectBillingChangePreview {
   status: "confirmation_required";
   projectId: string;
@@ -299,6 +308,7 @@ export interface CachedCloudSnapshot {
     spend?: string;
   };
   projectBillingLinks?: Record<string, ProjectBillingLinkInfo>;
+  closedBillingAccounts?: Record<string, string>;
   sectionWarnings?: {
     projects?: string[];
     billing?: string[];

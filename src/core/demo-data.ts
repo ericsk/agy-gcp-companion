@@ -12,7 +12,8 @@ export function buildDemoOverview(
   prefs: CompanionPreferences,
   referenceDate: Date = new Date(),
   activeProjectOverride?: string | null,
-  projectBillingOverrides?: Record<string, string>
+  projectBillingOverrides?: Record<string, string>,
+  deletedProjectIds?: ReadonlySet<string>
 ): CompanionOverviewResponse {
   const demoAccount = "developer@example-corp.com";
   const activeProject = activeProjectOverride || "acme-ai-assistant-prod";
@@ -199,6 +200,24 @@ export function buildDemoOverview(
       proj.billingEnabled = targetBa.open;
     }
   }
+
+  // Apply in-memory Demo Mode project deletions so the full delete UX can be previewed safely
+  const visibleProjects =
+    deletedProjectIds && deletedProjectIds.size > 0
+      ? projects.filter((p) => !deletedProjectIds.has(p.projectId))
+      : projects;
+  if (deletedProjectIds && deletedProjectIds.size > 0) {
+    for (const ba of billingAccounts) {
+      ba.linkedProjectIds = ba.linkedProjectIds.filter((id) => !deletedProjectIds.has(id));
+      ba.linkedProjectCount = ba.linkedProjectIds.length;
+    }
+  }
+  const demoWarnings: string[] =
+    activeProject && visibleProjects.length > 0 && !visibleProjects.some((p) => p.projectId === activeProject)
+      ? [
+          `Active gcloud project "${activeProject}" is deleted or inaccessible. Consider switching to an active project.`,
+        ]
+      : [];
 
   const windowCtx = computeBillingDateWindow(referenceDate);
   const year = referenceDate.getUTCFullYear();
@@ -418,17 +437,17 @@ export function buildDemoOverview(
       ttlMs: prefs.cacheTtlMs,
     },
     summary: {
-      totalProjects: projects.length,
-      billedProjects: projects.filter((p) => p.billingEnabled).length,
-      unbilledProjects: projects.filter((p) => !p.billingEnabled).length,
-      pinnedProjectsCount: projects.filter((p) => p.pinned).length,
+      totalProjects: visibleProjects.length,
+      billedProjects: visibleProjects.filter((p) => p.billingEnabled).length,
+      unbilledProjects: visibleProjects.filter((p) => !p.billingEnabled).length,
+      pinnedProjectsCount: visibleProjects.filter((p) => p.pinned).length,
       totalBillingAccounts: billingAccounts.length,
       openBillingAccounts: billingAccounts.filter((b) => b.open).length,
       spendConfigured: true,
     },
-    projects,
+    projects: visibleProjects,
     billingAccounts,
     spend,
-    warnings: [],
+    warnings: demoWarnings,
   };
 }

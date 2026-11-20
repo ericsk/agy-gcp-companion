@@ -16,6 +16,7 @@ import {
 import { CompanionService } from "../src/core/companion-service.ts";
 import { fetchBillingAccountsAndProjectLinks } from "../src/core/gcp-api.ts";
 import { GcloudClient } from "../src/core/gcloud.ts";
+import { GcpCompanionMcpHandler } from "../src/mcp/server.ts";
 import {
   maskEmail,
   normalizeBillingAccountId,
@@ -1884,6 +1885,439 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
         /Billing Account User.*Project Billing Manager/i
       );
       assert.equal(putCalls.length, callsBeforeDeny + 1, "Expected fail-fast on real IAM 403 without quota retry storm");
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("excludes closed billing accounts and non-active projects across live APIs, linked project counts, legacy cache, and MCP", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-active-only-test-"));
+    const fakeGcloudDir = join(tmpDir, "gcloud-cfg");
+    const legacyDir = join(fakeGcloudDir, "legacy_credentials", "alice@example.com");
+    const cfgDir = join(fakeGcloudDir, "configurations");
+    mkdirSync(legacyDir, { recursive: true });
+    mkdirSync(cfgDir, { recursive: true });
+    writeFileSync(join(fakeGcloudDir, "active_config"), "default\n", "utf-8");
+    writeFileSync(
+      join(cfgDir, "config_default"),
+      "[core]\naccount = alice@example.com\nproject = proj-active\n",
+      "utf-8"
+    );
+    writeFileSync(
+      join(legacyDir, "adc.json"),
+      JSON.stringify({
+        type: "authorized_user",
+        client_id: "c",
+        client_secret: "s",
+        refresh_token: "r",
+      }),
+      "utf-8"
+    );
+
+    const baOpen = "01OPEN-111111-AAAAAA";
+    const baClosed = "01CLSD-999999-ZZZZZZ";
+    const requestedUrls: string[] = [];
+
+    try {
+      const mockFetch: typeof fetch = async (input) => {
+        const url = String(input);
+        requestedUrls.push(url);
+        if (url.startsWith("https://oauth2.googleapis.com/token")) {
+          return new Response(JSON.stringify({ access_token: "tok-active-only" }), { status: 200 });
+        }
+        if (url.includes("cloudresourcemanager.googleapis.com/v1/projects")) {
+          return new Response(
+            JSON.stringify({
+              projects: [
+                { projectId: "proj-active", projectNumber: "1001", name: "Active Proj", lifecycleState: "ACTIVE" },
+                { projectId: "proj-deleted", projectNumber: "1002", name: "Deleted Proj", lifecycleState: "DELETE_REQUESTED" },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes("cloudbilling.googleapis.com/v1/billingAccounts?")) {
+          return new Response(
+            JSON.stringify({
+              billingAccounts: [
+                { name: `billingAccounts/${baOpen}`, displayName: "Active Billing", open: true, currencyCode: "USD" },
+                { name: `billingAccounts/${baClosed}`, displayName: "Closed Billing", open: false, currencyCode: "USD" },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes(`/v1/billingAccounts/${baOpen}/projects`)) {
+          return new Response(
+            JSON.stringify({
+              projectBillingInfo: [
+                { projectId: "proj-active", billingAccountName: `billingAccounts/${baOpen}`, billingEnabled: true },
+                { projectId: "proj-deleted", billingAccountName: `billingAccounts/${baOpen}`, billingEnabled: true },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes(`/v1/billingAccounts/${baOpen}/budgets`)) {
+          return new Response(JSON.stringify({ budgets: [] }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ error: { message: `Unexpected ${url}` } }), { status: 404 });
+      };
+
+      const store = new CompanionStore(tmpDir);
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no cli");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({
+        store,
+        gcloud,
+        fetchFn: mockFetch,
+        nowFn: () => new Date("2026-11-15T10:00:00Z"),
+      });
+
+      const overview = await service.getOverview({ forceRefresh: true });
+      assert.deepEqual(
+        overview.projects.map((p) => p.projectId),
+        ["proj-active"]
+      );
+      assert.deepEqual(
+        overview.billingAccounts.map((ba) => ba.id),
+        [baOpen]
+      );
+      assert.equal(overview.summary.totalProjects, 1);
+      assert.equal(overview.summary.totalBillingAccounts, 1);
+      assert.equal(overview.summary.openBillingAccounts, 1);
+      assert.deepEqual(overview.billingAccounts[0].linkedProjectIds, ["proj-active"]);
+      assert.equal(overview.billingAccounts[0].linkedProjectCount, 1);
+
+      // Verify zero wasted API calls for closed billing account's /projects or /budgets
+      assert.equal(
+        requestedUrls.some((u) => u.includes(baClosed)),
+        false,
+        `Expected zero API calls targeting closed billing account, got: ${requestedUrls.join(", ")}`
+      );
+
+      // Preview & apply still reject closed billing account before sending any PUT request
+      await assert.rejects(
+        () => service.previewProjectBillingAccountChange("proj-active", baClosed),
+        /closed and cannot be linked/i
+      );
+      await assert.rejects(
+        () => service.setProjectBillingAccount("proj-active", baClosed),
+        /closed and cannot be linked/i
+      );
+
+      // MCP tools also return only active projects & open billing accounts
+      const mcp = new GcpCompanionMcpHandler(service);
+      const mcpProjRes = (await mcp.handleMessage({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "gcp_list_projects", arguments: {} },
+      })) as { result: { content: Array<{ text: string }> } };
+      const mcpProjects = JSON.parse(mcpProjRes.result.content[0].text) as {
+        count: number;
+        projects: Array<{ projectId: string }>;
+      };
+      assert.equal(mcpProjects.count, 1);
+      assert.deepEqual(mcpProjects.projects.map((p) => p.projectId), ["proj-active"]);
+
+      const mcpBaRes = (await mcp.handleMessage({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "gcp_list_billing_accounts", arguments: {} },
+      })) as { result: { content: Array<{ text: string }> } };
+      const mcpBas = JSON.parse(mcpBaRes.result.content[0].text) as {
+        count: number;
+        billingAccounts: Array<{ id: string; linkedProjectIds: string[]; linkedProjectCount: number }>;
+      };
+      assert.equal(mcpBas.count, 1);
+      assert.equal(mcpBas.billingAccounts[0].id, baOpen);
+      assert.deepEqual(mcpBas.billingAccounts[0].linkedProjectIds, ["proj-active"]);
+      assert.equal(mcpBas.billingAccounts[0].linkedProjectCount, 1);
+
+      // Legacy on-disk cache containing closed billing account & deleted project is defensively filtered
+      store.saveSnapshot("alice@example.com", {
+        fetchedAt: "2026-11-15T09:55:00Z",
+        projects: [
+          {
+            projectId: "proj-active",
+            projectNumber: "1001",
+            name: "Active Proj",
+            lifecycleState: "ACTIVE",
+            billingAccountId: baClosed,
+            billingEnabled: false,
+          },
+          {
+            projectId: "proj-deleted",
+            projectNumber: "1002",
+            name: "Deleted Proj",
+            lifecycleState: "DELETE_REQUESTED",
+            billingAccountId: baOpen,
+            billingEnabled: true,
+          },
+        ],
+        billingAccounts: [
+          {
+            id: baOpen,
+            resourceName: `billingAccounts/${baOpen}`,
+            displayName: "Active Billing",
+            open: true,
+            currencyCode: "USD",
+            linkedProjectIds: ["proj-active", "proj-deleted"],
+            budgets: [],
+          },
+          {
+            id: baClosed,
+            resourceName: `billingAccounts/${baClosed}`,
+            displayName: "Closed Billing",
+            open: false,
+            currencyCode: "USD",
+            linkedProjectIds: [],
+            budgets: [],
+          },
+        ],
+        spendReport: null,
+        warnings: [],
+      });
+
+      const fromLegacyCache = await service.getOverview({ forceRefresh: false });
+      assert.deepEqual(fromLegacyCache.projects.map((p) => p.projectId), ["proj-active"]);
+      assert.equal(fromLegacyCache.projects[0].billingAccountId, null);
+      assert.equal(fromLegacyCache.projects[0].billingEnabled, false);
+      assert.deepEqual(fromLegacyCache.billingAccounts.map((ba) => ba.id), [baOpen]);
+      assert.deepEqual(fromLegacyCache.billingAccounts[0].linkedProjectIds, ["proj-active"]);
+      assert.equal(fromLegacyCache.billingAccounts[0].linkedProjectCount, 1);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes GCP projects via Cloud Resource Manager REST DELETE, cleans local state, handles IAM/Lien errors, and supports Demo Mode", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-delete-proj-test-"));
+    const fakeGcloudDir = join(tmpDir, "gcloud-cfg");
+    const legacyDir = join(fakeGcloudDir, "legacy_credentials", "owner@example.com");
+    const cfgDir = join(fakeGcloudDir, "configurations");
+    mkdirSync(legacyDir, { recursive: true });
+    mkdirSync(cfgDir, { recursive: true });
+    writeFileSync(join(fakeGcloudDir, "active_config"), "default\n", "utf-8");
+    writeFileSync(
+      join(cfgDir, "config_default"),
+      "[core]\naccount = owner@example.com\nproject = proj-active-del\n",
+      "utf-8"
+    );
+    writeFileSync(
+      join(legacyDir, "adc.json"),
+      JSON.stringify({
+        type: "authorized_user",
+        client_id: "cid",
+        client_secret: "csec",
+        refresh_token: "1//fake",
+      }),
+      "utf-8"
+    );
+
+    const baId = "01DEL1-222222-333333";
+    const deleteCalls: Array<{ url: string; quotaProject: string | null }> = [];
+    let deleteMode: "ok" | "quota_fallback" | "iam_403" | "lien_400" | "not_found_404" = "ok";
+
+    const mockFetch: typeof globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      const method = init?.method || "GET";
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      const qp = headers["x-goog-user-project"] ?? null;
+
+      if (url.startsWith("https://oauth2.googleapis.com/token")) {
+        return new Response(JSON.stringify({ access_token: "ya29.del-token" }), { status: 200 });
+      }
+      if (method === "GET" && url.includes("cloudresourcemanager.googleapis.com/v1/projects")) {
+        return new Response(
+          JSON.stringify({
+            projects: [
+              { projectId: "proj-active-del", projectNumber: "101", name: "Active Project", lifecycleState: "ACTIVE" },
+              { projectId: "proj-secondary", projectNumber: "102", name: "Secondary Project", lifecycleState: "ACTIVE" },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (method === "DELETE" && url.includes("cloudresourcemanager.googleapis.com/v1/projects/")) {
+        deleteCalls.push({ url, quotaProject: qp });
+        if (deleteMode === "iam_403") {
+          return new Response(
+            JSON.stringify({ error: { status: "PERMISSION_DENIED", message: "The caller does not have permission" } }),
+            { status: 403 }
+          );
+        }
+        if (deleteMode === "lien_400") {
+          return new Response(
+            JSON.stringify({ error: { status: "FAILED_PRECONDITION", message: "A lien to prevent deletion was placed on the project" } }),
+            { status: 400 }
+          );
+        }
+        if (deleteMode === "not_found_404") {
+          return new Response(
+            JSON.stringify({ error: { status: "NOT_FOUND", message: "Requested entity was not found." } }),
+            { status: 404 }
+          );
+        }
+        if (deleteMode === "quota_fallback" && qp === null) {
+          return new Response(
+            JSON.stringify({ error: { status: "PERMISSION_DENIED", message: "Your application is authenticating by using local Application Default Credentials. The cloudresourcemanager.googleapis.com API requires a quota project" } }),
+            { status: 403 }
+          );
+        }
+        return new Response("{}", { status: 200 });
+      }
+      if (url.includes("cloudbilling.googleapis.com/v1/billingAccounts?")) {
+        return new Response(
+          JSON.stringify({
+            billingAccounts: [
+              { name: `billingAccounts/${baId}`, displayName: "Main Billing", open: true, currencyCode: "USD" },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes(`/v1/billingAccounts/${baId}/projects`)) {
+        return new Response(
+          JSON.stringify({
+            projectBillingInfo: [
+              { projectId: "proj-active-del", billingAccountName: `billingAccounts/${baId}`, billingEnabled: true },
+              { projectId: "proj-secondary", billingAccountName: `billingAccounts/${baId}`, billingEnabled: true },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("billingbudgets.googleapis.com")) {
+        return new Response(JSON.stringify({ budgets: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    };
+
+    try {
+      const store = new CompanionStore(tmpDir);
+      store.savePreferences({
+        pinnedProjects: ["proj-active-del", "proj-secondary"],
+        billingExportTables: {},
+        cacheTtlMs: 6 * 3_600_000,
+        maskEmails: false,
+        gcloudPathOverride: null,
+        quotaProjectOverride: "proj-active-del",
+        lastWorkingQuotaProject: "proj-active-del",
+        demoMode: false,
+      });
+
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no cli");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({
+        store,
+        gcloud,
+        fetchFn: mockFetch,
+        nowFn: () => new Date("2026-11-20T06:00:00Z"),
+      });
+
+      const before = await service.getOverview({ forceRefresh: true });
+      assert.equal(before.projects.length, 2);
+
+      // 1. Confirmation mismatch rejected BEFORE any network call
+      await assert.rejects(
+        () => service.deleteProject("proj-active-del", "wrong-id"),
+        /confirmation mismatch/i
+      );
+      assert.equal(deleteCalls.length, 0);
+
+      // 2. IAM 403 fails fast with role guidance
+      deleteMode = "iam_403";
+      await assert.rejects(
+        () => service.deleteProject("proj-active-del", "proj-active-del"),
+        /resourcemanager\.projects\.delete/i
+      );
+      assert.equal(deleteCalls.length, 1);
+
+      // 3. Project Lien 400 fails fast with lien guidance
+      deleteMode = "lien_400";
+      await assert.rejects(
+        () => service.deleteProject("proj-active-del", "proj-active-del"),
+        /active project lien/i
+      );
+      assert.equal(deleteCalls.length, 2);
+
+      // 4. 404 maps cleanly
+      deleteMode = "not_found_404";
+      await assert.rejects(
+        () => service.deleteProject("proj-active-del", "proj-active-del"),
+        /not found or has already been deleted/i
+      );
+      assert.equal(deleteCalls.length, 3);
+
+      // 5. Quota fallback succeeds when null header requires quota project
+      deleteMode = "quota_fallback";
+      const deleted = await service.deleteProject("proj-active-del", "proj-active-del");
+      assert.equal(deleted.projectId, "proj-active-del");
+      assert.equal(deleted.projectName, "Active Project");
+      assert.equal(deleted.wasActiveProject, true);
+      assert.equal(deleted.hadBillingEnabled, true);
+      assert.equal(deleted.demoSimulated, false);
+      assert.ok(deleted.pendingDeletionConsoleUrl.includes("pendingDeletion=true"));
+      assert.equal(deleteCalls.length, 5); // null failed -> retried with quota project
+
+      // Verify local preferences and cached snapshot cleaned up immediately
+      const prefsAfter = store.loadPreferences();
+      assert.deepEqual(prefsAfter.pinnedProjects, ["proj-secondary"]);
+      assert.equal(prefsAfter.quotaProjectOverride, null);
+      assert.equal(prefsAfter.lastWorkingQuotaProject, null);
+
+      const overviewAfter = await service.getFastOverviewAfterLocalMutation();
+      assert.deepEqual(overviewAfter.projects.map((p) => p.projectId), ["proj-secondary"]);
+      assert.deepEqual(overviewAfter.billingAccounts[0].linkedProjectIds, ["proj-secondary"]);
+      assert.ok(
+        overviewAfter.warnings.some((w) => w.includes('Active gcloud project "proj-active-del" is deleted')),
+        "Expected stale active project warning after deleting active project"
+      );
+
+      // 6. Demo Mode simulated deletion makes zero network calls and resets when toggling demoMode
+      service.updateSettings({ demoMode: true });
+      const callsBeforeDemo = deleteCalls.length;
+      const demoDel = await service.deleteProject("legacy-hackathon-2025", "legacy-hackathon-2025");
+      assert.equal(demoDel.demoSimulated, true);
+      assert.equal(deleteCalls.length, callsBeforeDemo);
+      const demoAfterDel = await service.getOverview({ forceRefresh: false });
+      assert.equal(
+        demoAfterDel.projects.some((p) => p.projectId === "legacy-hackathon-2025"),
+        false
+      );
+      service.updateSettings({ demoMode: false });
+      service.updateSettings({ demoMode: true });
+      const demoRestored = await service.getOverview({ forceRefresh: false });
+      assert.equal(
+        demoRestored.projects.some((p) => p.projectId === "legacy-hackathon-2025"),
+        true
+      );
+
+      // 7. MCP server intentionally does NOT expose a project deletion tool
+      const mcp = new GcpCompanionMcpHandler(service);
+      const toolsRes = (await mcp.handleMessage({
+        jsonrpc: "2.0",
+        id: 99,
+        method: "tools/list",
+      })) as { result: { tools: Array<{ name: string }> } };
+      assert.equal(
+        toolsRes.result.tools.some((tool) => tool.name.includes("delete")),
+        false,
+        "Project deletion must remain Web UI only and not be exposed via MCP"
+      );
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

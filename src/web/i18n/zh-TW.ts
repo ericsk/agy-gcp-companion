@@ -236,6 +236,29 @@ export const ZH_TW_MESSAGES: TranslationCatalog = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "紀錄 (Logs) ↗",
+  "project.dangerZoneLabel": "危險操作",
+  "project.deleteBtn": "刪除專案",
+  "project.deleteConfirmTitle": "關閉並刪除專案",
+  "project.deleteConfirmDesc":
+    "刪除 {project} 會立即停用所有服務與計費，並進入 30 天緩衝期（可於 Google Cloud 控制台還原），期滿後永久刪除。",
+  "project.deleteWarnActive":
+    "此專案為目前使用中的 gcloud 專案，刪除後需切換至其他啟用中的專案。",
+  "project.deleteWarnQuota":
+    "此專案目前設為配額專案覆寫 (Quota Project Override)，刪除後將自動清除此設定。",
+  "project.deleteWarnBqExport":
+    "此專案承載已連結的 BigQuery 帳單匯出資料表，刪除後相關費用查詢將無法運作。",
+  "project.deleteTypePrompt": "請輸入 {project} 以確認刪除：",
+  "project.deleteInputAria": "輸入要刪除的專案 ID 以確認",
+  "project.deleteConfirmSubmitBtn": "確認關閉並刪除",
+  "project.deleteDeletingBtn": "刪除中…",
+  "project.deleteOpenConsoleLink": "在 GCP 控制台開啟專案設定 ↗",
+  "project.deletedBannerTitle": "專案 {project} 已排定刪除",
+  "project.deletedBannerDesc":
+    "您可以在 30 天內前往 Google Cloud 控制台的「待刪除資源」還原此專案。",
+  "project.deletedBannerDemoDesc":
+    "此為展示模式模擬刪除，不會影響真實 GCP 專案。切換模式或重啟後即自動恢復。",
+  "project.deletedBannerConsoleLink": "開啟待刪除資源頁面 ↗",
+  "project.dismissBannerAria": "關閉通知",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "啟用中",
@@ -259,7 +282,6 @@ export const ZH_TW_MESSAGES: TranslationCatalog = {
   "billing.budgetCustomTarget": "自訂目標",
   "billing.budgetNoThresholds": "無門檻規則",
   "billing.diagnosticsTitle": "Billing API 診斷資訊",
-  "billing.closedAccountsSummary": "已關閉 / 非作用中帳單帳戶 ({count})",
   "billing.noAccountsVisible":
     "目前 Google 帳號下沒有可見的 Cloud 帳單帳戶（需要 `billing.accounts.get` 或 `billing.accounts.list` 權限）。",
 
@@ -329,6 +351,9 @@ export const ZH_TW_MESSAGES: TranslationCatalog = {
   "toast.switchProjectFailed": "切換專案失敗",
   "toast.switchedBillingAccount": "已將 {project} 連結至 {account}",
   "toast.switchBillingFailed": "切換帳單帳戶失敗",
+  "toast.deletedProject": "已排定刪除專案 {project}",
+  "toast.deletedProjectDemo": "展示模式：已模擬刪除專案 {project}",
+  "toast.deleteProjectFailed": "刪除專案失敗",
   "toast.pinUpdateFailed": "更新釘選狀態失敗",
   "toast.removedExportMapping": "已移除匯出資料表連結",
   "toast.removeExportFailed": "移除連結失敗",

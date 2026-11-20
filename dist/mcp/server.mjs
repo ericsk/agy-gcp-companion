@@ -45,7 +45,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "gcp_list_projects",
     description:
-      "List Google Cloud projects visible to the active account, enriched with linked Cloud Billing Account info, pin status, and month-to-date net spend (when BigQuery export is configured).",
+      "List active Google Cloud projects visible to the active account, enriched with linked active Cloud Billing Account info, pin status, and month-to-date net spend (when BigQuery export is configured).",
     inputSchema: {
       type: "object",
       properties: {
@@ -81,7 +81,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "gcp_list_billing_accounts",
     description:
-      "List Google Cloud Billing Accounts, open/closed status, linked project counts, configured budget alert thresholds, and month-to-date net/gross/credits spend.",
+      "List active (open) Google Cloud Billing Accounts, linked active project counts, configured budget alert thresholds, and month-to-date net/gross/credits spend.",
     inputSchema: {
       type: "object",
       properties: {

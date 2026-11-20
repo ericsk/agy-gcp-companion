@@ -435,6 +435,17 @@ export function createSidecarHttpServer(options: SidecarServerOptions = {}): Ser
         return;
       }
 
+      if (method === "POST" && pathname.endsWith("/api/delete-project")) {
+        const body = await readJsonBody(req);
+        const result = await service.deleteProject(
+          String(body.projectId ?? ""),
+          String(body.confirmProjectId ?? "")
+        );
+        const overview = await service.getFastOverviewAfterLocalMutation();
+        sendJson(res, 200, { ...result, overview });
+        return;
+      }
+
       if (method === "POST" && pathname.endsWith("/api/preferences")) {
         const body = await readJsonBody(req);
         const cloudContextChanged =

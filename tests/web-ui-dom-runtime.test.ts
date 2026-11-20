@@ -189,6 +189,7 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
 
     let simulateBillingApiDisabled = false;
     let simulateEmptyCurrentMonth = false;
+    let simulateClosedAndHistorical = false;
     let simulatedAuthMode: "normal" | "no_cli" | "no_login" = "normal";
     let gateInitialBoot = true;
     let releaseBootGate!: () => void;
@@ -401,6 +402,36 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
             );
           }
           const billData = await service.getBillingSection();
+          if (simulateClosedAndHistorical) {
+            return new Response(
+              JSON.stringify({
+                ...billData,
+                billingAccounts: [
+                  ...billData.billingAccounts.map((ba, idx) =>
+                    idx === 0
+                      ? {
+                          ...ba,
+                          linkedProjectIds: [...ba.linkedProjectIds, "deleted-old-proj"],
+                          linkedProjectCount: ba.linkedProjectIds.length + 1,
+                        }
+                      : ba
+                  ),
+                  {
+                    id: "01CLSD-000000-CLOSED",
+                    resourceName: "billingAccounts/01CLSD-000000-CLOSED",
+                    displayName: "Retired Closed Billing",
+                    open: false,
+                    currencyCode: "USD",
+                    linkedProjectCount: 0,
+                    linkedProjectIds: [],
+                    budgets: [],
+                    exportTableId: null,
+                  },
+                ],
+              }),
+              { status: 200 }
+            );
+          }
           return new Response(JSON.stringify(billData), { status: 200 });
         }
         if (url.includes("/api/budgets")) {
@@ -422,6 +453,47 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
             );
           }
           const spendData = await service.getSpendSection();
+          if (simulateClosedAndHistorical) {
+            const closedSpendEntry = {
+              billingAccountId: "01CLSD-000000-CLOSED",
+              currency: "USD",
+              currentMonthGrossCost: 42.5,
+              currentMonthCredits: 0,
+              currentMonthNetCost: 42.5,
+              prevMonthSameDayNetCost: 0,
+              prevMonthTotalNetCost: 0,
+              deltaPercentVsPrevSameDay: null,
+              topServices: [],
+              dailySeries: [],
+            };
+            const currMonth = spendData.spend.invoiceMonth;
+            const currSnap = spendData.spend.byMonth?.[currMonth];
+            return new Response(
+              JSON.stringify({
+                ...spendData,
+                spend: {
+                  ...spendData.spend,
+                  byBillingAccount: {
+                    ...spendData.spend.byBillingAccount,
+                    "01CLSD-000000-CLOSED": closedSpendEntry,
+                  },
+                  byMonth: currSnap
+                    ? {
+                        ...spendData.spend.byMonth,
+                        [currMonth]: {
+                          ...currSnap,
+                          byBillingAccount: {
+                            ...currSnap.byBillingAccount,
+                            "01CLSD-000000-CLOSED": closedSpendEntry,
+                          },
+                        },
+                      }
+                    : spendData.spend.byMonth,
+                },
+              }),
+              { status: 200 }
+            );
+          }
           if (simulateEmptyCurrentMonth) {
             return new Response(
               JSON.stringify({ ...spendData, spend: applyEmptyCurrentMonth(spendData.spend) }),
@@ -506,6 +578,18 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           const result = await service.setProjectBillingAccount(
             String(body.projectId ?? ""),
             String(body.billingAccountId ?? "")
+          );
+          const overview = await service.getFastOverviewAfterLocalMutation();
+          return new Response(JSON.stringify({ ...result, overview }), { status: 200 });
+        }
+        if (url.includes("/api/delete-project")) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            projectId?: string;
+            confirmProjectId?: string;
+          };
+          const result = await service.deleteProject(
+            String(body.projectId ?? ""),
+            String(body.confirmProjectId ?? "")
           );
           const overview = await service.getFastOverviewAfterLocalMutation();
           return new Response(JSON.stringify({ ...result, overview }), { status: 200 });
@@ -695,6 +779,66 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         await new Promise((r) => setTimeout(r, 15));
       }
       assert.ok(appRoot.allText.includes("01ABCD-234567-89EFGH"));
+
+      // 2c. Test Project Deletion flow inside Details Drawer (type-to-confirm Project ID + dismissible banner)
+      const deleteToggleBtn = appRoot.findButtonsByText("Delete Project")[0];
+      assert.ok(deleteToggleBtn, "Expected 'Delete Project' button in expanded Details drawer");
+      deleteToggleBtn.click();
+      assert.ok(
+        appRoot.allText.includes("Shut Down & Delete Project"),
+        "Expected inline danger confirmation box after clicking Delete Project"
+      );
+
+      const deleteInput = (appRoot.querySelectorAll("input") as MockInputElement[]).find((inp) =>
+        inp.className.includes("project-delete-input")
+      );
+      const deleteSubmitBtn = (appRoot.querySelectorAll("button") as MockButtonElement[]).find((btn) =>
+        btn.className.includes("project-delete-submit-btn")
+      );
+      assert.ok(deleteInput, "Expected project ID confirmation input");
+      assert.ok(deleteSubmitBtn, "Expected final delete confirm button");
+      assert.equal(deleteSubmitBtn.disabled, true, "Delete submit button must start disabled");
+
+      // Typing a non-matching value keeps button disabled
+      deleteInput.value = "legacy-hackathon";
+      for (const fn of deleteInput.listeners.input ?? []) {
+        fn({ target: deleteInput });
+      }
+      assert.equal(deleteSubmitBtn.disabled, true, "Delete submit button must remain disabled on mismatch");
+
+      // Typing exact project ID enables button
+      deleteInput.value = "legacy-hackathon-2025";
+      for (const fn of deleteInput.listeners.input ?? []) {
+        fn({ target: deleteInput });
+      }
+      assert.equal(deleteSubmitBtn.disabled, false, "Delete submit button must enable on exact project ID match");
+
+      deleteSubmitBtn.click();
+      for (
+        let i = 0;
+        i < 40 && !appRoot.allText.includes("Project legacy-hackathon-2025 scheduled for deletion");
+        i++
+      ) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(
+        appRoot.allText.includes("Project legacy-hackathon-2025 scheduled for deletion"),
+        "Expected dismissible deletion confirmation banner at top of Projects tab"
+      );
+      assert.ok(
+        !appRoot.allText.includes("Legacy Hackathon Prototype"),
+        "Expected deleted project card to be removed from Projects list immediately"
+      );
+
+      const dismissBannerBtn = (appRoot.querySelectorAll("button") as MockButtonElement[]).find((btn) =>
+        btn.className.includes("deleted-banner-dismiss-btn")
+      );
+      assert.ok(dismissBannerBtn, "Expected dismiss button on deleted project banner");
+      dismissBannerBtn.click();
+      assert.ok(
+        !appRoot.allText.includes("Project legacy-hackathon-2025 scheduled for deletion"),
+        "Expected banner to disappear after clicking dismiss"
+      );
 
       // 3. Switch to Billing Tab and verify Billing Accounts, Budgets, and BigQuery Export wizard
       const billingTabBtn = appRoot.findButtonsByText("Billing")[0];
@@ -903,6 +1047,42 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       assert.ok(appRoot.allText.includes("7d exported"), "Expected prior month 7d exported reference on empty current month");
       assert.ok(appRoot.allText.includes("$34.50/day"), "Expected prior month daily net rate in reference text");
       simulateEmptyCurrentMonth = false;
+
+      // Verify active-only UI filtering: closed billing accounts & deleted linked projects never appear in Billing tab,
+      // while historical spend for a closed billing account still reconciles in Overview -> By Account breakdown.
+      simulateClosedAndHistorical = true;
+      appRoot.findButtonsByText("Refresh")[0].click();
+      for (let i = 0; i < 40 && appRoot.findButtonsByText("By Account").length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      const byAccountBtn = appRoot.findButtonsByText("By Account")[0];
+      assert.ok(byAccountBtn, "Expected 'By Account' breakdown button on Overview");
+      byAccountBtn.click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("01CLSD-000000-CLOSED"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(
+        appRoot.allText.includes("01CLSD-000000-CLOSED"),
+        "Expected closed billing account with historical monthly spend to appear in Overview By Account reconciliation"
+      );
+      assert.ok(appRoot.allText.includes("$42.50"));
+
+      const billingTabCheckBtn = appRoot.findButtonsByText("Billing")[0];
+      assert.ok(billingTabCheckBtn);
+      billingTabCheckBtn.click();
+      assert.ok(
+        !appRoot.allText.includes("Retired Closed Billing"),
+        "Expected closed billing account card to be omitted from Billing tab"
+      );
+      assert.ok(
+        !appRoot.allText.includes("01CLSD-000000-CLOSED"),
+        "Expected closed billing account ID not to appear in Billing tab cards or dropdowns"
+      );
+      assert.ok(
+        !appRoot.allText.includes("deleted-old-proj"),
+        "Expected deleted/non-active project ID to be cross-filtered out of Billing tab linked projects"
+      );
+      simulateClosedAndHistorical = false;
     } finally {
       Object.assign(globalThis, prevGlobals);
       rmSync(tmpDir, { recursive: true, force: true });

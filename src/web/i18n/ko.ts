@@ -239,6 +239,29 @@ export const KO_MESSAGES: TranslationCatalog = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "로그 ↗",
+  "project.dangerZoneLabel": "위험 작업",
+  "project.deleteBtn": "프로젝트 삭제",
+  "project.deleteConfirmTitle": "프로젝트 종료 및 삭제",
+  "project.deleteConfirmDesc":
+    "{project}을(를) 삭제하면 모든 서비스와 결제가 즉시 중지됩니다. 영구 삭제 전 Google Cloud 콘솔에서 30일 동안 복원할 수 있습니다.",
+  "project.deleteWarnActive":
+    "현재 활성 gcloud 프로젝트입니다. 삭제 후 다른 프로젝트로 전환해야 합니다.",
+  "project.deleteWarnQuota":
+    "이 프로젝트는 할당량 프로젝트 재정의(Quota Project Override)로 설정되어 있으며 삭제 후 자동으로 해제됩니다.",
+  "project.deleteWarnBqExport":
+    "이 프로젝트에는 연결된 BigQuery 결제 내보내기 테이블이 있습니다. 삭제 시 비용 조회가 중단됩니다.",
+  "project.deleteTypePrompt": "삭제를 확인하려면 {project}을(를) 입력하세요:",
+  "project.deleteInputAria": "삭제할 프로젝트 ID 확인 입력",
+  "project.deleteConfirmSubmitBtn": "종료 및 삭제",
+  "project.deleteDeletingBtn": "삭제 중…",
+  "project.deleteOpenConsoleLink": "GCP 콘솔에서 프로젝트 설정 열기 ↗",
+  "project.deletedBannerTitle": "프로젝트 {project} 삭제 예약됨",
+  "project.deletedBannerDesc":
+    "30일 이내에 Google Cloud 콘솔의 삭제 대기 중인 리소스에서 이 프로젝트를 복원할 수 있습니다.",
+  "project.deletedBannerDemoDesc":
+    "데모 모드 시뮬레이션이며 실제 GCP 프로젝트에는 영향을 주지 않습니다. 데모 모드를 전환하거나 재시작하면 초기화됩니다.",
+  "project.deletedBannerConsoleLink": "삭제 대기 페이지 열기 ↗",
+  "project.dismissBannerAria": "알림 닫기",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "사용 가능",
@@ -263,7 +286,6 @@ export const KO_MESSAGES: TranslationCatalog = {
   "billing.budgetCustomTarget": "맞춤 목표",
   "billing.budgetNoThresholds": "임계값 규칙 없음",
   "billing.diagnosticsTitle": "Billing API 진단",
-  "billing.closedAccountsSummary": "종료됨 / 비활성 결제 계정 ({count})",
   "billing.noAccountsVisible":
     "현재 Google 계정에서 볼 수 있는 Cloud 결제 계정이 없습니다 (`billing.accounts.get` 또는 `billing.accounts.list` 권한 필요).",
 
@@ -333,6 +355,9 @@ export const KO_MESSAGES: TranslationCatalog = {
   "toast.switchProjectFailed": "프로젝트 전환 실패",
   "toast.switchedBillingAccount": "{project} 프로젝트를 {account} 계정에 연결했습니다",
   "toast.switchBillingFailed": "결제 계정 변경 실패",
+  "toast.deletedProject": "프로젝트 {project} 삭제가 예약되었습니다",
+  "toast.deletedProjectDemo": "데모 모드: {project} 삭제를 시뮬레이션했습니다",
+  "toast.deleteProjectFailed": "프로젝트 삭제 실패",
   "toast.pinUpdateFailed": "고정 상태 업데이트 실패",
   "toast.removedExportMapping": "내보내기 테이블 연결을 해제했습니다",
   "toast.removeExportFailed": "연결 해제 실패",

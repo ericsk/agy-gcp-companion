@@ -240,6 +240,29 @@ export const ES_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Registros ↗",
+  "project.dangerZoneLabel": "Zona de peligro",
+  "project.deleteBtn": "Eliminar proyecto",
+  "project.deleteConfirmTitle": "Cerrar y eliminar proyecto",
+  "project.deleteConfirmDesc":
+    "Eliminar {project} detiene de inmediato todos los servicios y la facturación. El proyecto entra en un período de recuperación de 30 días en Google Cloud Console antes de su eliminación permanente.",
+  "project.deleteWarnActive":
+    "Este es actualmente tu proyecto activo de gcloud. Deberás cambiar a otro proyecto después de eliminarlo.",
+  "project.deleteWarnQuota":
+    "Este proyecto está configurado como Quota Project Override y se limpiará automáticamente.",
+  "project.deleteWarnBqExport":
+    "Este proyecto aloja una tabla vinculada de exportación de facturación de BigQuery. Las consultas de gasto dejarán de funcionar si se elimina.",
+  "project.deleteTypePrompt": "Escribe {project} para confirmar la eliminación:",
+  "project.deleteInputAria": "Confirmar ID del proyecto a eliminar",
+  "project.deleteConfirmSubmitBtn": "Cerrar y eliminar",
+  "project.deleteDeletingBtn": "Eliminando…",
+  "project.deleteOpenConsoleLink": "Abrir configuración del proyecto en GCP Console ↗",
+  "project.deletedBannerTitle": "Proyecto {project} programado para eliminación",
+  "project.deletedBannerDesc":
+    "Puedes restaurar este proyecto dentro de los próximos 30 días desde Recursos pendientes de eliminación en Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Simulación en modo demostración: no se afectó ningún proyecto real de GCP. Cambia el modo o reinicia para restablecer.",
+  "project.deletedBannerConsoleLink": "Abrir pendientes de eliminación ↗",
+  "project.dismissBannerAria": "Descartar notificación",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "ABIERTA",
@@ -264,7 +287,6 @@ export const ES_MESSAGES                     = {
   "billing.budgetCustomTarget": "Objetivo personalizado",
   "billing.budgetNoThresholds": "Sin reglas de umbral",
   "billing.diagnosticsTitle": "Diagnóstico de Billing API",
-  "billing.closedAccountsSummary": "Cuentas de facturación cerradas / inactivas ({count})",
   "billing.noAccountsVisible":
     "No hay cuentas de facturación de Cloud visibles para la cuenta activa (requiere `billing.accounts.get` o `billing.accounts.list`).",
 
@@ -334,6 +356,9 @@ export const ES_MESSAGES                     = {
   "toast.switchProjectFailed": "Error al cambiar de proyecto",
   "toast.switchedBillingAccount": "{project} vinculado a {account}",
   "toast.switchBillingFailed": "Error al cambiar la cuenta de facturación",
+  "toast.deletedProject": "Proyecto {project} programado para eliminación",
+  "toast.deletedProjectDemo": "Modo demostración: eliminación simulada de {project}",
+  "toast.deleteProjectFailed": "Error al eliminar el proyecto",
   "toast.pinUpdateFailed": "Error al actualizar fijación",
   "toast.removedExportMapping": "Vinculación de tabla de exportación eliminada",
   "toast.removeExportFailed": "Error al eliminar la vinculación",

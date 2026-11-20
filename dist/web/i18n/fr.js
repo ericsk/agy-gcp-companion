@@ -240,6 +240,29 @@ export const FR_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "Journaux ↗",
+  "project.dangerZoneLabel": "Zone de danger",
+  "project.deleteBtn": "Supprimer le projet",
+  "project.deleteConfirmTitle": "Arrêter et supprimer le projet",
+  "project.deleteConfirmDesc":
+    "La suppression de {project} arrête immédiatement tous les services et la facturation. Le projet dispose d'une période de récupération de 30 jours dans Google Cloud Console avant suppression définitive.",
+  "project.deleteWarnActive":
+    "C'est actuellement votre projet gcloud actif. Vous devrez basculer vers un autre projet après la suppression.",
+  "project.deleteWarnQuota":
+    "Ce projet est défini comme Quota Project Override et sera effacé automatiquement.",
+  "project.deleteWarnBqExport":
+    "Ce projet héberge une table d'exportation de facturation BigQuery liée. Les requêtes de dépenses cesseront de fonctionner s'il est supprimé.",
+  "project.deleteTypePrompt": "Saisissez {project} pour confirmer la suppression :",
+  "project.deleteInputAria": "Confirmer l'ID du projet à supprimer",
+  "project.deleteConfirmSubmitBtn": "Arrêter et supprimer",
+  "project.deleteDeletingBtn": "Suppression…",
+  "project.deleteOpenConsoleLink": "Ouvrir les paramètres du projet dans GCP Console ↗",
+  "project.deletedBannerTitle": "Suppression programmée pour le projet {project}",
+  "project.deletedBannerDesc":
+    "Vous pouvez restaurer ce projet sous 30 jours depuis les ressources en attente de suppression dans Google Cloud Console.",
+  "project.deletedBannerDemoDesc":
+    "Simulation en mode démo uniquement : aucun projet GCP réel n'a été affecté. Basculez le mode ou redémarrez pour réinitialiser.",
+  "project.deletedBannerConsoleLink": "Ouvrir les suppressions en attente ↗",
+  "project.dismissBannerAria": "Fermer la notification",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "OUVERT",
@@ -264,7 +287,6 @@ export const FR_MESSAGES                     = {
   "billing.budgetCustomTarget": "Cible personnalisée",
   "billing.budgetNoThresholds": "Aucune règle de seuil",
   "billing.diagnosticsTitle": "Diagnostics de l'API Billing",
-  "billing.closedAccountsSummary": "Comptes de facturation fermés / inactifs ({count})",
   "billing.noAccountsVisible":
     "Aucun compte de facturation Cloud visible pour le compte actif (autorisation `billing.accounts.get` ou `billing.accounts.list` requise).",
 
@@ -334,6 +356,9 @@ export const FR_MESSAGES                     = {
   "toast.switchProjectFailed": "Échec du changement de projet",
   "toast.switchedBillingAccount": "{project} associé à {account}",
   "toast.switchBillingFailed": "Échec du changement de compte de facturation",
+  "toast.deletedProject": "Suppression programmée pour le projet {project}",
+  "toast.deletedProjectDemo": "Mode démo : suppression simulée de {project}",
+  "toast.deleteProjectFailed": "Échec de la suppression du projet",
   "toast.pinUpdateFailed": "Échec de la mise à jour de l'épingle",
   "toast.removedExportMapping": "Association de table d'exportation supprimée",
   "toast.removeExportFailed": "Échec de la suppression de l'association",

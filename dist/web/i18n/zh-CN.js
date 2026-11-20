@@ -235,6 +235,29 @@ export const ZH_CN_MESSAGES                     = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "日志 ↗",
+  "project.dangerZoneLabel": "危险操作",
+  "project.deleteBtn": "删除项目",
+  "project.deleteConfirmTitle": "关停并删除项目",
+  "project.deleteConfirmDesc":
+    "删除 {project} 会立即停止所有服务和计费，并进入 30 天恢复期（可在 Google Cloud 控制台还原），期满后永久删除。",
+  "project.deleteWarnActive":
+    "此项目为当前使用的 gcloud 项目，删除后需切换到其他活跃项目。",
+  "project.deleteWarnQuota":
+    "此项目当前设为配额项目覆盖 (Quota Project Override)，删除后将自动清除该设置。",
+  "project.deleteWarnBqExport":
+    "此项目承载已关联的 BigQuery 账单导出表，删除后相关费用查询将停止工作。",
+  "project.deleteTypePrompt": "请输入 {project} 以确认删除：",
+  "project.deleteInputAria": "输入要删除的项目 ID 以确认",
+  "project.deleteConfirmSubmitBtn": "确认关停并删除",
+  "project.deleteDeletingBtn": "删除中…",
+  "project.deleteOpenConsoleLink": "在 GCP 控制台打开项目设置 ↗",
+  "project.deletedBannerTitle": "项目 {project} 已安排删除",
+  "project.deletedBannerDesc":
+    "您可以在 30 天内前往 Google Cloud 控制台的“待删除资源”恢复此项目。",
+  "project.deletedBannerDemoDesc":
+    "仅为演示模式模拟删除，不会影响真实 GCP 项目。切换演示模式或重启后即可重置。",
+  "project.deletedBannerConsoleLink": "打开待删除资源页面 ↗",
+  "project.dismissBannerAria": "关闭通知",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "有效",
@@ -258,7 +281,6 @@ export const ZH_CN_MESSAGES                     = {
   "billing.budgetCustomTarget": "自定义目标",
   "billing.budgetNoThresholds": "无阈值规则",
   "billing.diagnosticsTitle": "Billing API 诊断信息",
-  "billing.closedAccountsSummary": "已关闭 / 非活跃结算账号 ({count})",
   "billing.noAccountsVisible":
     "当前 Google 账号下没有可见的 Cloud 结算账号（需要 `billing.accounts.get` 或 `billing.accounts.list` 权限）。",
 
@@ -328,6 +350,9 @@ export const ZH_CN_MESSAGES                     = {
   "toast.switchProjectFailed": "切换项目失败",
   "toast.switchedBillingAccount": "已将 {project} 关联至 {account}",
   "toast.switchBillingFailed": "切换结算账号失败",
+  "toast.deletedProject": "已安排删除项目 {project}",
+  "toast.deletedProjectDemo": "演示模式：已模拟删除项目 {project}",
+  "toast.deleteProjectFailed": "删除项目失败",
   "toast.pinUpdateFailed": "更新星标状态失败",
   "toast.removedExportMapping": "已移除导出表绑定",
   "toast.removeExportFailed": "移除绑定失败",

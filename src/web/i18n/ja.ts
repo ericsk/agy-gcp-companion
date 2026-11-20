@@ -239,6 +239,29 @@ export const JA_MESSAGES: TranslationCatalog = {
   "project.linkCloudRun": "Cloud Run ↗",
   "project.linkBigQuery": "BigQuery ↗",
   "project.linkLogs": "ログ ↗",
+  "project.dangerZoneLabel": "危険な操作",
+  "project.deleteBtn": "プロジェクトを削除",
+  "project.deleteConfirmTitle": "プロジェクトのシャットダウンと削除",
+  "project.deleteConfirmDesc":
+    "{project} を削除すると、すべてのサービスと課金が直ちに停止されます。完全削除まで Google Cloud コンソールで 30 日間の復元猶予期間があります。",
+  "project.deleteWarnActive":
+    "これは現在アクティブな gcloud プロジェクトです。削除後は別のプロジェクトに切り替える必要があります。",
+  "project.deleteWarnQuota":
+    "このプロジェクトは Quota Project Override に設定されています。削除後に設定は自動クリアされます。",
+  "project.deleteWarnBqExport":
+    "このプロジェクトには連携済みの BigQuery 請求エクスポートテーブルがあります。削除すると支出クエリが動作しなくなります。",
+  "project.deleteTypePrompt": "削除を確認するには {project} と入力してください：",
+  "project.deleteInputAria": "削除確認用のプロジェクト ID を入力",
+  "project.deleteConfirmSubmitBtn": "シャットダウンして削除",
+  "project.deleteDeletingBtn": "削除中…",
+  "project.deleteOpenConsoleLink": "GCP コンソールでプロジェクト設定を開く ↗",
+  "project.deletedBannerTitle": "プロジェクト {project} の削除を予約しました",
+  "project.deletedBannerDesc":
+    "30 日以内であれば、Google Cloud コンソールの「削除保留中のリソース」から復元できます。",
+  "project.deletedBannerDemoDesc":
+    "デモモードのシミュレーションです（実際の GCP プロジェクトには影響しません）。デモモードの切替または再起動で復元されます。",
+  "project.deletedBannerConsoleLink": "削除保留中ページを開く ↗",
+  "project.dismissBannerAria": "通知を閉じる",
 
   // Billing Tab & Account Cards
   "billing.statusOpen": "有効",
@@ -263,7 +286,6 @@ export const JA_MESSAGES: TranslationCatalog = {
   "billing.budgetCustomTarget": "カスタム目標",
   "billing.budgetNoThresholds": "しきい値ルールなし",
   "billing.diagnosticsTitle": "Billing API 診断情報",
-  "billing.closedAccountsSummary": "閉鎖・非アクティブな請求先アカウント ({count})",
   "billing.noAccountsVisible":
     "現在の Google アカウントで表示できる Cloud 請求先アカウントがありません（`billing.accounts.get` または `billing.accounts.list` 権限が必要です）。",
 
@@ -333,6 +355,9 @@ export const JA_MESSAGES: TranslationCatalog = {
   "toast.switchProjectFailed": "プロジェクトの切り替えに失敗しました",
   "toast.switchedBillingAccount": "{project} を {account} にリンクしました",
   "toast.switchBillingFailed": "請求先アカウントの変更に失敗しました",
+  "toast.deletedProject": "プロジェクト {project} の削除を予約しました",
+  "toast.deletedProjectDemo": "デモモード：{project} の削除をシミュレートしました",
+  "toast.deleteProjectFailed": "プロジェクトの削除に失敗しました",
   "toast.pinUpdateFailed": "ピン留めの更新に失敗しました",
   "toast.removedExportMapping": "エクスポートテーブル連携を解除しました",
   "toast.removeExportFailed": "連携の解除に失敗しました",

@@ -9,6 +9,7 @@ import type {
   GcpProject,
   LocalePreference,
   ProjectBillingUpdateResult,
+  ProjectDeleteResult,
   ProjectSpendSummary,
 } from "../core/types.ts";
 
@@ -348,6 +349,19 @@ export async function setProjectBillingAccountApi(
     {
       projectId,
       billingAccountId,
+    }
+  );
+}
+
+export async function deleteProjectApi(
+  projectId: string,
+  confirmProjectId: string
+): Promise<ProjectDeleteResult & { overview: CompanionOverviewResponse }> {
+  return apiPost<ProjectDeleteResult & { overview: CompanionOverviewResponse }>(
+    "./api/delete-project",
+    {
+      projectId,
+      confirmProjectId,
     }
   );
 }

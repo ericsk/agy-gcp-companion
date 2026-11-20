@@ -13,6 +13,8 @@ import { getActiveLocale, t } from "./i18n/index.js";
                  
                        
                 
+                        
+                       
                      
                     
                      
@@ -71,6 +73,12 @@ export function h                                       (
     }
     if (attrs.list && el instanceof HTMLInputElement) {
       el.setAttribute("list", attrs.list);
+    }
+    if (attrs.autocomplete && el instanceof HTMLInputElement) {
+      el.setAttribute("autocomplete", attrs.autocomplete);
+    }
+    if (attrs.spellcheck !== undefined && el instanceof HTMLInputElement) {
+      el.spellcheck = Boolean(attrs.spellcheck);
     }
     if (attrs.disabled !== undefined && "disabled" in el) {
       (el                                                            ).disabled = Boolean(

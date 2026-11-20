@@ -9,6 +9,7 @@ import {
   GcpHttpError,
   type RawBillingAccount,
   type RawGcpProject,
+  deleteGcpProject,
   fetchAllProjects,
   fetchBillingAccountMetadata,
   fetchBillingAccountsAndProjectLinks,
@@ -47,6 +48,7 @@ import type {
   ProjectBillingChangePreview,
   ProjectBillingLinkInfo,
   ProjectBillingUpdateResult,
+  ProjectDeleteResult,
   ProjectSpendSummary,
 } from "./types.ts";
 
@@ -115,6 +117,7 @@ export class CompanionService {
   private readonly nowFn: () => Date;
   private demoActiveProject: string | null = null;
   private demoProjectBillingOverrides: Record<string, string> = {};
+  private demoDeletedProjects = new Set<string>();
   private readonly overviewSlot = createSingleFlightSlot<CompanionOverviewResponse>();
   private readonly rawProjectsSlot = createSingleFlightSlot<RawGcpProject[]>();
   private readonly projectsSlot = createSingleFlightSlot<CompanionProjectsResponse>();
@@ -212,15 +215,38 @@ export class CompanionService {
     return true;
   }
 
+  private getClosedBillingAccountMap(
+    snapshot: CachedCloudSnapshot | null | undefined
+  ): Record<string, string> {
+    const map: Record<string, string> = {};
+    if (!snapshot) return map;
+    if (snapshot.closedBillingAccounts) {
+      for (const [id, displayName] of Object.entries(snapshot.closedBillingAccounts)) {
+        map[id] = displayName || id;
+      }
+    }
+    for (const ba of snapshot.billingAccounts) {
+      if (!ba.open) {
+        map[ba.id] = ba.displayName || ba.id;
+      }
+    }
+    return map;
+  }
+
   private extractBillingLinksFromSnapshot(
     snapshot: CachedCloudSnapshot
   ): Record<string, ProjectBillingLinkInfo> {
-    if (snapshot.projectBillingLinks) {
-      return { ...snapshot.projectBillingLinks };
-    }
+    const closedMap = this.getClosedBillingAccountMap(snapshot);
     const links: Record<string, ProjectBillingLinkInfo> = {};
+    if (snapshot.projectBillingLinks) {
+      for (const [pid, info] of Object.entries(snapshot.projectBillingLinks)) {
+        if (closedMap[info.billingAccountId]) continue;
+        links[pid] = { ...info };
+      }
+      return links;
+    }
     for (const p of snapshot.projects) {
-      if (p.billingAccountId) {
+      if (p.billingAccountId && !closedMap[p.billingAccountId]) {
         links[p.projectId] = {
           billingAccountId: p.billingAccountId,
           billingEnabled: p.billingEnabled,
@@ -228,6 +254,7 @@ export class CompanionService {
       }
     }
     for (const ba of snapshot.billingAccounts) {
+      if (!ba.open) continue;
       for (const pid of ba.linkedProjectIds) {
         links[pid] = {
           billingAccountId: ba.id,
@@ -240,14 +267,25 @@ export class CompanionService {
 
   private applyBillingLinksToRawProjects(
     rawProjects: RawGcpProject[],
-    links: Record<string, ProjectBillingLinkInfo>
+    links: Record<string, ProjectBillingLinkInfo>,
+    closedBaMap: Record<string, string> = {}
   ): RawGcpProject[] {
     return rawProjects.map((p) => {
       const link = links[p.projectId];
+      const fallbackId =
+        p.billingAccountId && !closedBaMap[p.billingAccountId] ? p.billingAccountId : null;
+      const fallbackEnabled = fallbackId ? p.billingEnabled : false;
+      if (link && !closedBaMap[link.billingAccountId]) {
+        return {
+          ...p,
+          billingAccountId: link.billingAccountId,
+          billingEnabled: link.billingEnabled,
+        };
+      }
       return {
         ...p,
-        billingAccountId: link ? link.billingAccountId : p.billingAccountId,
-        billingEnabled: link ? link.billingEnabled : p.billingEnabled,
+        billingAccountId: fallbackId,
+        billingEnabled: fallbackEnabled,
       };
     });
   }
@@ -258,6 +296,7 @@ export class CompanionService {
     mutator: (draft: {
       projects: RawGcpProject[];
       billingAccounts: RawBillingAccount[];
+      closedBillingAccounts: Record<string, string>;
       spendReport: CachedCloudSnapshot["spendReport"];
       sectionsFetchedAt: NonNullable<CachedCloudSnapshot["sectionsFetchedAt"]>;
       projectBillingLinks: Record<string, ProjectBillingLinkInfo>;
@@ -283,14 +322,21 @@ export class CompanionService {
       : {};
 
     const draft = {
-      projects: prev ? prev.projects.map((p) => ({ ...p })) : [],
-      billingAccounts: prev
-        ? prev.billingAccounts.map((ba) => ({
-            ...ba,
-            linkedProjectIds: [...ba.linkedProjectIds],
-            budgets: [...(ba.budgets ?? [])],
-          }))
+      projects: prev
+        ? prev.projects
+            .filter((p) => (p.lifecycleState || "ACTIVE").toUpperCase() === "ACTIVE")
+            .map((p) => ({ ...p }))
         : [],
+      billingAccounts: prev
+        ? prev.billingAccounts
+            .filter((ba) => ba.open)
+            .map((ba) => ({
+              ...ba,
+              linkedProjectIds: [...ba.linkedProjectIds],
+              budgets: [...(ba.budgets ?? [])],
+            }))
+        : [],
+      closedBillingAccounts: this.getClosedBillingAccountMap(prev),
       spendReport: prev?.spendReport ?? null,
       sectionsFetchedAt,
       projectBillingLinks: prev ? this.extractBillingLinksFromSnapshot(prev) : {},
@@ -300,9 +346,11 @@ export class CompanionService {
     mutator(draft);
 
     draft.projects = this.applyBillingLinksToRawProjects(
-      draft.projects,
-      draft.projectBillingLinks
+      draft.projects.filter((p) => (p.lifecycleState || "ACTIVE").toUpperCase() === "ACTIVE"),
+      draft.projectBillingLinks,
+      draft.closedBillingAccounts
     );
+    draft.billingAccounts = draft.billingAccounts.filter((ba) => ba.open);
 
     const combinedWarnings = [
       ...(draft.sectionWarnings.projects ?? []),
@@ -327,6 +375,7 @@ export class CompanionService {
       fetchedAt: effectiveFetchedAt,
       projects: draft.projects,
       billingAccounts: draft.billingAccounts,
+      closedBillingAccounts: draft.closedBillingAccounts,
       spendReport: draft.spendReport,
       warnings: combinedWarnings,
       sectionsFetchedAt: draft.sectionsFetchedAt,
@@ -378,7 +427,13 @@ export class CompanionService {
     this.maybeTriggerBackgroundUpdateCheck(prefs);
 
     if (prefs.demoMode) {
-      const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
+      const demo = buildDemoOverview(
+        prefs,
+        now,
+        this.demoActiveProject,
+        this.demoProjectBillingOverrides,
+        this.demoDeletedProjects
+      );
       return {
         auth: demo.auth,
         preferences: demo.preferences,
@@ -426,12 +481,18 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
+        const demo = buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        );
         return {
           authenticated: true,
           projects: demo.projects,
           cache: demo.cache,
-          warnings: [],
+          warnings: demo.warnings,
         };
       }
 
@@ -556,7 +617,13 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
+        const demo = buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        );
         const demoLinks: Record<string, ProjectBillingLinkInfo> = {};
         for (const p of demo.projects) {
           if (p.billingAccountId) {
@@ -621,6 +688,7 @@ export class CompanionService {
 
         const {
           billingAccounts: rawBillingAccounts,
+          closedBillingAccounts,
           projectBillingLinks,
           warnings,
           usedQuotaProject,
@@ -656,6 +724,7 @@ export class CompanionService {
         const nowIso = now.toISOString();
         const updatedSnapshot = this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
           draft.billingAccounts = rawBillingAccounts;
+          draft.closedBillingAccounts = closedBillingAccounts;
           draft.projectBillingLinks = projectBillingLinks;
           draft.sectionsFetchedAt.billing = nowIso;
           if (!reuseBudgets) {
@@ -737,7 +806,13 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
+        const demo = buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        );
         const budgetsByAccount: Record<string, BudgetInfo[]> = {};
         for (const ba of demo.billingAccounts) {
           budgetsByAccount[ba.id] = ba.budgets;
@@ -759,6 +834,7 @@ export class CompanionService {
       if (!forceRefresh && cached && this.isSectionFresh(cached, "budgets", prefs, now)) {
         const budgetsByAccount: Record<string, BudgetInfo[]> = {};
         for (const ba of cached.billingAccounts) {
+          if (!ba.open) continue;
           budgetsByAccount[ba.id] = ba.budgets ?? [];
         }
         return {
@@ -774,11 +850,13 @@ export class CompanionService {
         cached = this.store.loadSnapshot(activeAccount);
       }
 
-      const targetAccounts: RawBillingAccount[] = (cached?.billingAccounts ?? []).map((ba) => ({
-        ...ba,
-        linkedProjectIds: [...ba.linkedProjectIds],
-        budgets: [...(ba.budgets ?? [])],
-      }));
+      const targetAccounts: RawBillingAccount[] = (cached?.billingAccounts ?? [])
+        .filter((ba) => ba.open)
+        .map((ba) => ({
+          ...ba,
+          linkedProjectIds: [...ba.linkedProjectIds],
+          budgets: [...(ba.budgets ?? [])],
+        }));
 
       const nowIso = now.toISOString();
       if (targetAccounts.length === 0) {
@@ -832,7 +910,13 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
+        const demo = buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        );
         return {
           authenticated: true,
           spend: demo.spend,
@@ -991,7 +1075,13 @@ export class CompanionService {
 
     if (prefs.demoMode) {
       return {
-        ...buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides),
+        ...buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        ),
         pluginUpdate: this.updater.getStatus(autoUpdate),
       };
     }
@@ -1038,7 +1128,13 @@ export class CompanionService {
 
     if (prefs.demoMode) {
       return {
-        ...buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides),
+        ...buildDemoOverview(
+          prefs,
+          now,
+          this.demoActiveProject,
+          this.demoProjectBillingOverrides,
+          this.demoDeletedProjects
+        ),
         pluginUpdate: this.updater.getStatus(autoUpdate),
       };
     }
@@ -1092,6 +1188,7 @@ export class CompanionService {
 
       const {
         billingAccounts: rawBillingAccounts,
+        closedBillingAccounts,
         warnings,
         usedQuotaProject,
       } = await fetchBillingAccountsAndProjectLinks(
@@ -1123,6 +1220,7 @@ export class CompanionService {
         fetchedAt: now.toISOString(),
         projects: rawProjects,
         billingAccounts: rawBillingAccounts,
+        closedBillingAccounts,
         spendReport,
         warnings: combinedWarnings,
       });
@@ -1225,30 +1323,45 @@ export class CompanionService {
     cacheMeta: { hit: boolean; stale: boolean; ageMs: number }
   ): CompanionOverviewResponse {
     const pinnedSet = new Set(prefs.pinnedProjects);
+    const activeRawProjects = snapshot.projects.filter(
+      (p) => (p.lifecycleState || "ACTIVE").toUpperCase() === "ACTIVE"
+    );
+    const activeProjectIdSet = new Set(activeRawProjects.map((p) => p.projectId));
+    const hasProjectsContext =
+      !snapshot.sectionsFetchedAt ||
+      Boolean(snapshot.sectionsFetchedAt.projects) ||
+      activeRawProjects.length > 0;
+
+    const closedBaMap = this.getClosedBillingAccountMap(snapshot);
+    const openRawBillingAccounts = snapshot.billingAccounts.filter((ba) => ba.open);
     const baDisplayMap = new Map<string, string>();
-    for (const ba of snapshot.billingAccounts) {
+    for (const ba of openRawBillingAccounts) {
       baDisplayMap.set(ba.id, ba.displayName);
     }
 
     const globalExport = prefs.billingExportTables["*"]?.tableId ?? null;
     const spend = snapshot.spendReport ?? createEmptySpendReport(this.nowFn());
 
-    const billingAccounts: BillingAccount[] = snapshot.billingAccounts.map((ba) => ({
-      id: ba.id,
-      resourceName: ba.resourceName,
-      displayName: ba.displayName,
-      open: ba.open,
-      masterBillingAccount: ba.masterBillingAccount,
-      currencyCode: ba.currencyCode,
-      linkedProjectCount: ba.linkedProjectIds.length,
-      linkedProjectIds: [...ba.linkedProjectIds],
-      budgets: ba.budgets ?? [],
-      exportTableId: prefs.billingExportTables[ba.id]?.tableId ?? globalExport,
-    }));
+    const billingAccounts: BillingAccount[] = openRawBillingAccounts.map((ba) => {
+      const linkedProjectIds = hasProjectsContext
+        ? ba.linkedProjectIds.filter((pid) => activeProjectIdSet.has(pid))
+        : [...ba.linkedProjectIds];
+      return {
+        id: ba.id,
+        resourceName: ba.resourceName,
+        displayName: ba.displayName,
+        open: true,
+        masterBillingAccount: ba.masterBillingAccount,
+        currencyCode: ba.currencyCode,
+        linkedProjectCount: linkedProjectIds.length,
+        linkedProjectIds,
+        budgets: ba.budgets ?? [],
+        exportTableId: prefs.billingExportTables[ba.id]?.tableId ?? globalExport,
+      };
+    });
 
-    // Sort: OPEN accounts first -> Linked project count desc -> Spend desc -> Alphabetical
+    // Sort: Linked project count desc -> Spend desc -> Alphabetical
     billingAccounts.sort((a, b) => {
-      if (a.open !== b.open) return a.open ? -1 : 1;
       if (a.linkedProjectCount !== b.linkedProjectCount) {
         return b.linkedProjectCount - a.linkedProjectCount;
       }
@@ -1258,19 +1371,24 @@ export class CompanionService {
       return a.displayName.localeCompare(b.displayName);
     });
 
-    const projects: GcpProject[] = snapshot.projects.map((p) => ({
-      projectId: p.projectId,
-      projectNumber: p.projectNumber,
-      name: p.name,
-      lifecycleState: p.lifecycleState,
-      createTime: p.createTime,
-      labels: p.labels,
-      billingAccountId: p.billingAccountId,
-      billingAccountName: p.billingAccountId ? (baDisplayMap.get(p.billingAccountId) ?? p.billingAccountId) : null,
-      billingEnabled: p.billingEnabled,
-      pinned: pinnedSet.has(p.projectId),
-      isActiveProject: auth.activeProject === p.projectId,
-    }));
+    const projects: GcpProject[] = activeRawProjects.map((p) => {
+      const isClosedBa = Boolean(p.billingAccountId && closedBaMap[p.billingAccountId]);
+      const effectiveBaId = isClosedBa ? null : p.billingAccountId;
+      const effectiveBillingEnabled = isClosedBa ? false : p.billingEnabled;
+      return {
+        projectId: p.projectId,
+        projectNumber: p.projectNumber,
+        name: p.name,
+        lifecycleState: p.lifecycleState || "ACTIVE",
+        createTime: p.createTime,
+        labels: p.labels,
+        billingAccountId: effectiveBaId,
+        billingAccountName: effectiveBaId ? (baDisplayMap.get(effectiveBaId) ?? effectiveBaId) : null,
+        billingEnabled: effectiveBillingEnabled,
+        pinned: pinnedSet.has(p.projectId),
+        isActiveProject: auth.activeProject === p.projectId,
+      };
+    });
 
     // Sort: Active first -> Pinned -> Higher spend -> Alphabetical
     projects.sort((a, b) => {
@@ -1299,7 +1417,7 @@ export class CompanionService {
         unbilledProjects: projects.filter((p) => !p.billingEnabled).length,
         pinnedProjectsCount: projects.filter((p) => p.pinned).length,
         totalBillingAccounts: billingAccounts.length,
-        openBillingAccounts: billingAccounts.filter((b) => b.open).length,
+        openBillingAccounts: billingAccounts.length,
         spendConfigured: spend.configured,
       },
       projects,
@@ -1361,9 +1479,15 @@ export class CompanionService {
     const targetBa =
       overview.billingAccounts.find((ba) => ba.id === validBillingAccountId) ?? null;
 
-    if (targetBa && !targetBa.open) {
+    const cachedSnapshot =
+      !overview.preferences.demoMode && overview.auth.activeAccount
+        ? this.store.loadSnapshot(overview.auth.activeAccount)
+        : null;
+    const closedBaName = this.getClosedBillingAccountMap(cachedSnapshot)[validBillingAccountId];
+    if (closedBaName || (targetBa && !targetBa.open)) {
+      const displayName = closedBaName || targetBa?.displayName || validBillingAccountId;
       throw new Error(
-        `Billing account "${targetBa.displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
+        `Billing account "${displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
       );
     }
 
@@ -1431,7 +1555,8 @@ export class CompanionService {
         prefs,
         now,
         this.demoActiveProject,
-        this.demoProjectBillingOverrides
+        this.demoProjectBillingOverrides,
+        this.demoDeletedProjects
       );
       const proj = currentDemo.projects.find((p) => p.projectId === validProjectId);
       if (!proj) {
@@ -1481,9 +1606,11 @@ export class CompanionService {
 
     const existingTargetBa =
       prevSnapshot?.billingAccounts.find((ba) => ba.id === validBillingAccountId) ?? null;
-    if (existingTargetBa && !existingTargetBa.open) {
+    const closedBaName = this.getClosedBillingAccountMap(prevSnapshot)[validBillingAccountId];
+    if (closedBaName || (existingTargetBa && !existingTargetBa.open)) {
+      const displayName = closedBaName || existingTargetBa?.displayName || validBillingAccountId;
       throw new Error(
-        `Billing account "${existingTargetBa.displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
+        `Billing account "${displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
       );
     }
 
@@ -1566,13 +1693,17 @@ export class CompanionService {
             ba.linkedProjectIds = ba.linkedProjectIds.filter((id) => id !== validProjectId);
           }
         }
+        const isOpenTarget = targetMeta?.open ?? updated.billingEnabled;
+        if (isOpenTarget) {
+          delete draft.closedBillingAccounts[updated.billingAccountId];
+        }
         let targetEntry = draft.billingAccounts.find((ba) => ba.id === updated.billingAccountId);
         if (!targetEntry) {
           targetEntry = {
             id: updated.billingAccountId,
             resourceName: `billingAccounts/${updated.billingAccountId}`,
             displayName: resolvedDisplayName,
-            open: targetMeta?.open ?? updated.billingEnabled,
+            open: isOpenTarget,
             masterBillingAccount: targetMeta?.masterBillingAccount,
             currencyCode: targetMeta?.currencyCode,
             linkedProjectIds: [],
@@ -1596,6 +1727,156 @@ export class CompanionService {
       billingAccountName: resolvedDisplayName,
       billingEnabled: updated.billingEnabled,
       unchanged: prevId === updated.billingAccountId && prevEnabled && updated.billingEnabled,
+    };
+  }
+
+  async deleteProject(projectId: string, confirmProjectId: string): Promise<ProjectDeleteResult> {
+    const validProjectId = validateProjectId(projectId);
+    const trimmedConfirm = typeof confirmProjectId === "string" ? confirmProjectId.trim() : "";
+    if (trimmedConfirm !== validProjectId) {
+      throw new Error(
+        `Project ID confirmation mismatch. Type "${validProjectId}" exactly to confirm deletion.`
+      );
+    }
+
+    const prefs = this.store.loadPreferences();
+    const now = this.nowFn();
+    const pendingDeletionConsoleUrl =
+      "https://console.cloud.google.com/cloud-resource-manager?pendingDeletion=true";
+
+    const cleanupLocalProjectRefs = () => {
+      this.store.updatePreferences((curr) => {
+        const nextPinned = curr.pinnedProjects.filter((id) => id !== validProjectId);
+        const nextQuota =
+          curr.quotaProjectOverride === validProjectId ? null : curr.quotaProjectOverride;
+        const nextLastQuota =
+          curr.lastWorkingQuotaProject === validProjectId ? null : curr.lastWorkingQuotaProject;
+        if (
+          nextPinned.length === curr.pinnedProjects.length &&
+          nextQuota === curr.quotaProjectOverride &&
+          nextLastQuota === curr.lastWorkingQuotaProject
+        ) {
+          return curr;
+        }
+        return {
+          ...curr,
+          pinnedProjects: nextPinned,
+          quotaProjectOverride: nextQuota,
+          lastWorkingQuotaProject: nextLastQuota,
+        };
+      });
+    };
+
+    if (prefs.demoMode) {
+      const currentDemo = buildDemoOverview(
+        prefs,
+        now,
+        this.demoActiveProject,
+        this.demoProjectBillingOverrides,
+        this.demoDeletedProjects
+      );
+      const proj = currentDemo.projects.find((p) => p.projectId === validProjectId);
+      if (!proj) {
+        throw new Error(`Demo project "${validProjectId}" was not found.`);
+      }
+      this.demoDeletedProjects.add(validProjectId);
+      delete this.demoProjectBillingOverrides[validProjectId];
+      cleanupLocalProjectRefs();
+      this.invalidateOverviewOnly();
+      return {
+        projectId: validProjectId,
+        projectName: proj.name,
+        wasActiveProject: proj.isActiveProject,
+        hadBillingEnabled: proj.billingEnabled,
+        demoSimulated: true,
+        pendingDeletionConsoleUrl,
+      };
+    }
+
+    const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
+    if (!auth.authenticated || !auth.activeAccount) {
+      throw new Error("Not authenticated with gcloud. Run `gcloud auth login` first.");
+    }
+
+    const activeAccount = auth.activeAccount;
+    const prevSnapshot = this.store.loadSnapshot(activeAccount);
+    const prevProj = prevSnapshot?.projects.find((p) => p.projectId === validProjectId) ?? null;
+    const prevLinks = prevSnapshot ? this.extractBillingLinksFromSnapshot(prevSnapshot) : {};
+    const hadBillingEnabled = Boolean(
+      prevLinks[validProjectId]?.billingEnabled ?? prevProj?.billingEnabled
+    );
+    const wasActiveProject = auth.activeProject === validProjectId;
+    const projectName = prevProj?.name || validProjectId;
+
+    const token = await this.gcloud.getAccessToken(prefs.gcloudPathOverride, activeAccount);
+    const quotaProject = prefs.quotaProjectOverride || auth.activeProject || null;
+
+    try {
+      await deleteGcpProject(
+        token,
+        validProjectId,
+        quotaProject,
+        this.fetchFn,
+        prefs.lastWorkingQuotaProject
+      );
+    } catch (err) {
+      if (err instanceof GcpHttpError) {
+        if (err.status === 401) {
+          this.gcloud.invalidateTokenCache();
+          throw new Error(
+            "Your Google Cloud session has expired or been revoked. Please sign in again with `gcloud auth login`."
+          );
+        }
+        if (err.status === 403 && !isQuotaOrApiDisabledMessage(err.message)) {
+          throw new Error(
+            `Permission denied deleting project "${validProjectId}". ` +
+              `Requires the "Project Deleter" or "Owner" role (resourcemanager.projects.delete). (${err.message})`
+          );
+        }
+        if (err.status === 400 && /lien|FAILED_PRECONDITION/i.test(err.message)) {
+          throw new Error(
+            `Project "${validProjectId}" cannot be deleted because it has an active project lien (e.g. App Engine or custom protection). ` +
+              `Remove the lien in Google Cloud Console or via \`gcloud alpha resource-manager liens list --project=${validProjectId}\` first. (${err.message})`
+          );
+        }
+        if (err.status === 404) {
+          throw new Error(
+            `Project "${validProjectId}" was not found or has already been deleted. (${err.message})`
+          );
+        }
+      }
+      throw err;
+    }
+
+    cleanupLocalProjectRefs();
+
+    if (prevSnapshot) {
+      const nowIso = now.toISOString();
+      this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+        draft.projects = draft.projects.filter((p) => p.projectId !== validProjectId);
+        delete draft.projectBillingLinks[validProjectId];
+        for (const ba of draft.billingAccounts) {
+          ba.linkedProjectIds = ba.linkedProjectIds.filter((id) => id !== validProjectId);
+        }
+        if (wasActiveProject) {
+          const staleWarn = `Active gcloud project "${validProjectId}" is deleted or inaccessible. Consider switching to an active project.`;
+          const existing = draft.sectionWarnings.projects ?? [];
+          if (!existing.includes(staleWarn)) {
+            draft.sectionWarnings.projects = [...existing, staleWarn];
+          }
+        }
+      });
+    }
+
+    this.invalidateOverviewOnly();
+
+    return {
+      projectId: validProjectId,
+      projectName,
+      wasActiveProject,
+      hadBillingEnabled,
+      demoSimulated: false,
+      pendingDeletionConsoleUrl,
     };
   }
 
@@ -1670,6 +1951,9 @@ export class CompanionService {
       input.demoMode !== undefined ||
       input.gcloudPathOverride !== undefined ||
       input.quotaProjectOverride !== undefined;
+    if (input.demoMode !== undefined) {
+      this.demoDeletedProjects.clear();
+    }
     if (cloudContextChanged) {
       this.invalidateInFlightOverview();
     } else {
