@@ -11,7 +11,8 @@ import { maskEmail } from "./security.mjs";
 export function buildDemoOverview(
   prefs                      ,
   referenceDate       = new Date(),
-  activeProjectOverride                
+  activeProjectOverride                ,
+  projectBillingOverrides                         
 )                            {
   const demoAccount = "developer@example-corp.com";
   const activeProject = activeProjectOverride || "acme-ai-assistant-prod";
@@ -160,6 +161,44 @@ export function buildDemoOverview(
       isActiveProject: activeProject === "legacy-hackathon-2025",
     },
   ];
+
+  // Apply in-memory Demo Mode billing account overrides so switching billing can be previewed cleanly
+  if (projectBillingOverrides && Object.keys(projectBillingOverrides).length > 0) {
+    const baMap = new Map                        (billingAccounts.map((ba) => [ba.id, ba]));
+    for (const [projId, targetBaId] of Object.entries(projectBillingOverrides)) {
+      const proj = projects.find((p) => p.projectId === projId);
+      if (!proj) continue;
+      let targetBa = baMap.get(targetBaId);
+      if (!targetBa) {
+        targetBa = {
+          id: targetBaId,
+          resourceName: `billingAccounts/${targetBaId}`,
+          displayName: `Billing Account (${targetBaId})`,
+          open: true,
+          currencyCode: "USD",
+          linkedProjectCount: 0,
+          linkedProjectIds: [],
+          exportTableId: null,
+          budgets: [],
+        };
+        billingAccounts.push(targetBa);
+        baMap.set(targetBaId, targetBa);
+      }
+      for (const ba of billingAccounts) {
+        if (ba.id !== targetBaId) {
+          ba.linkedProjectIds = ba.linkedProjectIds.filter((id) => id !== projId);
+          ba.linkedProjectCount = ba.linkedProjectIds.length;
+        }
+      }
+      if (!targetBa.linkedProjectIds.includes(projId)) {
+        targetBa.linkedProjectIds.push(projId);
+        targetBa.linkedProjectCount = targetBa.linkedProjectIds.length;
+      }
+      proj.billingAccountId = targetBa.id;
+      proj.billingAccountName = targetBa.displayName;
+      proj.billingEnabled = targetBa.open;
+    }
+  }
 
   const windowCtx = computeBillingDateWindow(referenceDate);
   const year = referenceDate.getUTCFullYear();

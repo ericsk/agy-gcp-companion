@@ -325,6 +325,53 @@ describe("Sidecar HTTP Server Security & API Integration", () => {
     });
     assert.equal(allowedApi.status, 200);
 
+    // 4c. Project billing account switch endpoint: rejects empty/wildcard unlink, allows switching to open account
+    const unlinkAttempt = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/project-billing",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "legacy-hackathon-2025",
+        billingAccountId: "",
+      }),
+    });
+    assert.equal(unlinkAttempt.status, 400);
+
+    const switchBillingRes = await sendRawHttpRequest(server, {
+      method: "POST",
+      path: "/api/project-billing",
+      headers: {
+        Origin: "plugin://agy-gcp-companion",
+        "Content-Type": "application/json",
+        "X-AGY-Companion": "1",
+        "X-CSRF-Proxy-Token": sessionData.proxyCsrfToken,
+      },
+      body: JSON.stringify({
+        projectId: "legacy-hackathon-2025",
+        billingAccountId: "01F4D9-22B801-55CA09",
+      }),
+    });
+    assert.equal(switchBillingRes.status, 200);
+    const switchBillingJson = JSON.parse(switchBillingRes.body) as {
+      projectId: string;
+      billingAccountId: string;
+      billingEnabled: boolean;
+      overview: { projects: Array<{ projectId: string; billingAccountId: string | null }> };
+    };
+    assert.equal(switchBillingJson.projectId, "legacy-hackathon-2025");
+    assert.equal(switchBillingJson.billingAccountId, "01F4D9-22B801-55CA09");
+    assert.equal(switchBillingJson.billingEnabled, true);
+    assert.equal(
+      switchBillingJson.overview.projects.find((p) => p.projectId === "legacy-hackathon-2025")
+        ?.billingAccountId,
+      "01F4D9-22B801-55CA09"
+    );
+
     // 5. Project cost breakdown endpoint -> 200
     const breakdownRes = await sendRawHttpRequest(server, {
       path: "/api/project-breakdown?projectId=acme-ai-assistant-prod",

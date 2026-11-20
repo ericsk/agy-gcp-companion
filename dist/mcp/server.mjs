@@ -190,6 +190,38 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "gcp_set_project_billing_account",
+    description:
+      "Link a Google Cloud project to an open Cloud Billing Account or switch its billing account (`PUT /v1/projects/{projectId}/billingInfo`). Unlinking/disabling billing is intentionally blocked. Two-step safety gate: call first without `confirm: true` to preview the Before -> After change, obtain explicit user confirmation, then call again with `confirm: true` to apply.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: {
+          type: "string",
+          description: "Target Google Cloud project ID whose billing account should be linked or switched.",
+        },
+        billingAccountId: {
+          type: "string",
+          description:
+            "Target open Cloud Billing Account ID (`XXXXXX-XXXXXX-XXXXXX` or `billingAccounts/XXXXXX-XXXXXX-XXXXXX`). Empty string and `*` are rejected.",
+        },
+        confirm: {
+          type: "boolean",
+          description:
+            "Two-step safety confirmation. Omit or set false first to receive a read-only preview of the change; set true only after the user explicitly confirms.",
+        },
+      },
+      required: ["projectId", "billingAccountId"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+  {
     name: "gcp_configure_billing_export",
     description:
       "Auto-discover `gcp_billing_export_*` tables inside a BigQuery host project, or bind/remove a BigQuery Cloud Billing Export table (`project.dataset.table`) for spend tracking.",
@@ -631,6 +663,20 @@ export class GcpCompanionMcpHandler {
       case "gcp_set_active_account": {
         const account = String(args.account ?? "");
         return this.service.setActiveAccount(account);
+      }
+
+      case "gcp_set_project_billing_account": {
+        const projectId = String(args.projectId ?? "");
+        const billingAccountId = String(args.billingAccountId ?? "");
+        if (args.confirm !== true) {
+          return this.service.previewProjectBillingAccountChange(projectId, billingAccountId);
+        }
+        const res = await this.service.setProjectBillingAccount(projectId, billingAccountId);
+        return {
+          applied: true,
+          ...res,
+          consoleBillingUrl: `https://console.cloud.google.com/billing/${encodeURIComponent(res.billingAccountId)}/reports;projects=${encodeURIComponent(res.projectId)}`,
+        };
       }
 
       case "gcp_configure_billing_export": {

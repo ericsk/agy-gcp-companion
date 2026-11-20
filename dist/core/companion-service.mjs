@@ -6,12 +6,16 @@ import {
 } from "./bigquery-billing.mjs";
 import { buildDemoOverview } from "./demo-data.mjs";
 import {
+  GcpHttpError,
                          
                      
   fetchAllProjects,
+  fetchBillingAccountMetadata,
   fetchBillingAccountsAndProjectLinks,
   fetchBillingAccountsCore,
   fetchBudgetsForBillingAccounts,
+  isQuotaOrApiDisabledMessage,
+  updateProjectBillingInfo,
 } from "./gcp-api.mjs";
 import { GcloudClient,                } from "./gcloud.mjs";
 import {
@@ -19,6 +23,7 @@ import {
   sanitizeErrorMessage,
   validateAccountEmail,
   validateBigQueryTableId,
+  validateBillingAccountId,
   validateProjectId,
 } from "./security.mjs";
 import { CompanionStore, VALID_LOCALE_PREFERENCES, normalizeLocalePreference } from "./store.mjs";
@@ -39,7 +44,9 @@ import { PluginUpdater } from "./updater.mjs";
                          
              
                    
+                              
                          
+                             
                       
                     
 
@@ -107,6 +114,7 @@ export class CompanionService {
                    fetchFn           ;
                    nowFn            ;
           demoActiveProject                = null;
+          demoProjectBillingOverrides                         = {};
                    overviewSlot = createSingleFlightSlot                           ();
                    rawProjectsSlot = createSingleFlightSlot                 ();
                    projectsSlot = createSingleFlightSlot                           ();
@@ -370,7 +378,7 @@ export class CompanionService {
     this.maybeTriggerBackgroundUpdateCheck(prefs);
 
     if (prefs.demoMode) {
-      const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+      const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
       return {
         auth: demo.auth,
         preferences: demo.preferences,
@@ -418,7 +426,7 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
         return {
           authenticated: true,
           projects: demo.projects,
@@ -548,7 +556,7 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
         const demoLinks                                         = {};
         for (const p of demo.projects) {
           if (p.billingAccountId) {
@@ -729,7 +737,7 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
         const budgetsByAccount                               = {};
         for (const ba of demo.billingAccounts) {
           budgetsByAccount[ba.id] = ba.budgets;
@@ -824,7 +832,7 @@ export class CompanionService {
       const now = this.nowFn();
 
       if (prefs.demoMode) {
-        const demo = buildDemoOverview(prefs, now, this.demoActiveProject);
+        const demo = buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides);
         return {
           authenticated: true,
           spend: demo.spend,
@@ -983,7 +991,7 @@ export class CompanionService {
 
     if (prefs.demoMode) {
       return {
-        ...buildDemoOverview(prefs, now, this.demoActiveProject),
+        ...buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides),
         pluginUpdate: this.updater.getStatus(autoUpdate),
       };
     }
@@ -1030,7 +1038,7 @@ export class CompanionService {
 
     if (prefs.demoMode) {
       return {
-        ...buildDemoOverview(prefs, now, this.demoActiveProject),
+        ...buildDemoOverview(prefs, now, this.demoActiveProject, this.demoProjectBillingOverrides),
         pluginUpdate: this.updater.getStatus(autoUpdate),
       };
     }
@@ -1335,6 +1343,260 @@ export class CompanionService {
     }
     this.invalidateInFlightOverview();
     return { activeAccount: validAccount };
+  }
+
+  async previewProjectBillingAccountChange(
+    projectId        ,
+    billingAccountId        
+  )                                       {
+    const validProjectId = validateProjectId(projectId);
+    const validBillingAccountId = validateBillingAccountId(billingAccountId);
+    const overview = await this.getOverview({ forceRefresh: false });
+
+    if (!overview.auth.authenticated) {
+      throw new Error("Not authenticated with gcloud. Run `gcloud auth login` first.");
+    }
+
+    const project = overview.projects.find((p) => p.projectId === validProjectId) ?? null;
+    const targetBa =
+      overview.billingAccounts.find((ba) => ba.id === validBillingAccountId) ?? null;
+
+    if (targetBa && !targetBa.open) {
+      throw new Error(
+        `Billing account "${targetBa.displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
+      );
+    }
+
+    const currentId = project?.billingAccountId ?? null;
+    const currentName = project?.billingAccountName ?? null;
+    const currentEnabled = Boolean(project?.billingEnabled);
+    const unchanged = currentId === validBillingAccountId && currentEnabled;
+
+    const warnings           = [];
+    if (!project) {
+      warnings.push(
+        `Project "${validProjectId}" was not found in the cached project list; verify the project ID before confirming.`
+      );
+    }
+    if (!targetBa) {
+      warnings.push(
+        `Billing account ${validBillingAccountId} is not in the visible billing accounts list (possibly due to restricted billing.accounts.list IAM permissions). Verify the ID is open and accessible.`
+      );
+    }
+    if (currentId && currentId !== validBillingAccountId) {
+      warnings.push(
+        "Historical BigQuery spend already recorded under the previous billing account will remain there; new usage will be billed to the target billing account."
+      );
+    }
+    if (unchanged) {
+      warnings.push(
+        `Project "${validProjectId}" is already linked to billing account ${validBillingAccountId}.`
+      );
+    }
+
+    return {
+      status: "confirmation_required",
+      projectId: validProjectId,
+      projectName: project?.name ?? validProjectId,
+      currentBillingAccount: {
+        id: currentId,
+        displayName: currentName,
+        billingEnabled: currentEnabled,
+      },
+      targetBillingAccount: {
+        id: validBillingAccountId,
+        displayName: targetBa?.displayName ?? `Billing Account (${validBillingAccountId})`,
+        open: targetBa ? targetBa.open : null,
+        currencyCode: targetBa?.currencyCode,
+        foundInCache: Boolean(targetBa),
+      },
+      unchanged,
+      warnings,
+      nextStep:
+        "Confirm this project billing account change with the user (showing projectId, current billing account, and target billing account), then call `gcp_set_project_billing_account` again with `confirm: true`.",
+    };
+  }
+
+  async setProjectBillingAccount(
+    projectId        ,
+    billingAccountId        
+  )                                      {
+    const validProjectId = validateProjectId(projectId);
+    const validBillingAccountId = validateBillingAccountId(billingAccountId);
+    const prefs = this.store.loadPreferences();
+    const now = this.nowFn();
+
+    if (prefs.demoMode) {
+      const currentDemo = buildDemoOverview(
+        prefs,
+        now,
+        this.demoActiveProject,
+        this.demoProjectBillingOverrides
+      );
+      const proj = currentDemo.projects.find((p) => p.projectId === validProjectId);
+      if (!proj) {
+        throw new Error(`Demo project "${validProjectId}" was not found.`);
+      }
+      const existingTarget = currentDemo.billingAccounts.find(
+        (ba) => ba.id === validBillingAccountId
+      );
+      if (existingTarget && !existingTarget.open) {
+        throw new Error(
+          `Billing account "${existingTarget.displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
+        );
+      }
+      const prevId = proj.billingAccountId;
+      const prevName = proj.billingAccountName;
+      const unchanged = prevId === validBillingAccountId && proj.billingEnabled;
+      this.demoProjectBillingOverrides[validProjectId] = validBillingAccountId;
+      this.invalidateOverviewOnly();
+      return {
+        projectId: validProjectId,
+        previousBillingAccountId: prevId,
+        previousBillingAccountName: prevName,
+        billingAccountId: validBillingAccountId,
+        billingAccountName:
+          existingTarget?.displayName ?? `Billing Account (${validBillingAccountId})`,
+        billingEnabled: true,
+        unchanged,
+      };
+    }
+
+    const auth = await this.gcloud.getAuthStatus(prefs.gcloudPathOverride);
+    if (!auth.authenticated || !auth.activeAccount) {
+      throw new Error("Not authenticated with gcloud. Run `gcloud auth login` first.");
+    }
+
+    const activeAccount = auth.activeAccount;
+    const prevSnapshot = this.store.loadSnapshot(activeAccount);
+    const prevLinks = prevSnapshot ? this.extractBillingLinksFromSnapshot(prevSnapshot) : {};
+    const prevProj = prevSnapshot?.projects.find((p) => p.projectId === validProjectId);
+    const prevId = prevLinks[validProjectId]?.billingAccountId ?? prevProj?.billingAccountId ?? null;
+    const prevEnabled =
+      prevLinks[validProjectId]?.billingEnabled ?? prevProj?.billingEnabled ?? false;
+    const prevBa = prevId
+      ? prevSnapshot?.billingAccounts.find((ba) => ba.id === prevId) ?? null
+      : null;
+    const prevName = prevBa?.displayName ?? prevId;
+
+    const existingTargetBa =
+      prevSnapshot?.billingAccounts.find((ba) => ba.id === validBillingAccountId) ?? null;
+    if (existingTargetBa && !existingTargetBa.open) {
+      throw new Error(
+        `Billing account "${existingTargetBa.displayName}" (${validBillingAccountId}) is closed and cannot be linked to a project.`
+      );
+    }
+
+    const token = await this.gcloud.getAccessToken(prefs.gcloudPathOverride, activeAccount);
+    const quotaProject = prefs.quotaProjectOverride || auth.activeProject || null;
+
+    let updated   
+                        
+                               
+                              
+                                      
+     ;
+    try {
+      updated = await updateProjectBillingInfo(
+        token,
+        validProjectId,
+        validBillingAccountId,
+        quotaProject,
+        this.fetchFn,
+        prefs.lastWorkingQuotaProject
+      );
+    } catch (err) {
+      if (err instanceof GcpHttpError && err.status === 403 && !isQuotaOrApiDisabledMessage(err.message)) {
+        throw new Error(
+          `Permission denied linking project "${validProjectId}" to billing account ${validBillingAccountId}. ` +
+            `Requires "Billing Account User" (billing.resourceAssociations.create) on the target billing account ` +
+            `and "Project Billing Manager" or "Owner" (resourcemanager.projects.createBillingAssignment) on the project. (${err.message})`
+        );
+      }
+      throw err;
+    }
+
+    if (updated.usedQuotaProject && updated.usedQuotaProject !== prefs.lastWorkingQuotaProject) {
+      this.store.updatePreferences((curr) => ({
+        ...curr,
+        lastWorkingQuotaProject: updated.usedQuotaProject,
+      }));
+    }
+
+    // Best-effort metadata lookup when linking to a manual Billing Account ID not yet in local cache
+    let targetMeta   
+                 
+                           
+                          
+                    
+                                    
+                            
+             = existingTargetBa
+      ? {
+          id: existingTargetBa.id,
+          resourceName: existingTargetBa.resourceName,
+          displayName: existingTargetBa.displayName,
+          open: existingTargetBa.open,
+          masterBillingAccount: existingTargetBa.masterBillingAccount,
+          currencyCode: existingTargetBa.currencyCode,
+        }
+      : null;
+
+    if (!targetMeta) {
+      targetMeta = await fetchBillingAccountMetadata(
+        token,
+        updated.billingAccountId,
+        updated.usedQuotaProject ?? quotaProject,
+        this.fetchFn
+      );
+    }
+
+    const resolvedDisplayName =
+      targetMeta?.displayName ?? `Billing Account (${updated.billingAccountId})`;
+
+    if (prevSnapshot) {
+      const nowIso = now.toISOString();
+      this.updateSnapshotSection(activeAccount, nowIso, (draft) => {
+        draft.projectBillingLinks[validProjectId] = {
+          billingAccountId: updated.billingAccountId,
+          billingEnabled: updated.billingEnabled,
+        };
+        for (const ba of draft.billingAccounts) {
+          if (ba.id !== updated.billingAccountId) {
+            ba.linkedProjectIds = ba.linkedProjectIds.filter((id) => id !== validProjectId);
+          }
+        }
+        let targetEntry = draft.billingAccounts.find((ba) => ba.id === updated.billingAccountId);
+        if (!targetEntry) {
+          targetEntry = {
+            id: updated.billingAccountId,
+            resourceName: `billingAccounts/${updated.billingAccountId}`,
+            displayName: resolvedDisplayName,
+            open: targetMeta?.open ?? updated.billingEnabled,
+            masterBillingAccount: targetMeta?.masterBillingAccount,
+            currencyCode: targetMeta?.currencyCode,
+            linkedProjectIds: [],
+            budgets: [],
+          };
+          draft.billingAccounts.push(targetEntry);
+        }
+        if (updated.billingEnabled && !targetEntry.linkedProjectIds.includes(validProjectId)) {
+          targetEntry.linkedProjectIds.push(validProjectId);
+        }
+      });
+    }
+
+    this.invalidateOverviewOnly();
+
+    return {
+      projectId: validProjectId,
+      previousBillingAccountId: prevId,
+      previousBillingAccountName: prevName,
+      billingAccountId: updated.billingAccountId,
+      billingAccountName: resolvedDisplayName,
+      billingEnabled: updated.billingEnabled,
+      unchanged: prevId === updated.billingAccountId && prevEnabled && updated.billingEnabled,
+    };
   }
 
   setPinnedProject(projectId        , pinned         )                       {

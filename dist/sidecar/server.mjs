@@ -424,6 +424,17 @@ export function createSidecarHttpServer(options                       = {})     
         return;
       }
 
+      if (method === "POST" && pathname.endsWith("/api/project-billing")) {
+        const body = await readJsonBody(req);
+        const result = await service.setProjectBillingAccount(
+          String(body.projectId ?? ""),
+          String(body.billingAccountId ?? "")
+        );
+        const overview = await service.getFastOverviewAfterLocalMutation();
+        sendJson(res, 200, { ...result, overview });
+        return;
+      }
+
       if (method === "POST" && pathname.endsWith("/api/preferences")) {
         const body = await readJsonBody(req);
         const cloudContextChanged =

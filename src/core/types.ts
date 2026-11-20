@@ -235,6 +235,37 @@ export interface ProjectBillingLinkInfo {
   billingEnabled: boolean;
 }
 
+export interface ProjectBillingUpdateResult {
+  projectId: string;
+  previousBillingAccountId: string | null;
+  previousBillingAccountName: string | null;
+  billingAccountId: string;
+  billingAccountName: string;
+  billingEnabled: boolean;
+  unchanged: boolean;
+}
+
+export interface ProjectBillingChangePreview {
+  status: "confirmation_required";
+  projectId: string;
+  projectName: string;
+  currentBillingAccount: {
+    id: string | null;
+    displayName: string | null;
+    billingEnabled: boolean;
+  };
+  targetBillingAccount: {
+    id: string;
+    displayName: string;
+    open: boolean | null;
+    currencyCode?: string;
+    foundInCache: boolean;
+  };
+  unchanged: boolean;
+  warnings: string[];
+  nextStep: string;
+}
+
 export interface CachedCloudSnapshot {
   version: number;
   accountKey: string;

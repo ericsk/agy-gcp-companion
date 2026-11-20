@@ -8,6 +8,7 @@
                          
              
                    
+                             
                       
                           
 
@@ -336,6 +337,19 @@ export async function togglePinProject(
     pinned,
   });
   return data.overview;
+}
+
+export async function setProjectBillingAccountApi(
+  projectId        ,
+  billingAccountId        
+)                                                                                {
+  return apiPost                                                                      (
+    "./api/project-billing",
+    {
+      projectId,
+      billingAccountId,
+    }
+  );
 }
 
 export async function updateCompanionPreferences(prefs   

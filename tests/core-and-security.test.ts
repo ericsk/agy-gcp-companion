@@ -23,6 +23,7 @@ import {
   sanitizeErrorMessage,
   validateAccountEmail,
   validateBigQueryTableId,
+  validateBillingAccountId,
   validateProjectId,
 } from "../src/core/security.ts";
 import { CompanionStore } from "../src/core/store.ts";
@@ -54,6 +55,19 @@ describe("Security Validators & Sanitization", () => {
     );
     assert.equal(normalizeBillingAccountId("*"), "*");
     assert.throws(() => normalizeBillingAccountId("invalid-id"));
+  });
+
+  it("strictly validates concrete Billing Account IDs and blocks unlinking or wildcards", () => {
+    assert.equal(
+      validateBillingAccountId("billingAccounts/01abcd-234567-89efgh"),
+      "01ABCD-234567-89EFGH"
+    );
+    assert.equal(validateBillingAccountId("01ABCD-234567-89EFGH"), "01ABCD-234567-89EFGH");
+    assert.throws(() => validateBillingAccountId(""), /Unlinking or disabling billing is not supported/);
+    assert.throws(() => validateBillingAccountId("   "), /Unlinking or disabling billing is not supported/);
+    assert.throws(() => validateBillingAccountId("*"), /Wildcard/);
+    assert.throws(() => validateBillingAccountId("--billing-account=evil"));
+    assert.throws(() => validateBillingAccountId("invalid-id"));
   });
 
   it("validates BigQuery table references and prevents SQL injection", () => {
@@ -1611,6 +1625,265 @@ describe("CompanionService End-to-End Mocked Cloud & Cache Flow", () => {
       assert.equal(fullOverview.projects[0].billingAccountName, "Fast Billing");
       assert.equal(fullOverview.billingAccounts[0].budgets.length, 1);
       assert.equal(fullOverview.spend.totalsByCurrency[0].currentMonthNetCost, 30);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("switches project billing account via Cloud Billing REST PUT, updates cache without BQ rescan, and enforces safety checks", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "agy-gcp-switch-ba-"));
+    try {
+      const fakeGcloudDir = join(tmpDir, "gcloud");
+      mkdirSync(join(fakeGcloudDir, "configurations"), { recursive: true });
+      mkdirSync(join(fakeGcloudDir, "legacy_credentials", "dev@example.com"), {
+        recursive: true,
+      });
+      writeFileSync(join(fakeGcloudDir, "active_config"), "default", "utf-8");
+      writeFileSync(
+        join(fakeGcloudDir, "configurations", "config_default"),
+        "[core]\naccount = dev@example.com\nproject = proj-alpha\n",
+        "utf-8"
+      );
+      writeFileSync(
+        join(fakeGcloudDir, "legacy_credentials", "dev@example.com", "adc.json"),
+        JSON.stringify({
+          type: "authorized_user",
+          client_id: "cid",
+          client_secret: "csec",
+          refresh_token: "1//fake-refresh",
+        }),
+        "utf-8"
+      );
+
+      const baOpenA = "01AAAA-111111-AAAAAA";
+      const baOpenB = "01BBBB-222222-BBBBBB";
+      const baClosed = "01CCCC-333333-CCCCCC";
+      const baManual = "01DDDD-444444-DDDDDD";
+
+      let bqQueries = 0;
+      let iamDenyMode = false;
+      let putAttempts = 0;
+      const putCalls: Array<{ url: string; body: string; quotaProject: string | null }> = [];
+
+      const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || "GET";
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        const qp = headers["x-goog-user-project"] ?? null;
+
+        if (url.includes("oauth2.googleapis.com/token")) {
+          return new Response(JSON.stringify({ access_token: "ya29.mock-token" }), { status: 200 });
+        }
+        if (url.includes("cloudresourcemanager.googleapis.com/v1/projects")) {
+          return new Response(
+            JSON.stringify({
+              projects: [
+                { projectId: "proj-alpha", projectNumber: "1001", name: "Alpha", lifecycleState: "ACTIVE" },
+                { projectId: "proj-unbilled", projectNumber: "1002", name: "Unbilled", lifecycleState: "ACTIVE" },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes("cloudbilling.googleapis.com/v1/billingAccounts?")) {
+          return new Response(
+            JSON.stringify({
+              billingAccounts: [
+                { name: `billingAccounts/${baOpenA}`, displayName: "Prod Billing", open: true, currencyCode: "USD" },
+                { name: `billingAccounts/${baOpenB}`, displayName: "Sandbox Billing", open: true, currencyCode: "USD" },
+                { name: `billingAccounts/${baClosed}`, displayName: "Closed Billing", open: false, currencyCode: "USD" },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes(`/v1/billingAccounts/${baOpenA}/projects`)) {
+          return new Response(
+            JSON.stringify({
+              projectBillingInfo: [
+                { projectId: "proj-alpha", billingAccountName: `billingAccounts/${baOpenA}`, billingEnabled: true },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes("/projects?pageSize=")) {
+          return new Response(JSON.stringify({ projectBillingInfo: [] }), { status: 200 });
+        }
+        if (url.includes("billingbudgets.googleapis.com")) {
+          return new Response(JSON.stringify({ budgets: [] }), { status: 200 });
+        }
+        if (url.includes("bigquery.googleapis.com")) {
+          bqQueries++;
+          return new Response(
+            JSON.stringify({
+              jobComplete: true,
+              rows: [
+                {
+                  f: [
+                    { v: "202611" },
+                    { v: baOpenA },
+                    { v: "proj-alpha" },
+                    { v: "Cloud Run" },
+                    { v: "2026-11-10" },
+                    { v: "USD" },
+                    { v: "42.0" },
+                    { v: "0" },
+                    { v: "42.0" },
+                  ],
+                },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (method === "PUT" && url.includes("cloudbilling.googleapis.com/v1/projects/") && url.endsWith("/billingInfo")) {
+          putAttempts++;
+          const bodyStr = String(init?.body ?? "");
+          putCalls.push({ url, body: bodyStr, quotaProject: qp });
+          if (iamDenyMode) {
+            return new Response(
+              JSON.stringify({
+                error: { message: "The caller does not have permission (billing.resourceAssociations.create)" },
+              }),
+              { status: 403 }
+            );
+          }
+          // Simulate SERVICE_DISABLED on first attempt for proj-alpha to test quota project fallback
+          if (putAttempts === 1 && qp === "proj-alpha") {
+            return new Response(
+              JSON.stringify({
+                error: { message: "Cloud Billing API has not been used in project proj-alpha before or it is disabled. SERVICE_DISABLED" },
+              }),
+              { status: 403 }
+            );
+          }
+          const parsed = JSON.parse(bodyStr) as { billingAccountName: string };
+          const projectIdMatch = /\/projects\/([^/]+)\/billingInfo$/.exec(url);
+          return new Response(
+            JSON.stringify({
+              projectId: projectIdMatch?.[1] || "proj-alpha",
+              billingAccountName: parsed.billingAccountName,
+              billingEnabled: true,
+            }),
+            { status: 200 }
+          );
+        }
+        if (method === "GET" && url.endsWith(`/v1/billingAccounts/${baManual}`)) {
+          return new Response(
+            JSON.stringify({
+              name: `billingAccounts/${baManual}`,
+              displayName: "Hidden Org Billing",
+              open: true,
+              currencyCode: "TWD",
+            }),
+            { status: 200 }
+          );
+        }
+        return new Response(JSON.stringify({ error: { message: `Unexpected ${method} ${url}` } }), { status: 404 });
+      };
+
+      const store = new CompanionStore(tmpDir);
+      store.savePreferences({
+        pinnedProjects: [],
+        billingExportTables: {
+          "*": {
+            billingAccountId: "*",
+            tableId: "proj-alpha.billing.gcp_billing_export_v1_01AAAA_111111_AAAAAA",
+            hostProjectId: "proj-alpha",
+            exportType: "standard",
+            addedAt: "2026-11-01T00:00:00Z",
+          },
+        },
+        cacheTtlMs: 6 * 3_600_000,
+        maskEmails: false,
+        gcloudPathOverride: null,
+        quotaProjectOverride: null,
+        demoMode: false,
+      });
+
+      const gcloud = new GcloudClient({
+        execFn: async () => {
+          throw new Error("no cli");
+        },
+        fetchFn: mockFetch,
+        gcloudConfigDir: fakeGcloudDir,
+      });
+      const service = new CompanionService({
+        store,
+        gcloud,
+        fetchFn: mockFetch,
+        nowFn: () => new Date("2026-11-14T10:00:00Z"),
+      });
+
+      // Populate initial snapshot (1 BigQuery query)
+      const initial = await service.getOverview({ forceRefresh: true });
+      assert.equal(bqQueries, 1);
+      assert.equal(initial.projects.find((p) => p.projectId === "proj-alpha")?.billingAccountId, baOpenA);
+
+      // 1. Preview before switching
+      const preview = await service.previewProjectBillingAccountChange("proj-alpha", baOpenB);
+      assert.equal(preview.status, "confirmation_required");
+      assert.equal(preview.currentBillingAccount.id, baOpenA);
+      assert.equal(preview.targetBillingAccount.id, baOpenB);
+      assert.equal(preview.unchanged, false);
+
+      // 2. Closed billing account is rejected BEFORE any PUT request
+      await assert.rejects(
+        () => service.setProjectBillingAccount("proj-alpha", baClosed),
+        /closed and cannot be linked/i
+      );
+      assert.equal(putCalls.length, 0);
+
+      // 3. Empty string & wildcard rejected BEFORE any PUT request
+      await assert.rejects(() => service.setProjectBillingAccount("proj-alpha", ""), /Unlinking/);
+      await assert.rejects(() => service.setProjectBillingAccount("proj-alpha", "*"), /Wildcard/);
+      assert.equal(putCalls.length, 0);
+
+      // 4. Switch proj-alpha from baOpenA -> baOpenB (falls back on SERVICE_DISABLED, succeeds on retry)
+      const switched = await service.setProjectBillingAccount("proj-alpha", baOpenB);
+      assert.equal(switched.previousBillingAccountId, baOpenA);
+      assert.equal(switched.billingAccountId, baOpenB);
+      assert.equal(switched.billingAccountName, "Sandbox Billing");
+      assert.equal(switched.billingEnabled, true);
+      assert.equal(switched.unchanged, false);
+      assert.equal(putCalls.length, 2); // 1st failed SERVICE_DISABLED, 2nd succeeded with fallback null
+      assert.equal(putCalls[1].body, JSON.stringify({ billingAccountName: `billingAccounts/${baOpenB}` }));
+
+      // Verify local snapshot updated immediately with ZERO BigQuery re-queries!
+      const afterSwitch = await service.getOverview({ forceRefresh: false });
+      assert.equal(bqQueries, 1, "Expected BigQuery spend cache to remain intact without rescanning");
+      assert.equal(afterSwitch.projects.find((p) => p.projectId === "proj-alpha")?.billingAccountId, baOpenB);
+      assert.equal(afterSwitch.projects.find((p) => p.projectId === "proj-alpha")?.billingAccountName, "Sandbox Billing");
+      assert.deepEqual(
+        afterSwitch.billingAccounts.find((b) => b.id === baOpenA)?.linkedProjectIds,
+        []
+      );
+      assert.deepEqual(
+        afterSwitch.billingAccounts.find((b) => b.id === baOpenB)?.linkedProjectIds,
+        ["proj-alpha"]
+      );
+
+      // 5. Link unbilled project to a manual Billing Account ID not yet in snapshot -> fetches metadata best-effort
+      const manualLinked = await service.setProjectBillingAccount("proj-unbilled", `billingAccounts/${baManual}`);
+      assert.equal(manualLinked.previousBillingAccountId, null);
+      assert.equal(manualLinked.billingAccountId, baManual);
+      assert.equal(manualLinked.billingAccountName, "Hidden Org Billing");
+      const afterManual = await service.getOverview({ forceRefresh: false });
+      assert.equal(
+        afterManual.projects.find((p) => p.projectId === "proj-unbilled")?.billingAccountName,
+        "Hidden Org Billing"
+      );
+      assert.ok(afterManual.billingAccounts.some((b) => b.id === baManual && b.currencyCode === "TWD"));
+
+      // 6. Genuine IAM 403 fails fast (no retry storm) and surfaces actionable IAM role guidance
+      iamDenyMode = true;
+      const callsBeforeDeny = putCalls.length;
+      await assert.rejects(
+        () => service.setProjectBillingAccount("proj-alpha", baOpenA),
+        /Billing Account User.*Project Billing Manager/i
+      );
+      assert.equal(putCalls.length, callsBeforeDeny + 1, "Expected fail-fast on real IAM 403 without quota retry storm");
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

@@ -2,10 +2,11 @@
 name: gcp-companion
 description: >-
   Inspects Google Cloud (GCP) projects, Cloud Billing accounts, budget thresholds,
-  and BigQuery month-to-date spend, and synchronizes with the GCP Companion side
-  panel in Antigravity. Activate when the user asks about their GCP projects,
-  billing accounts, current cloud spend/costs, service cost breakdown, or switching
-  their active gcloud project/account.
+  and BigQuery month-to-date spend, switches project billing account bindings, and
+  synchronizes with the GCP Companion side panel in Antigravity. Activate when the
+  user asks about their GCP projects, billing accounts, current cloud spend/costs,
+  service cost breakdown, linking or switching a project's billing account, or
+  switching their active gcloud project/account.
 ---
 
 # GCP Companion Skill
@@ -38,9 +39,13 @@ Actual dollar spend (`gross_cost`, `credits`, `net_cost`, daily trend, and per-s
 2. **Helping the User Connect BigQuery Spend**:
    - If `gcp_get_billing_summary` reports `configured: false`, ask the user which GCP project hosts their BigQuery Billing Export dataset (or offer to check candidate billing/admin projects using `gcp_configure_billing_export` with `discoverOnly: true` and `hostProjectId`).
    - Once a `gcp_billing_export_v1_*` table is found, bind it via `gcp_configure_billing_export` (`billingAccountId`, `tableId`) — this immediately updates the **GCP Companion** side panel as well!
-3. **Switching Local Context Safely**:
+3. **Switching Local Context & Project Billing Safely**:
    - Use `gcp_set_active_project` or `gcp_set_active_account` to switch the local `gcloud` default project or account.
-   - Cloud billing bindings are intentionally read-only to prevent accidental service outages. Direct the user to the Console links returned by the tools if they want to modify billing account attachments or budget rules.
+   - Use `gcp_set_project_billing_account` to link a project to an open Cloud Billing Account or switch it to another open Cloud Billing Account. **You MUST follow the mandatory two-step safety flow**:
+     1. First call `gcp_set_project_billing_account` **without** `confirm: true` to get the exact Before → After preview and warnings.
+     2. Present the project ID, current billing account, and target billing account to the user via `ask_question` to obtain explicit approval.
+     3. Only after the user approves, call `gcp_set_project_billing_account` again with `confirm: true`.
+   - Unlinking / disabling billing on a project and modifying budget rules are intentionally blocked to prevent accidental service outages. Direct the user to the Console links returned by the tools if they want to disable billing or edit budgets.
 4. **Interactive Selection (`ask_question`)**:
    - Whenever presenting options or next-step choices to the user, **use `ask_question` instead of listing numbered options (`1.`, `2.`, `3.`, ...) in plain text** and waiting for the user to type a number.
    - When `/gcp-companion` is invoked without a specific task (or after reporting `gcp_companion_status`), call `ask_question` with state-appropriate actions (e.g., list projects and billing bindings, inspect billing accounts and budgets, connect BigQuery Billing Export when `spendConfigured: false` or view month-to-date spend when `spendConfigured: true`, switch active `gcloud` project or account).

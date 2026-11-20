@@ -214,6 +214,28 @@ const EN_MESSAGES = {
   "project.detailsBtn": "Details ▾",
   "project.projectNumber": "Project # {number}",
   "project.billingId": "Billing ID: {id}",
+  "project.billingAccountLabel": "Billing Account",
+  "project.changeBillingBtn": "Change",
+  "project.linkBillingBtn": "Link Billing",
+  "project.cancelBtn": "Cancel",
+  "project.billingSelectAria": "Select target billing account",
+  "project.billingSelectPlaceholder": "Select an open billing account…",
+  "project.billingCurrentSuffix": "(Current)",
+  "project.billingManualOption": "Enter Billing Account ID manually…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "Manual Billing Account ID",
+  "project.billingManualFormatHint": "Format: XXXXXX-XXXXXX-XXXXXX (unlinking is not supported)",
+  "project.billingAlreadyLinked": "This project is already linked to that billing account.",
+  "project.billingClosedNotAllowed": "Closed billing accounts cannot be linked to a project.",
+  "project.billingConfirmTitle": "Confirm Billing Account Change",
+  "project.billingConfirmFrom": "From",
+  "project.billingConfirmTo": "To",
+  "project.billingConfirmNote":
+    "New usage will be billed to the target account. Existing BigQuery historical spend stays on the previous account.",
+  "project.billingConfirmSwitchBtn": "Confirm Switch",
+  "project.billingConfirmLinkBtn": "Confirm Link",
+  "project.billingSwitchingBtn": "Switching…",
+  "project.billingOpenConsoleLink": "Open Billing in GCP Console ↗",
   "project.noBqCostThisMonth": "No BigQuery cost entries recorded for this project in the current month.",
   "project.connectBqForCosts":
     "Connect BigQuery Billing Export in the Billing tab to view per-service costs here.",
@@ -314,6 +336,8 @@ const EN_MESSAGES = {
   "toast.activeProjectSet": "Active project set to {project}",
   "toast.switchedProject": "Switched active project to {project}",
   "toast.switchProjectFailed": "Failed to switch project",
+  "toast.switchedBillingAccount": "Linked {project} to {account}",
+  "toast.switchBillingFailed": "Failed to switch billing account",
   "toast.pinUpdateFailed": "Failed to update pin",
   "toast.removedExportMapping": "Removed export table mapping",
   "toast.removeExportFailed": "Failed to remove mapping",
@@ -569,6 +593,28 @@ const ES_MESSAGES                     = {
   "project.detailsBtn": "Detalles ▾",
   "project.projectNumber": "Proyecto n.º {number}",
   "project.billingId": "ID de facturación: {id}",
+  "project.billingAccountLabel": "Cuenta de facturación",
+  "project.changeBillingBtn": "Cambiar",
+  "project.linkBillingBtn": "Vincular facturación",
+  "project.cancelBtn": "Cancelar",
+  "project.billingSelectAria": "Seleccionar cuenta de facturación de destino",
+  "project.billingSelectPlaceholder": "Selecciona una cuenta de facturación abierta…",
+  "project.billingCurrentSuffix": "(Actual)",
+  "project.billingManualOption": "Escribir ID de cuenta de facturación manualmente…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "ID de cuenta de facturación manual",
+  "project.billingManualFormatHint": "Formato: XXXXXX-XXXXXX-XXXXXX (no se admite desvincular)",
+  "project.billingAlreadyLinked": "Este proyecto ya está vinculado a esa cuenta de facturación.",
+  "project.billingClosedNotAllowed": "No se pueden vincular cuentas de facturación cerradas a un proyecto.",
+  "project.billingConfirmTitle": "Confirmar cambio de cuenta de facturación",
+  "project.billingConfirmFrom": "Desde",
+  "project.billingConfirmTo": "Hacia",
+  "project.billingConfirmNote":
+    "El nuevo uso se facturará a la cuenta de destino. El gasto histórico de BigQuery permanece en la cuenta anterior.",
+  "project.billingConfirmSwitchBtn": "Confirmar cambio",
+  "project.billingConfirmLinkBtn": "Confirmar vinculación",
+  "project.billingSwitchingBtn": "Cambiando…",
+  "project.billingOpenConsoleLink": "Abrir facturación en GCP Console ↗",
   "project.noBqCostThisMonth":
     "No hay costos registrados en BigQuery para este proyecto en el mes actual.",
   "project.connectBqForCosts":
@@ -670,6 +716,8 @@ const ES_MESSAGES                     = {
   "toast.activeProjectSet": "Proyecto activo definido en {project}",
   "toast.switchedProject": "Proyecto activo cambiado a {project}",
   "toast.switchProjectFailed": "Error al cambiar de proyecto",
+  "toast.switchedBillingAccount": "{project} vinculado a {account}",
+  "toast.switchBillingFailed": "Error al cambiar la cuenta de facturación",
   "toast.pinUpdateFailed": "Error al actualizar fijación",
   "toast.removedExportMapping": "Vinculación de tabla de exportación eliminada",
   "toast.removeExportFailed": "Error al eliminar la vinculación",
@@ -923,6 +971,28 @@ const FR_MESSAGES                     = {
   "project.detailsBtn": "Détails ▾",
   "project.projectNumber": "Projet n° {number}",
   "project.billingId": "ID de facturation : {id}",
+  "project.billingAccountLabel": "Compte de facturation",
+  "project.changeBillingBtn": "Modifier",
+  "project.linkBillingBtn": "Associer un compte",
+  "project.cancelBtn": "Annuler",
+  "project.billingSelectAria": "Sélectionner le compte de facturation cible",
+  "project.billingSelectPlaceholder": "Sélectionner un compte de facturation ouvert…",
+  "project.billingCurrentSuffix": "(Actuel)",
+  "project.billingManualOption": "Saisir l'ID du compte de facturation manuellement…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "ID du compte de facturation manuel",
+  "project.billingManualFormatHint": "Format : XXXXXX-XXXXXX-XXXXXX (la dissociation n'est pas prise en charge)",
+  "project.billingAlreadyLinked": "Ce projet est déjà associé à ce compte de facturation.",
+  "project.billingClosedNotAllowed": "Impossible d'associer un compte de facturation fermé à un projet.",
+  "project.billingConfirmTitle": "Confirmer le changement de compte de facturation",
+  "project.billingConfirmFrom": "De",
+  "project.billingConfirmTo": "Vers",
+  "project.billingConfirmNote":
+    "La nouvelle consommation sera facturée sur le compte cible. L'historique BigQuery reste sur l'ancien compte.",
+  "project.billingConfirmSwitchBtn": "Confirmer le changement",
+  "project.billingConfirmLinkBtn": "Confirmer l'association",
+  "project.billingSwitchingBtn": "Changement en cours…",
+  "project.billingOpenConsoleLink": "Ouvrir la facturation dans GCP Console ↗",
   "project.noBqCostThisMonth":
     "Aucune entrée de coût BigQuery enregistrée pour ce projet ce mois-ci.",
   "project.connectBqForCosts":
@@ -1024,6 +1094,8 @@ const FR_MESSAGES                     = {
   "toast.activeProjectSet": "Projet actif défini sur {project}",
   "toast.switchedProject": "Projet actif basculé vers {project}",
   "toast.switchProjectFailed": "Échec du changement de projet",
+  "toast.switchedBillingAccount": "{project} associé à {account}",
+  "toast.switchBillingFailed": "Échec du changement de compte de facturation",
   "toast.pinUpdateFailed": "Échec de la mise à jour de l'épingle",
   "toast.removedExportMapping": "Association de table d'exportation supprimée",
   "toast.removeExportFailed": "Échec de la suppression de l'association",
@@ -1277,6 +1349,28 @@ const JA_MESSAGES                     = {
   "project.detailsBtn": "詳細 ▾",
   "project.projectNumber": "プロジェクト番号 # {number}",
   "project.billingId": "請求先 ID: {id}",
+  "project.billingAccountLabel": "請求先アカウント",
+  "project.changeBillingBtn": "変更",
+  "project.linkBillingBtn": "請求先をリンク",
+  "project.cancelBtn": "キャンセル",
+  "project.billingSelectAria": "変更先の請求先アカウントを選択",
+  "project.billingSelectPlaceholder": "有効な請求先アカウントを選択…",
+  "project.billingCurrentSuffix": "（現在）",
+  "project.billingManualOption": "請求先アカウント ID を手動入力…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "請求先アカウント ID（手動入力）",
+  "project.billingManualFormatHint": "形式: XXXXXX-XXXXXX-XXXXXX（リンク解除は非対応）",
+  "project.billingAlreadyLinked": "このプロジェクトは既にその請求先アカウントにリンクされています。",
+  "project.billingClosedNotAllowed": "閉鎖された請求先アカウントはプロジェクトにリンクできません。",
+  "project.billingConfirmTitle": "請求先アカウントの変更を確認",
+  "project.billingConfirmFrom": "変更前",
+  "project.billingConfirmTo": "変更後",
+  "project.billingConfirmNote":
+    "新しい使用量は変更先のアカウントに請求されます。BigQuery の過去データは変更前のアカウントに残ります。",
+  "project.billingConfirmSwitchBtn": "変更を確定",
+  "project.billingConfirmLinkBtn": "リンクを確定",
+  "project.billingSwitchingBtn": "変更中…",
+  "project.billingOpenConsoleLink": "GCP コンソールで請求設定を開く ↗",
   "project.noBqCostThisMonth": "今月このプロジェクトの BigQuery コスト明細は記録されていません。",
   "project.connectBqForCosts":
     "サービス別のコストを表示するには、「請求」タブで BigQuery 課金データエクスポートを連携してください。",
@@ -1377,6 +1471,8 @@ const JA_MESSAGES                     = {
   "toast.activeProjectSet": "現在のプロジェクトを {project} に設定しました",
   "toast.switchedProject": "現在のプロジェクトを {project} に切り替えました",
   "toast.switchProjectFailed": "プロジェクトの切り替えに失敗しました",
+  "toast.switchedBillingAccount": "{project} を {account} にリンクしました",
+  "toast.switchBillingFailed": "請求先アカウントの変更に失敗しました",
   "toast.pinUpdateFailed": "ピン留めの更新に失敗しました",
   "toast.removedExportMapping": "エクスポートテーブル連携を解除しました",
   "toast.removeExportFailed": "連携の解除に失敗しました",
@@ -1630,6 +1726,28 @@ const KO_MESSAGES                     = {
   "project.detailsBtn": "상세 ▾",
   "project.projectNumber": "프로젝트 번호 # {number}",
   "project.billingId": "결제 ID: {id}",
+  "project.billingAccountLabel": "결제 계정",
+  "project.changeBillingBtn": "변경",
+  "project.linkBillingBtn": "결제 연결",
+  "project.cancelBtn": "취소",
+  "project.billingSelectAria": "대상 결제 계정 선택",
+  "project.billingSelectPlaceholder": "사용 가능한 결제 계정 선택…",
+  "project.billingCurrentSuffix": "(현재)",
+  "project.billingManualOption": "결제 계정 ID 직접 입력…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "결제 계정 ID 직접 입력",
+  "project.billingManualFormatHint": "형식: XXXXXX-XXXXXX-XXXXXX (연결 해제는 지원되지 않음)",
+  "project.billingAlreadyLinked": "이 프로젝트는 이미 해당 결제 계정에 연결되어 있습니다.",
+  "project.billingClosedNotAllowed": "종료된 결제 계정은 프로젝트에 연결할 수 없습니다.",
+  "project.billingConfirmTitle": "결제 계정 변경 확인",
+  "project.billingConfirmFrom": "이전",
+  "project.billingConfirmTo": "변경 후",
+  "project.billingConfirmNote":
+    "새 사용량은 대상 계정에 청구됩니다. 기존 BigQuery 과거 지출 기록은 이전 계정에 유지됩니다.",
+  "project.billingConfirmSwitchBtn": "변경 확인",
+  "project.billingConfirmLinkBtn": "연결 확인",
+  "project.billingSwitchingBtn": "변경 중…",
+  "project.billingOpenConsoleLink": "GCP 콘솔에서 결제 설정 열기 ↗",
   "project.noBqCostThisMonth": "이번 달 이 프로젝트에 기록된 BigQuery 비용 내역이 없습니다.",
   "project.connectBqForCosts":
     "서비스별 비용을 확인하려면 결제 탭에서 BigQuery 결제 데이터 내보내기를 연결하세요.",
@@ -1730,6 +1848,8 @@ const KO_MESSAGES                     = {
   "toast.activeProjectSet": "활성 프로젝트가 {project}(으)로 설정되었습니다",
   "toast.switchedProject": "활성 프로젝트를 {project}(으)로 전환했습니다",
   "toast.switchProjectFailed": "프로젝트 전환 실패",
+  "toast.switchedBillingAccount": "{project} 프로젝트를 {account} 계정에 연결했습니다",
+  "toast.switchBillingFailed": "결제 계정 변경 실패",
   "toast.pinUpdateFailed": "고정 상태 업데이트 실패",
   "toast.removedExportMapping": "내보내기 테이블 연결을 해제했습니다",
   "toast.removeExportFailed": "연결 해제 실패",
@@ -1980,6 +2100,28 @@ const ZH_CN_MESSAGES                     = {
   "project.detailsBtn": "详情 ▾",
   "project.projectNumber": "项目编号 # {number}",
   "project.billingId": "结算 ID: {id}",
+  "project.billingAccountLabel": "结算账号",
+  "project.changeBillingBtn": "变更",
+  "project.linkBillingBtn": "关联结算",
+  "project.cancelBtn": "取消",
+  "project.billingSelectAria": "选择目标结算账号",
+  "project.billingSelectPlaceholder": "选择有效的结算账号…",
+  "project.billingCurrentSuffix": "（当前）",
+  "project.billingManualOption": "手动输入结算账号 ID…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "手动输入结算账号 ID",
+  "project.billingManualFormatHint": "格式：XXXXXX-XXXXXX-XXXXXX（不支持取消结算关联）",
+  "project.billingAlreadyLinked": "此项目当前已关联到该结算账号。",
+  "project.billingClosedNotAllowed": "已关闭的结算账号无法关联到项目。",
+  "project.billingConfirmTitle": "确认变更结算账号",
+  "project.billingConfirmFrom": "原账号",
+  "project.billingConfirmTo": "新账号",
+  "project.billingConfirmNote":
+    "切换后的新用量将计入目标结算账号；已有 BigQuery 历史费用记录仍保留在原账号。",
+  "project.billingConfirmSwitchBtn": "确认切换",
+  "project.billingConfirmLinkBtn": "确认关联",
+  "project.billingSwitchingBtn": "切换中…",
+  "project.billingOpenConsoleLink": "在 GCP 控制台打开结算设置 ↗",
   "project.noBqCostThisMonth": "本月暂无此项目的 BigQuery 费用记录。",
   "project.connectBqForCosts": "在“结算”标签页连接 BigQuery 结算数据导出表后，即可在此查看各服务费用。",
   "project.linkDashboard": "信息中心 ↗",
@@ -2078,6 +2220,8 @@ const ZH_CN_MESSAGES                     = {
   "toast.activeProjectSet": "已将当前项目设为 {project}",
   "toast.switchedProject": "已将当前项目切换为 {project}",
   "toast.switchProjectFailed": "切换项目失败",
+  "toast.switchedBillingAccount": "已将 {project} 关联至 {account}",
+  "toast.switchBillingFailed": "切换结算账号失败",
   "toast.pinUpdateFailed": "更新星标状态失败",
   "toast.removedExportMapping": "已移除导出表绑定",
   "toast.removeExportFailed": "移除绑定失败",
@@ -2327,6 +2471,28 @@ const ZH_TW_MESSAGES                     = {
   "project.detailsBtn": "詳情 ▾",
   "project.projectNumber": "專案編號 # {number}",
   "project.billingId": "帳單 ID: {id}",
+  "project.billingAccountLabel": "帳單帳戶",
+  "project.changeBillingBtn": "變更",
+  "project.linkBillingBtn": "連結帳單",
+  "project.cancelBtn": "取消",
+  "project.billingSelectAria": "選擇目標帳單帳戶",
+  "project.billingSelectPlaceholder": "選擇啟用中的帳單帳戶…",
+  "project.billingCurrentSuffix": "（目前使用）",
+  "project.billingManualOption": "手動輸入帳單帳戶 ID…",
+  "project.billingManualPlaceholder": "01ABCD-234567-89EFGH",
+  "project.billingManualAria": "手動輸入帳單帳戶 ID",
+  "project.billingManualFormatHint": "格式：XXXXXX-XXXXXX-XXXXXX（不支援解除帳單連結）",
+  "project.billingAlreadyLinked": "此專案目前已連結至該帳單帳戶。",
+  "project.billingClosedNotAllowed": "已關閉的帳單帳戶無法連結至專案。",
+  "project.billingConfirmTitle": "確認變更帳單帳戶",
+  "project.billingConfirmFrom": "原帳單",
+  "project.billingConfirmTo": "新帳單",
+  "project.billingConfirmNote":
+    "切換後的新用量將計入目標帳單帳戶；既有 BigQuery 歷史帳單紀錄仍保留於原帳單帳戶。",
+  "project.billingConfirmSwitchBtn": "確認切換",
+  "project.billingConfirmLinkBtn": "確認連結",
+  "project.billingSwitchingBtn": "切換中…",
+  "project.billingOpenConsoleLink": "在 GCP 控制台開啟帳單設定 ↗",
   "project.noBqCostThisMonth": "本月尚無此專案的 BigQuery 費用紀錄。",
   "project.connectBqForCosts": "請至「帳單」分頁連結 BigQuery 帳單匯出資料表，以檢視各服務費用。",
   "project.linkDashboard": "資訊主頁 ↗",
@@ -2425,6 +2591,8 @@ const ZH_TW_MESSAGES                     = {
   "toast.activeProjectSet": "已將目前專案設為 {project}",
   "toast.switchedProject": "已將目前專案切換為 {project}",
   "toast.switchProjectFailed": "切換專案失敗",
+  "toast.switchedBillingAccount": "已將 {project} 連結至 {account}",
+  "toast.switchBillingFailed": "切換帳單帳戶失敗",
   "toast.pinUpdateFailed": "更新釘選狀態失敗",
   "toast.removedExportMapping": "已移除匯出資料表連結",
   "toast.removeExportFailed": "移除連結失敗",
@@ -3102,6 +3270,7 @@ function renderServiceBreakdownList(
                          
              
                    
+                             
                       
                           
 
@@ -3419,6 +3588,18 @@ async function togglePinProject(
   });
   return data.overview;
 }
+async function setProjectBillingAccountApi(
+  projectId        ,
+  billingAccountId        
+)                                                                                {
+  return apiPost                                                                      (
+    "./api/project-billing",
+    {
+      projectId,
+      billingAccountId,
+    }
+  );
+}
 async function updateCompanionPreferences(prefs   
                        
                          
@@ -3657,7 +3838,21 @@ function createInitialOverviewShell()                            {
                                      
                                 
                                 
+                                         
+                             
+                             
+                                           
+                                                                    
  
+
+const BILLING_MANUAL_SENTINEL = "__manual__";
+const CLIENT_BILLING_ACCOUNT_ID_RE =
+  /^(?:billingAccounts\/)?([A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6})$/i;
+
+function normalizeClientBillingAccountId(raw        )                {
+  const match = CLIENT_BILLING_ACCOUNT_ID_RE.exec(raw.trim());
+  return match ? match[1].toUpperCase() : null;
+}
 
 let activeLoadSeq = 0;
 
@@ -3714,6 +3909,11 @@ const state          = {
   settingsGcloudDraft: null,
   checkingPluginUpdate: false,
   applyingPluginUpdate: false,
+  editingBillingProjectId: null,
+  billingPickerValue: "",
+  billingManualInput: "",
+  switchingBillingProjectId: null,
+  billingSwitchError: null,
 };
 
 function isSpendExpected(overview                           )          {
@@ -3901,6 +4101,27 @@ function applyLocalMutationOverview(data                           )       {
   if (data.preferences.locale) {
     setLocalePreference(data.preferences.locale);
   }
+  recomputeDerivedOverview();
+}
+
+function applyProjectBillingUpdate(
+  res                                                                      
+)       {
+  state.projectBillingLinks[res.projectId] = {
+    billingAccountId: res.billingAccountId,
+    billingEnabled: res.billingEnabled,
+  };
+  const nextBillingAccounts =
+    res.overview.billingAccounts.length > 0
+      ? res.overview.billingAccounts
+      : state.overview.billingAccounts;
+  state.overview = {
+    ...state.overview,
+    auth: res.overview.auth,
+    preferences: res.overview.preferences,
+    billingAccounts: nextBillingAccounts,
+    pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
+  };
   recomputeDerivedOverview();
 }
 
@@ -5489,6 +5710,38 @@ async function handleTogglePinProject(projectId        , nextPinned         )   
   }
 }
 
+async function handleSwitchProjectBilling(
+  projectId        ,
+  targetBillingAccountId        
+)                {
+  if (state.switchingBillingProjectId) return;
+  state.switchingBillingProjectId = projectId;
+  state.billingSwitchError = null;
+  renderApp();
+  try {
+    const res = await setProjectBillingAccountApi(projectId, targetBillingAccountId);
+    applyProjectBillingUpdate(res);
+    state.editingBillingProjectId = null;
+    state.billingPickerValue = "";
+    state.billingManualInput = "";
+    state.billingSwitchError = null;
+    showToast(
+      t("toast.switchedBillingAccount", {
+        project: res.projectId,
+        account: res.billingAccountName || res.billingAccountId,
+      }),
+      "success"
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : t("toast.switchBillingFailed");
+    state.billingSwitchError = { projectId, message };
+    showToast(t("toast.switchBillingFailed"), "error");
+  } finally {
+    state.switchingBillingProjectId = null;
+    renderApp();
+  }
+}
+
 function renderOverviewTab(overview                           )              {
   const active = getActiveSpend(overview);
   const spend = active.spend;
@@ -6436,6 +6689,297 @@ function buildProjectResultsNodes(overview                           )          
   return nodes;
 }
 
+function buildBillingConfirmSlotNodes(
+  proj            ,
+  overview                           
+)                {
+  const isManual = state.billingPickerValue === BILLING_MANUAL_SENTINEL;
+  const rawCandidate = isManual ? state.billingManualInput : state.billingPickerValue;
+  const trimmed = rawCandidate.trim();
+  if (!trimmed) return [];
+
+  const targetId = normalizeClientBillingAccountId(trimmed);
+  if (!targetId) {
+    return isManual
+      ? [h("div", { className: "billing-switch-hint muted-micro" }, t("project.billingManualFormatHint"))]
+      : [];
+  }
+
+  if (proj.billingEnabled && proj.billingAccountId === targetId) {
+    return [
+      h("div", { className: "billing-switch-hint muted-micro" }, t("project.billingAlreadyLinked")),
+    ];
+  }
+
+  const matchedAccount = overview.billingAccounts.find((ba) => ba.id === targetId) ?? null;
+  if (matchedAccount && !matchedAccount.open) {
+    return [
+      h("div", { className: "billing-switch-error-inline" }, t("project.billingClosedNotAllowed")),
+    ];
+  }
+
+  const fromLabel =
+    proj.billingEnabled && proj.billingAccountId
+      ? proj.billingAccountName && proj.billingAccountName !== proj.billingAccountId
+        ? `${proj.billingAccountName} (${proj.billingAccountId})`
+        : proj.billingAccountId
+      : t("project.noBillingTag");
+
+  const toLabel = matchedAccount
+    ? `${matchedAccount.displayName} (${matchedAccount.id})`
+    : targetId;
+
+  const isSubmitting = state.switchingBillingProjectId === proj.projectId;
+  const confirmBtnText = isSubmitting
+    ? t("project.billingSwitchingBtn")
+    : proj.billingEnabled && proj.billingAccountId
+      ? t("project.billingConfirmSwitchBtn")
+      : t("project.billingConfirmLinkBtn");
+
+  return [
+    h(
+      "div",
+      { className: "billing-confirm-card" },
+      h("div", { className: "billing-confirm-title" }, t("project.billingConfirmTitle")),
+      h(
+        "div",
+        { className: "billing-diff-line" },
+        h("span", { className: "billing-diff-label" }, t("project.billingConfirmFrom")),
+        h("span", { className: "billing-diff-val" }, fromLabel)
+      ),
+      h(
+        "div",
+        { className: "billing-diff-line" },
+        h("span", { className: "billing-diff-label" }, t("project.billingConfirmTo")),
+        h("span", { className: "billing-diff-val billing-diff-val-target" }, toLabel)
+      ),
+      h("div", { className: "muted-micro billing-confirm-note" }, t("project.billingConfirmNote")),
+      h(
+        "div",
+        { className: "action-row" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-primary billing-confirm-submit-btn",
+            disabled: Boolean(state.switchingBillingProjectId),
+            onClick: (ev) => {
+              ev.stopPropagation();
+              void handleSwitchProjectBilling(proj.projectId, targetId);
+            },
+          },
+          confirmBtnText
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-ghost",
+            disabled: isSubmitting,
+            onClick: (ev) => {
+              ev.stopPropagation();
+              state.editingBillingProjectId = null;
+              state.billingPickerValue = "";
+              state.billingManualInput = "";
+              state.billingSwitchError = null;
+              renderApp();
+            },
+          },
+          t("project.cancelBtn")
+        )
+      )
+    ),
+  ];
+}
+
+function renderProjectBillingDrawerSection(
+  proj            ,
+  overview                           
+)              {
+  const isEditing = state.editingBillingProjectId === proj.projectId;
+  const isSubmitting = state.switchingBillingProjectId === proj.projectId;
+  const currentSummary = !state.domainLoaded.billing
+    ? t("loading.billingStatus")
+    : proj.billingEnabled && proj.billingAccountId
+      ? proj.billingAccountName && proj.billingAccountName !== proj.billingAccountId
+        ? `${proj.billingAccountName} (${proj.billingAccountId})`
+        : proj.billingAccountId
+      : t("project.noBillingTag");
+
+  if (!isEditing) {
+    return h(
+      "div",
+      { className: "drawer-billing-row" },
+      h(
+        "div",
+        { className: "drawer-billing-summary" },
+        h("span", { className: "muted-micro" }, `${t("project.billingAccountLabel")}:`),
+        h(
+          "span",
+          {
+            className:
+              proj.billingEnabled && proj.billingAccountId
+                ? "drawer-billing-val"
+                : "drawer-billing-val drawer-billing-val-off",
+          },
+          currentSummary
+        )
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs billing-edit-toggle-btn",
+          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId),
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.editingBillingProjectId = proj.projectId;
+            state.billingPickerValue = "";
+            state.billingManualInput = "";
+            state.billingSwitchError = null;
+            renderApp();
+          },
+        },
+        proj.billingEnabled && proj.billingAccountId
+          ? t("project.changeBillingBtn")
+          : t("project.linkBillingBtn")
+      )
+    );
+  }
+
+  const openAccounts = overview.billingAccounts.filter((ba) => ba.open);
+  const confirmSlotId = `billing-confirm-slot-${proj.projectId}`;
+  const encodedId = encodeURIComponent(proj.projectId);
+  const switchError =
+    state.billingSwitchError?.projectId === proj.projectId ? state.billingSwitchError.message : null;
+
+  const refreshConfirmSlot = () => {
+    const slot = document.getElementById(confirmSlotId);
+    if (!slot) return;
+    clearElement(slot);
+    for (const node of buildBillingConfirmSlotNodes(proj, state.overview)) {
+      slot.appendChild(node);
+    }
+  };
+
+  return h(
+    "div",
+    {
+      className: "billing-switch-box",
+      onClick: (ev) => ev.stopPropagation(),
+    },
+    h(
+      "div",
+      { className: "billing-switch-header" },
+      h("span", { className: "billing-switch-label" }, t("project.billingAccountLabel")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isSubmitting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.editingBillingProjectId = null;
+            state.billingPickerValue = "";
+            state.billingManualInput = "";
+            state.billingSwitchError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    h(
+      "select",
+      {
+        className: "compact-select billing-account-select",
+        ariaLabel: t("project.billingSelectAria"),
+        value: state.billingPickerValue,
+        disabled: isSubmitting,
+        onChange: (ev) => {
+          state.billingPickerValue = (ev.target                     ).value;
+          state.billingSwitchError = null;
+          if (state.billingPickerValue !== BILLING_MANUAL_SENTINEL) {
+            state.billingManualInput = "";
+          }
+          renderApp();
+        },
+      },
+      h(
+        "option",
+        { value: "", selected: state.billingPickerValue === "" },
+        t("project.billingSelectPlaceholder")
+      ),
+      ...openAccounts.map((ba) => {
+        const isCurrent = proj.billingEnabled && proj.billingAccountId === ba.id;
+        const label = isCurrent
+          ? `${ba.displayName} (${ba.id}) ${t("project.billingCurrentSuffix")}`
+          : `${ba.displayName} (${ba.id})`;
+        return h(
+          "option",
+          {
+            value: ba.id,
+            disabled: isCurrent,
+            selected: state.billingPickerValue === ba.id,
+          },
+          label
+        );
+      }),
+      h(
+        "option",
+        {
+          value: BILLING_MANUAL_SENTINEL,
+          selected: state.billingPickerValue === BILLING_MANUAL_SENTINEL,
+        },
+        t("project.billingManualOption")
+      )
+    ),
+    state.billingPickerValue === BILLING_MANUAL_SENTINEL
+      ? h(
+          "div",
+          { className: "billing-manual-input-wrap" },
+          h("input", {
+            type: "text",
+            className: "text-input billing-manual-id-input",
+            ariaLabel: t("project.billingManualAria"),
+            placeholder: t("project.billingManualPlaceholder"),
+            value: state.billingManualInput,
+            disabled: isSubmitting,
+            onInput: (ev) => {
+              state.billingManualInput = (ev.target                    ).value;
+              state.billingSwitchError = null;
+              refreshConfirmSlot();
+            },
+          }),
+          h("div", { className: "muted-micro" }, t("project.billingManualFormatHint"))
+        )
+      : null,
+    h(
+      "div",
+      { id: confirmSlotId, className: "billing-confirm-slot" },
+      ...buildBillingConfirmSlotNodes(proj, overview)
+    ),
+    switchError
+      ? h(
+          "div",
+          { className: "billing-switch-error" },
+          h("div", { className: "billing-switch-error-text" }, switchError),
+          h(
+            "a",
+            {
+              className: "link-external",
+              href: `https://console.cloud.google.com/billing/linkedaccount?project=${encodedId}`,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            t("project.billingOpenConsoleLink")
+          )
+        )
+      : null
+  );
+}
+
 function buildProjectCards(
   projects                       ,
   overview                           
@@ -6460,6 +7004,12 @@ function buildProjectCards(
     const toggleExpand = () => {
       if (state.expandedProjectIds.has(proj.projectId)) {
         state.expandedProjectIds.delete(proj.projectId);
+        if (state.editingBillingProjectId === proj.projectId) {
+          state.editingBillingProjectId = null;
+          state.billingPickerValue = "";
+          state.billingManualInput = "";
+          state.billingSwitchError = null;
+        }
       } else {
         state.expandedProjectIds.add(proj.projectId);
       }
@@ -6611,6 +7161,7 @@ function buildProjectCards(
                 h("span", { className: "label-chip" }, `${k}:${v}`)
               )
             ),
+            renderProjectBillingDrawerSection(proj, overview),
             ps
               ? h(
                   "div",

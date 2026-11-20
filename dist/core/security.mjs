@@ -61,6 +61,30 @@ export function normalizeBillingAccountId(input         )         {
   return match[1].toUpperCase();
 }
 
+/**
+ * Strictly validates a concrete Cloud Billing Account ID for project billing linkage.
+ * Explicitly rejects empty strings (unlinking/disabling billing) and "*" wildcards.
+ */
+export function validateBillingAccountId(input         )         {
+  if (typeof input !== "string") {
+    throw new Error("Invalid Billing Account ID: expected string.");
+  }
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error(
+      "Billing Account ID is required. Unlinking or disabling billing is not supported."
+    );
+  }
+  if (trimmed === "*") {
+    throw new Error("Wildcard '*' is not a valid Billing Account ID for linking a project.");
+  }
+  const match = BILLING_ACCOUNT_ID_REGEX.exec(trimmed);
+  if (!match) {
+    throw new Error("Invalid Billing Account ID format (expected XXXXXX-XXXXXX-XXXXXX).");
+  }
+  return match[1].toUpperCase();
+}
+
                                       
                       
                     

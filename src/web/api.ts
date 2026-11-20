@@ -8,6 +8,7 @@ import type {
   DiscoveredBillingTable,
   GcpProject,
   LocalePreference,
+  ProjectBillingUpdateResult,
   ProjectSpendSummary,
 } from "../core/types.ts";
 
@@ -336,6 +337,19 @@ export async function togglePinProject(
     pinned,
   });
   return data.overview;
+}
+
+export async function setProjectBillingAccountApi(
+  projectId: string,
+  billingAccountId: string
+): Promise<ProjectBillingUpdateResult & { overview: CompanionOverviewResponse }> {
+  return apiPost<ProjectBillingUpdateResult & { overview: CompanionOverviewResponse }>(
+    "./api/project-billing",
+    {
+      projectId,
+      billingAccountId,
+    }
+  );
 }
 
 export async function updateCompanionPreferences(prefs: {

@@ -283,7 +283,7 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
         createElementNS: (_ns: string, tag: string) => new MockElement(tag),
         createTextNode: (txt: string) => new MockTextNode(txt),
       },
-      fetch: async (input: string | URL | Request) => {
+      fetch: async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input);
         if (url.includes("/api/session")) {
           return new Response(
@@ -498,6 +498,18 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
           const overview = await service.getOverview();
           return new Response(JSON.stringify({ overview }), { status: 200 });
         }
+        if (url.includes("/api/project-billing")) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            projectId?: string;
+            billingAccountId?: string;
+          };
+          const result = await service.setProjectBillingAccount(
+            String(body.projectId ?? ""),
+            String(body.billingAccountId ?? "")
+          );
+          const overview = await service.getFastOverviewAfterLocalMutation();
+          return new Response(JSON.stringify({ ...result, overview }), { status: 200 });
+        }
         return new Response("{}", { status: 200 });
       },
     });
@@ -625,6 +637,64 @@ describe("Browser UI Runtime Execution (dist/web/app.js)", () => {
       detailsBtn.click();
       assert.ok(appRoot.allText.includes("Dashboard ↗"));
       assert.ok(appRoot.allText.includes("Cloud Run ↗"));
+
+      // 2b. Test two-step Project Billing Account switch inside Details Drawer (dropdown + manual ID)
+      const linkBillingBtn = appRoot.findButtonsByText("Link Billing")[0];
+      assert.ok(linkBillingBtn, "Expected 'Link Billing' button in unbilled project Details drawer");
+      linkBillingBtn.click();
+
+      const billingSelect = (appRoot.querySelectorAll("select") as MockSelectElement[]).find((s) =>
+        s.className.includes("billing-account-select")
+      );
+      assert.ok(billingSelect, "Expected target billing account <select> inside drawer");
+      billingSelect.value = "01F4D9-22B801-55CA09";
+      for (const fn of billingSelect.listeners.change ?? []) {
+        fn({ target: billingSelect });
+      }
+      assert.ok(
+        appRoot.allText.includes("Confirm Billing Account Change"),
+        "Expected Before -> After confirmation card after selecting target billing account"
+      );
+      assert.ok(appRoot.allText.includes("R&D Credits & Prototyping"));
+
+      const confirmLinkBtn = appRoot.findButtonsByText("Confirm Link")[0];
+      assert.ok(confirmLinkBtn, "Expected 'Confirm Link' button in confirmation card");
+      confirmLinkBtn.click();
+      for (let i = 0; i < 40 && !appRoot.findButtonsByText("Change").length; i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(
+        appRoot.findButtonsByText("Change").length >= 1,
+        "Expected button label to update to 'Change' after linking billing account"
+      );
+      assert.ok(appRoot.allText.includes("R&D Credits & Prototyping"));
+
+      // Also test Manual Billing Account ID entry flow
+      const changeBillingBtn = appRoot.findButtonsByText("Change")[0];
+      changeBillingBtn.click();
+      const billingSelect2 = (appRoot.querySelectorAll("select") as MockSelectElement[]).find((s) =>
+        s.className.includes("billing-account-select")
+      );
+      assert.ok(billingSelect2);
+      billingSelect2.value = "__manual__";
+      for (const fn of billingSelect2.listeners.change ?? []) {
+        fn({ target: billingSelect2 });
+      }
+      const manualInput = (appRoot.querySelectorAll("input") as MockInputElement[]).find((inp) =>
+        inp.className.includes("billing-manual-id-input")
+      );
+      assert.ok(manualInput, "Expected manual billing account ID input");
+      manualInput.value = "01ABCD-234567-89EFGH";
+      for (const fn of manualInput.listeners.input ?? []) {
+        fn({ target: manualInput });
+      }
+      const confirmSwitchBtn = appRoot.findButtonsByText("Confirm Switch")[0];
+      assert.ok(confirmSwitchBtn, "Expected 'Confirm Switch' button for valid manual billing ID");
+      confirmSwitchBtn.click();
+      for (let i = 0; i < 40 && !appRoot.allText.includes("01ABCD-234567-89EFGH"); i++) {
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      assert.ok(appRoot.allText.includes("01ABCD-234567-89EFGH"));
 
       // 3. Switch to Billing Tab and verify Billing Accounts, Budgets, and BigQuery Export wizard
       const billingTabBtn = appRoot.findButtonsByText("Billing")[0];

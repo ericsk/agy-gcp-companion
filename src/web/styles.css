@@ -786,6 +786,148 @@ body {
   align-items: center;
 }
 
+.drawer-billing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.drawer-billing-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.drawer-billing-val {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.drawer-billing-val-off {
+  color: var(--text-muted);
+}
+
+.billing-switch-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.billing-switch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.billing-switch-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.billing-account-select {
+  width: 100%;
+}
+
+.billing-manual-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.billing-manual-id-input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.billing-confirm-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.billing-confirm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+}
+
+.billing-confirm-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.billing-diff-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.billing-diff-label {
+  color: var(--text-muted);
+  min-width: 38px;
+  flex-shrink: 0;
+}
+
+.billing-diff-val {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.billing-diff-val-target {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.billing-confirm-note {
+  line-height: 1.35;
+}
+
+.billing-switch-hint {
+  padding: 2px 0;
+}
+
+.billing-switch-error,
+.billing-switch-error-inline {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.billing-switch-error {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: var(--bg-card);
+}
+
+.billing-switch-error-text {
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 .label-chip {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px;

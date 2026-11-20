@@ -88,7 +88,7 @@ describe("Compiled Stdio MCP Server (dist/mcp-server.mjs)", () => {
 
       sendRpc(2, "tools/list");
       const listRes = (await waitForId(2)) as {
-        result: { tools: Array<{ name: string }> };
+        result: { tools: Array<{ name: string; annotations?: { destructiveHint?: boolean } }> };
       };
       const toolNames = listRes.result.tools.map((t) => t.name);
       assert.ok(toolNames.includes("gcp_companion_status"));
@@ -96,6 +96,9 @@ describe("Compiled Stdio MCP Server (dist/mcp-server.mjs)", () => {
       assert.ok(toolNames.includes("gcp_get_billing_summary"));
       assert.ok(toolNames.includes("gcp_get_project_cost_breakdown"));
       assert.ok(toolNames.includes("gcp_set_active_project"));
+      assert.ok(toolNames.includes("gcp_set_project_billing_account"));
+      const billingTool = listRes.result.tools.find((t) => t.name === "gcp_set_project_billing_account");
+      assert.equal(billingTool?.annotations?.destructiveHint, true);
 
       sendRpc(3, "tools/call", {
         name: "gcp_get_billing_summary",
@@ -144,6 +147,65 @@ describe("Compiled Stdio MCP Server (dist/mcp-server.mjs)", () => {
       };
       // Verify PII masking is respected in MCP output too when maskEmails is enabled
       assert.ok(overviewResource.auth.activeAccount.includes("***"));
+
+      // Two-step billing account switch: Step 1 (no confirm) returns read-only preview
+      sendRpc(7, "tools/call", {
+        name: "gcp_set_project_billing_account",
+        arguments: {
+          projectId: "legacy-hackathon-2025",
+          billingAccountId: "01F4D9-22B801-55CA09",
+        },
+      });
+      const previewRes = (await waitForId(7)) as {
+        result: { isError: boolean; content: Array<{ text: string }> };
+      };
+      assert.equal(previewRes.result.isError, false);
+      const previewData = JSON.parse(previewRes.result.content[0].text) as {
+        status: string;
+        currentBillingAccount: { id: string | null };
+        targetBillingAccount: { id: string; displayName: string };
+      };
+      assert.equal(previewData.status, "confirmation_required");
+      assert.equal(previewData.currentBillingAccount.id, null);
+      assert.equal(previewData.targetBillingAccount.id, "01F4D9-22B801-55CA09");
+
+      // Step 2: confirm: true applies the change and updates project list
+      sendRpc(8, "tools/call", {
+        name: "gcp_set_project_billing_account",
+        arguments: {
+          projectId: "legacy-hackathon-2025",
+          billingAccountId: "01F4D9-22B801-55CA09",
+          confirm: true,
+        },
+      });
+      const applyRes = (await waitForId(8)) as {
+        result: { isError: boolean; content: Array<{ text: string }> };
+      };
+      assert.equal(applyRes.result.isError, false);
+      const applyData = JSON.parse(applyRes.result.content[0].text) as {
+        applied: boolean;
+        billingAccountId: string;
+        billingEnabled: boolean;
+        consoleBillingUrl: string;
+      };
+      assert.equal(applyData.applied, true);
+      assert.equal(applyData.billingAccountId, "01F4D9-22B801-55CA09");
+      assert.equal(applyData.billingEnabled, true);
+      assert.ok(applyData.consoleBillingUrl.includes("01F4D9-22B801-55CA09"));
+
+      // Step 3: Unlinking via empty string is blocked cleanly
+      sendRpc(9, "tools/call", {
+        name: "gcp_set_project_billing_account",
+        arguments: {
+          projectId: "legacy-hackathon-2025",
+          billingAccountId: "",
+          confirm: true,
+        },
+      });
+      const unlinkErrRes = (await waitForId(9)) as {
+        result: { isError: boolean; content: Array<{ text: string }> };
+      };
+      assert.equal(unlinkErrRes.result.isError, true);
     } finally {
       proc.stdin.end();
       proc.kill("SIGTERM");

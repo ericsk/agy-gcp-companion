@@ -8,6 +8,7 @@
                    
                              
                          
+                             
                       
                        
               
@@ -24,6 +25,7 @@ import {
   fetchOverview,
   fetchProjectsSection,
   fetchSpendSection,
+  setProjectBillingAccountApi,
   startBrowserLoginApi,
   switchActiveAccountProgressive,
   switchActiveProject,
@@ -182,7 +184,21 @@ function createInitialOverviewShell()                            {
                                      
                                 
                                 
+                                         
+                             
+                             
+                                           
+                                                                    
  
+
+const BILLING_MANUAL_SENTINEL = "__manual__";
+const CLIENT_BILLING_ACCOUNT_ID_RE =
+  /^(?:billingAccounts\/)?([A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6})$/i;
+
+function normalizeClientBillingAccountId(raw        )                {
+  const match = CLIENT_BILLING_ACCOUNT_ID_RE.exec(raw.trim());
+  return match ? match[1].toUpperCase() : null;
+}
 
 let activeLoadSeq = 0;
 
@@ -239,6 +255,11 @@ const state          = {
   settingsGcloudDraft: null,
   checkingPluginUpdate: false,
   applyingPluginUpdate: false,
+  editingBillingProjectId: null,
+  billingPickerValue: "",
+  billingManualInput: "",
+  switchingBillingProjectId: null,
+  billingSwitchError: null,
 };
 
 function isSpendExpected(overview                           )          {
@@ -426,6 +447,27 @@ function applyLocalMutationOverview(data                           )       {
   if (data.preferences.locale) {
     setLocalePreference(data.preferences.locale);
   }
+  recomputeDerivedOverview();
+}
+
+function applyProjectBillingUpdate(
+  res                                                                      
+)       {
+  state.projectBillingLinks[res.projectId] = {
+    billingAccountId: res.billingAccountId,
+    billingEnabled: res.billingEnabled,
+  };
+  const nextBillingAccounts =
+    res.overview.billingAccounts.length > 0
+      ? res.overview.billingAccounts
+      : state.overview.billingAccounts;
+  state.overview = {
+    ...state.overview,
+    auth: res.overview.auth,
+    preferences: res.overview.preferences,
+    billingAccounts: nextBillingAccounts,
+    pluginUpdate: res.overview.pluginUpdate ?? state.overview.pluginUpdate,
+  };
   recomputeDerivedOverview();
 }
 
@@ -2014,6 +2056,38 @@ async function handleTogglePinProject(projectId        , nextPinned         )   
   }
 }
 
+async function handleSwitchProjectBilling(
+  projectId        ,
+  targetBillingAccountId        
+)                {
+  if (state.switchingBillingProjectId) return;
+  state.switchingBillingProjectId = projectId;
+  state.billingSwitchError = null;
+  renderApp();
+  try {
+    const res = await setProjectBillingAccountApi(projectId, targetBillingAccountId);
+    applyProjectBillingUpdate(res);
+    state.editingBillingProjectId = null;
+    state.billingPickerValue = "";
+    state.billingManualInput = "";
+    state.billingSwitchError = null;
+    showToast(
+      t("toast.switchedBillingAccount", {
+        project: res.projectId,
+        account: res.billingAccountName || res.billingAccountId,
+      }),
+      "success"
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : t("toast.switchBillingFailed");
+    state.billingSwitchError = { projectId, message };
+    showToast(t("toast.switchBillingFailed"), "error");
+  } finally {
+    state.switchingBillingProjectId = null;
+    renderApp();
+  }
+}
+
 function renderOverviewTab(overview                           )              {
   const active = getActiveSpend(overview);
   const spend = active.spend;
@@ -2961,6 +3035,297 @@ function buildProjectResultsNodes(overview                           )          
   return nodes;
 }
 
+function buildBillingConfirmSlotNodes(
+  proj            ,
+  overview                           
+)                {
+  const isManual = state.billingPickerValue === BILLING_MANUAL_SENTINEL;
+  const rawCandidate = isManual ? state.billingManualInput : state.billingPickerValue;
+  const trimmed = rawCandidate.trim();
+  if (!trimmed) return [];
+
+  const targetId = normalizeClientBillingAccountId(trimmed);
+  if (!targetId) {
+    return isManual
+      ? [h("div", { className: "billing-switch-hint muted-micro" }, t("project.billingManualFormatHint"))]
+      : [];
+  }
+
+  if (proj.billingEnabled && proj.billingAccountId === targetId) {
+    return [
+      h("div", { className: "billing-switch-hint muted-micro" }, t("project.billingAlreadyLinked")),
+    ];
+  }
+
+  const matchedAccount = overview.billingAccounts.find((ba) => ba.id === targetId) ?? null;
+  if (matchedAccount && !matchedAccount.open) {
+    return [
+      h("div", { className: "billing-switch-error-inline" }, t("project.billingClosedNotAllowed")),
+    ];
+  }
+
+  const fromLabel =
+    proj.billingEnabled && proj.billingAccountId
+      ? proj.billingAccountName && proj.billingAccountName !== proj.billingAccountId
+        ? `${proj.billingAccountName} (${proj.billingAccountId})`
+        : proj.billingAccountId
+      : t("project.noBillingTag");
+
+  const toLabel = matchedAccount
+    ? `${matchedAccount.displayName} (${matchedAccount.id})`
+    : targetId;
+
+  const isSubmitting = state.switchingBillingProjectId === proj.projectId;
+  const confirmBtnText = isSubmitting
+    ? t("project.billingSwitchingBtn")
+    : proj.billingEnabled && proj.billingAccountId
+      ? t("project.billingConfirmSwitchBtn")
+      : t("project.billingConfirmLinkBtn");
+
+  return [
+    h(
+      "div",
+      { className: "billing-confirm-card" },
+      h("div", { className: "billing-confirm-title" }, t("project.billingConfirmTitle")),
+      h(
+        "div",
+        { className: "billing-diff-line" },
+        h("span", { className: "billing-diff-label" }, t("project.billingConfirmFrom")),
+        h("span", { className: "billing-diff-val" }, fromLabel)
+      ),
+      h(
+        "div",
+        { className: "billing-diff-line" },
+        h("span", { className: "billing-diff-label" }, t("project.billingConfirmTo")),
+        h("span", { className: "billing-diff-val billing-diff-val-target" }, toLabel)
+      ),
+      h("div", { className: "muted-micro billing-confirm-note" }, t("project.billingConfirmNote")),
+      h(
+        "div",
+        { className: "action-row" },
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-primary billing-confirm-submit-btn",
+            disabled: Boolean(state.switchingBillingProjectId),
+            onClick: (ev) => {
+              ev.stopPropagation();
+              void handleSwitchProjectBilling(proj.projectId, targetId);
+            },
+          },
+          confirmBtnText
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            className: "btn btn-xs btn-ghost",
+            disabled: isSubmitting,
+            onClick: (ev) => {
+              ev.stopPropagation();
+              state.editingBillingProjectId = null;
+              state.billingPickerValue = "";
+              state.billingManualInput = "";
+              state.billingSwitchError = null;
+              renderApp();
+            },
+          },
+          t("project.cancelBtn")
+        )
+      )
+    ),
+  ];
+}
+
+function renderProjectBillingDrawerSection(
+  proj            ,
+  overview                           
+)              {
+  const isEditing = state.editingBillingProjectId === proj.projectId;
+  const isSubmitting = state.switchingBillingProjectId === proj.projectId;
+  const currentSummary = !state.domainLoaded.billing
+    ? t("loading.billingStatus")
+    : proj.billingEnabled && proj.billingAccountId
+      ? proj.billingAccountName && proj.billingAccountName !== proj.billingAccountId
+        ? `${proj.billingAccountName} (${proj.billingAccountId})`
+        : proj.billingAccountId
+      : t("project.noBillingTag");
+
+  if (!isEditing) {
+    return h(
+      "div",
+      { className: "drawer-billing-row" },
+      h(
+        "div",
+        { className: "drawer-billing-summary" },
+        h("span", { className: "muted-micro" }, `${t("project.billingAccountLabel")}:`),
+        h(
+          "span",
+          {
+            className:
+              proj.billingEnabled && proj.billingAccountId
+                ? "drawer-billing-val"
+                : "drawer-billing-val drawer-billing-val-off",
+          },
+          currentSummary
+        )
+      ),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs billing-edit-toggle-btn",
+          disabled: !state.domainLoaded.billing || Boolean(state.switchingBillingProjectId),
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.editingBillingProjectId = proj.projectId;
+            state.billingPickerValue = "";
+            state.billingManualInput = "";
+            state.billingSwitchError = null;
+            renderApp();
+          },
+        },
+        proj.billingEnabled && proj.billingAccountId
+          ? t("project.changeBillingBtn")
+          : t("project.linkBillingBtn")
+      )
+    );
+  }
+
+  const openAccounts = overview.billingAccounts.filter((ba) => ba.open);
+  const confirmSlotId = `billing-confirm-slot-${proj.projectId}`;
+  const encodedId = encodeURIComponent(proj.projectId);
+  const switchError =
+    state.billingSwitchError?.projectId === proj.projectId ? state.billingSwitchError.message : null;
+
+  const refreshConfirmSlot = () => {
+    const slot = document.getElementById(confirmSlotId);
+    if (!slot) return;
+    clearElement(slot);
+    for (const node of buildBillingConfirmSlotNodes(proj, state.overview)) {
+      slot.appendChild(node);
+    }
+  };
+
+  return h(
+    "div",
+    {
+      className: "billing-switch-box",
+      onClick: (ev) => ev.stopPropagation(),
+    },
+    h(
+      "div",
+      { className: "billing-switch-header" },
+      h("span", { className: "billing-switch-label" }, t("project.billingAccountLabel")),
+      h(
+        "button",
+        {
+          type: "button",
+          className: "btn btn-xs btn-ghost",
+          disabled: isSubmitting,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            state.editingBillingProjectId = null;
+            state.billingPickerValue = "";
+            state.billingManualInput = "";
+            state.billingSwitchError = null;
+            renderApp();
+          },
+        },
+        t("project.cancelBtn")
+      )
+    ),
+    h(
+      "select",
+      {
+        className: "compact-select billing-account-select",
+        ariaLabel: t("project.billingSelectAria"),
+        value: state.billingPickerValue,
+        disabled: isSubmitting,
+        onChange: (ev) => {
+          state.billingPickerValue = (ev.target                     ).value;
+          state.billingSwitchError = null;
+          if (state.billingPickerValue !== BILLING_MANUAL_SENTINEL) {
+            state.billingManualInput = "";
+          }
+          renderApp();
+        },
+      },
+      h(
+        "option",
+        { value: "", selected: state.billingPickerValue === "" },
+        t("project.billingSelectPlaceholder")
+      ),
+      ...openAccounts.map((ba) => {
+        const isCurrent = proj.billingEnabled && proj.billingAccountId === ba.id;
+        const label = isCurrent
+          ? `${ba.displayName} (${ba.id}) ${t("project.billingCurrentSuffix")}`
+          : `${ba.displayName} (${ba.id})`;
+        return h(
+          "option",
+          {
+            value: ba.id,
+            disabled: isCurrent,
+            selected: state.billingPickerValue === ba.id,
+          },
+          label
+        );
+      }),
+      h(
+        "option",
+        {
+          value: BILLING_MANUAL_SENTINEL,
+          selected: state.billingPickerValue === BILLING_MANUAL_SENTINEL,
+        },
+        t("project.billingManualOption")
+      )
+    ),
+    state.billingPickerValue === BILLING_MANUAL_SENTINEL
+      ? h(
+          "div",
+          { className: "billing-manual-input-wrap" },
+          h("input", {
+            type: "text",
+            className: "text-input billing-manual-id-input",
+            ariaLabel: t("project.billingManualAria"),
+            placeholder: t("project.billingManualPlaceholder"),
+            value: state.billingManualInput,
+            disabled: isSubmitting,
+            onInput: (ev) => {
+              state.billingManualInput = (ev.target                    ).value;
+              state.billingSwitchError = null;
+              refreshConfirmSlot();
+            },
+          }),
+          h("div", { className: "muted-micro" }, t("project.billingManualFormatHint"))
+        )
+      : null,
+    h(
+      "div",
+      { id: confirmSlotId, className: "billing-confirm-slot" },
+      ...buildBillingConfirmSlotNodes(proj, overview)
+    ),
+    switchError
+      ? h(
+          "div",
+          { className: "billing-switch-error" },
+          h("div", { className: "billing-switch-error-text" }, switchError),
+          h(
+            "a",
+            {
+              className: "link-external",
+              href: `https://console.cloud.google.com/billing/linkedaccount?project=${encodedId}`,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            },
+            t("project.billingOpenConsoleLink")
+          )
+        )
+      : null
+  );
+}
+
 function buildProjectCards(
   projects                       ,
   overview                           
@@ -2985,6 +3350,12 @@ function buildProjectCards(
     const toggleExpand = () => {
       if (state.expandedProjectIds.has(proj.projectId)) {
         state.expandedProjectIds.delete(proj.projectId);
+        if (state.editingBillingProjectId === proj.projectId) {
+          state.editingBillingProjectId = null;
+          state.billingPickerValue = "";
+          state.billingManualInput = "";
+          state.billingSwitchError = null;
+        }
       } else {
         state.expandedProjectIds.add(proj.projectId);
       }
@@ -3136,6 +3507,7 @@ function buildProjectCards(
                 h("span", { className: "label-chip" }, `${k}:${v}`)
               )
             ),
+            renderProjectBillingDrawerSection(proj, overview),
             ps
               ? h(
                   "div",

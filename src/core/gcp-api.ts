@@ -1,6 +1,17 @@
-import { normalizeBillingAccountId, sanitizeErrorMessage } from "./security.ts";
+import {
+  normalizeBillingAccountId,
+  sanitizeErrorMessage,
+  validateBillingAccountId,
+  validateProjectId,
+} from "./security.ts";
 import type { BudgetInfo, BudgetThresholdRule, ProjectBillingLinkInfo } from "./types.ts";
 import type { FetchLike } from "./gcloud.ts";
+
+export function isQuotaOrApiDisabledMessage(msg: string): boolean {
+  return /requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED|permission to use project/i.test(
+    msg
+  );
+}
 
 export interface RawGcpProject {
   projectId: string;
@@ -200,10 +211,6 @@ export async function fetchBillingAccountsCore(
   let resolvedQuotaProj: string | null | undefined = undefined;
   let resolvedQuotaConfirmed = false;
   let billingApiDisabledOnAllCandidates = false;
-  const isQuotaOrApiDisabledMessage = (msg: string): boolean =>
-    /requires a quota project|has not been used in project|SERVICE_DISABLED|has been deleted|USER_PROJECT_DENIED|permission to use project/i.test(
-      msg
-    );
 
   const billingGetJson = async <T>(url: string): Promise<T> => {
     if (resolvedQuotaProj !== undefined) {
@@ -535,4 +542,144 @@ export async function fetchBillingAccountsAndProjectLinks(
     warnings: [...core.warnings, ...budgetsRes.warnings],
     usedQuotaProject: core.usedQuotaProject,
   };
+}
+
+async function gcpPutJson<T>(
+  url: string,
+  accessToken: string,
+  body: Record<string, unknown>,
+  quotaProject?: string | null,
+  fetchFn: FetchLike = globalThis.fetch
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (quotaProject) {
+    headers["x-goog-user-project"] = quotaProject;
+  }
+
+  const res = await fetchFn(url, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const errBody = (await res.json()) as { error?: { message?: string } };
+      if (errBody?.error?.message) {
+        detail = `${detail}: ${errBody.error.message}`;
+      }
+    } catch {
+      // Ignore non-JSON error body
+    }
+    throw new GcpHttpError(res.status, sanitizeErrorMessage(detail));
+  }
+
+  return (await res.json()) as T;
+}
+
+export async function updateProjectBillingInfo(
+  accessToken: string,
+  projectId: string,
+  billingAccountId: string,
+  quotaProject?: string | null,
+  fetchFn: FetchLike = globalThis.fetch,
+  verifiedFallbackQuotaProject?: string | null
+): Promise<{
+  projectId: string;
+  billingAccountId: string;
+  billingEnabled: boolean;
+  usedQuotaProject: string | null;
+}> {
+  const validProjectId = validateProjectId(projectId);
+  const validBillingAccountId = validateBillingAccountId(billingAccountId);
+  const resourceName = `billingAccounts/${validBillingAccountId}`;
+  const url = `https://cloudbilling.googleapis.com/v1/projects/${encodeURIComponent(validProjectId)}/billingInfo`;
+
+  const candidates: Array<string | null> = [];
+  const pushUnique = (id: string | null | undefined) => {
+    if (id === undefined) return;
+    if (!candidates.includes(id)) candidates.push(id);
+  };
+  pushUnique(quotaProject || null);
+  if (verifiedFallbackQuotaProject) {
+    pushUnique(verifiedFallbackQuotaProject);
+  }
+  pushUnique(validProjectId);
+  pushUnique(null);
+
+  let preferredErr: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      const info = await gcpPutJson<{
+        projectId?: string;
+        billingAccountName?: string;
+        billingEnabled?: boolean;
+      }>(url, accessToken, { billingAccountName: resourceName }, candidate, fetchFn);
+
+      const resolvedId = info.billingAccountName
+        ? validateBillingAccountId(info.billingAccountName)
+        : validBillingAccountId;
+      return {
+        projectId: info.projectId || validProjectId,
+        billingAccountId: resolvedId,
+        billingEnabled: Boolean(info.billingEnabled),
+        usedQuotaProject: candidate,
+      };
+    } catch (err) {
+      if (!preferredErr) {
+        preferredErr = err;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      // Only retry alternate quota projects on quota/service-disabled errors;
+      // fail fast on genuine IAM 403, invalid/closed billing account 400, or 404.
+      if (!isQuotaOrApiDisabledMessage(msg)) {
+        throw err;
+      }
+    }
+  }
+
+  throw preferredErr ?? new Error("Unable to update project billing info.");
+}
+
+export async function fetchBillingAccountMetadata(
+  accessToken: string,
+  billingAccountId: string,
+  quotaProject?: string | null,
+  fetchFn: FetchLike = globalThis.fetch
+): Promise<{
+  id: string;
+  resourceName: string;
+  displayName: string;
+  open: boolean;
+  masterBillingAccount?: string;
+  currencyCode?: string;
+} | null> {
+  try {
+    const validId = validateBillingAccountId(billingAccountId);
+    const url = `https://cloudbilling.googleapis.com/v1/billingAccounts/${encodeURIComponent(validId)}`;
+    const acct = await gcpGetJson<{
+      name?: string;
+      displayName?: string;
+      open?: boolean;
+      masterBillingAccount?: string;
+      currencyCode?: string;
+    }>(url, accessToken, quotaProject, fetchFn);
+    const normalizedId = acct.name ? validateBillingAccountId(acct.name) : validId;
+    return {
+      id: normalizedId,
+      resourceName: `billingAccounts/${normalizedId}`,
+      displayName: acct.displayName || normalizedId,
+      open: Boolean(acct.open),
+      masterBillingAccount: acct.masterBillingAccount || undefined,
+      currencyCode: acct.currencyCode || undefined,
+    };
+  } catch {
+    return null;
+  }
 }
